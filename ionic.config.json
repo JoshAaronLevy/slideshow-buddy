@@ -1,0 +1,7 @@
+{
+  "name": "slideshow-buddy",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react-vite"
+}
