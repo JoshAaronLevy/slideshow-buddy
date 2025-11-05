@@ -14,13 +14,264 @@ import {
   IonAvatar,
   IonIcon,
   IonBadge,
+  IonSearchbar,
+  IonList,
+  IonItem,
+  IonLabel,
+  IonThumbnail,
+  IonRefresher,
+  IonRefresherContent,
   useIonToast,
+  RefresherEventDetail,
 } from '@ionic/react';
-import { musicalNotesOutline, checkmarkCircle, warningOutline } from 'ionicons/icons';
-import { useEffect } from 'react';
+import {
+  musicalNotesOutline,
+  checkmarkCircle,
+  warningOutline,
+  musicalNotesSharp,
+  playCircleOutline,
+} from 'ionicons/icons';
+import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
+import { useMusicStore } from '../stores/musicStore';
 import { setupAuthListener } from '../services/SpotifyAuthService';
+import { SpotifyPlaylist } from '../types';
+import PlaylistDetailModal from '../components/PlaylistDetailModal';
 import './Tab2.css';
+
+/**
+ * MusicSelection Component - Displays playlists and music selection
+ */
+const MusicSelection: React.FC = () => {
+  const {
+    playlists,
+    recentTracks,
+    featuredPlaylists,
+    searchResults,
+    selectedPlaylist,
+    isLoading,
+    searchQuery,
+    fetchPlaylists,
+    fetchRecentTracks,
+    fetchFeaturedPlaylists,
+    searchMusic,
+    selectPlaylist,
+    setSearchQuery,
+    clearSearchResults,
+  } = useMusicStore();
+
+  const [searchDebounce, setSearchDebounce] = useState<NodeJS.Timeout | null>(null);
+  const [showPlaylistDetail, setShowPlaylistDetail] = useState(false);
+  const [viewingPlaylist, setViewingPlaylist] = useState<SpotifyPlaylist | null>(null);
+
+  // Fetch initial data
+  useEffect(() => {
+    fetchPlaylists();
+    fetchRecentTracks();
+    fetchFeaturedPlaylists();
+  }, [fetchPlaylists, fetchRecentTracks, fetchFeaturedPlaylists]);
+
+  // Handle search with debouncing
+  const handleSearch = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+
+      if (searchDebounce) {
+        clearTimeout(searchDebounce);
+      }
+
+      if (!query.trim()) {
+        clearSearchResults();
+        return;
+      }
+
+      const timeout = setTimeout(() => {
+        searchMusic(query);
+      }, 500); // 500ms debounce
+
+      setSearchDebounce(timeout);
+    },
+    [searchDebounce, setSearchQuery, clearSearchResults, searchMusic]
+  );
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounce) {
+        clearTimeout(searchDebounce);
+      }
+    };
+  }, [searchDebounce]);
+
+  // Handle pull-to-refresh
+  const handleRefresh = async (event: CustomEvent<RefresherEventDetail>) => {
+    await fetchPlaylists();
+    await fetchRecentTracks();
+    await fetchFeaturedPlaylists();
+    event.detail.complete();
+  };
+
+  const handlePlaylistClick = (playlist: SpotifyPlaylist) => {
+    selectPlaylist(playlist);
+    setViewingPlaylist(playlist);
+    setShowPlaylistDetail(true);
+  };
+
+  const handleModalDismiss = () => {
+    setShowPlaylistDetail(false);
+    setViewingPlaylist(null);
+  };
+
+  // Determine which playlists to show
+  const displayPlaylists = searchQuery
+    ? searchResults.playlists
+    : playlists;
+
+  const showRecentTracks = !searchQuery && recentTracks.length > 0;
+  const showFeaturedPlaylists = !searchQuery && featuredPlaylists.length > 0;
+
+  return (
+    <>
+      <IonRefresher slot="fixed" onIonRefresh={handleRefresh}>
+        <IonRefresherContent />
+      </IonRefresher>
+
+      {/* Search Bar */}
+      <div className="music-search">
+        <IonSearchbar
+          value={searchQuery}
+          onIonInput={(e) => handleSearch(e.detail.value || '')}
+          placeholder="Search playlists and tracks"
+          debounce={0} // We handle debouncing manually
+        />
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="music-loading">
+          <IonSpinner name="crescent" />
+        </div>
+      )}
+
+      {/* Recently Played Section */}
+      {showRecentTracks && (
+        <IonCard>
+          <IonCardHeader>
+            <IonCardTitle>Recently Played</IonCardTitle>
+          </IonCardHeader>
+          <IonCardContent className="music-card-content">
+            <IonList lines="none">
+              {recentTracks.slice(0, 5).map((track) => (
+                <IonItem key={track.id} className="track-item">
+                  <IonIcon icon={musicalNotesSharp} slot="start" color="primary" />
+                  <IonLabel>
+                    <h3>{track.name}</h3>
+                    <p>{track.artists.join(', ')}</p>
+                  </IonLabel>
+                </IonItem>
+              ))}
+            </IonList>
+          </IonCardContent>
+        </IonCard>
+      )}
+
+      {/* Playlists Section */}
+      <IonCard>
+        <IonCardHeader>
+          <IonCardTitle>
+            {searchQuery ? 'Search Results' : 'Your Playlists'}
+          </IonCardTitle>
+        </IonCardHeader>
+        <IonCardContent className="music-card-content">
+          {displayPlaylists.length === 0 && !isLoading && (
+            <IonText color="medium" className="text-center">
+              <p>
+                {searchQuery
+                  ? 'No playlists found'
+                  : 'No playlists available. Create some playlists in Spotify!'}
+              </p>
+            </IonText>
+          )}
+
+          <IonList lines="none">
+            {displayPlaylists.map((playlist) => (
+              <IonItem
+                key={playlist.id}
+                button
+                onClick={() => handlePlaylistClick(playlist)}
+                className={`playlist-item ${
+                  selectedPlaylist?.id === playlist.id ? 'selected' : ''
+                }`}
+              >
+                <IonThumbnail slot="start" className="playlist-thumbnail">
+                  {playlist.image_url ? (
+                    <img src={playlist.image_url} alt={playlist.name} />
+                  ) : (
+                    <div className="playlist-placeholder">
+                      <IonIcon icon={musicalNotesSharp} />
+                    </div>
+                  )}
+                </IonThumbnail>
+                <IonLabel>
+                  <h3>{playlist.name}</h3>
+                  <p>
+                    {playlist.track_count} tracks • {playlist.owner}
+                  </p>
+                </IonLabel>
+                {selectedPlaylist?.id === playlist.id && (
+                  <IonIcon icon={checkmarkCircle} slot="end" color="success" />
+                )}
+              </IonItem>
+            ))}
+          </IonList>
+        </IonCardContent>
+      </IonCard>
+
+      {/* Featured Playlists Section */}
+      {showFeaturedPlaylists && (
+        <IonCard>
+          <IonCardHeader>
+            <IonCardTitle>Featured Playlists</IonCardTitle>
+          </IonCardHeader>
+          <IonCardContent className="music-card-content">
+            <IonList lines="none">
+              {featuredPlaylists.map((playlist) => (
+                <IonItem
+                  key={playlist.id}
+                  button
+                  onClick={() => handlePlaylistClick(playlist)}
+                  className="playlist-item"
+                >
+                  <IonThumbnail slot="start" className="playlist-thumbnail">
+                    {playlist.image_url ? (
+                      <img src={playlist.image_url} alt={playlist.name} />
+                    ) : (
+                      <div className="playlist-placeholder">
+                        <IonIcon icon={musicalNotesSharp} />
+                      </div>
+                    )}
+                  </IonThumbnail>
+                  <IonLabel>
+                    <h3>{playlist.name}</h3>
+                    <p>{playlist.description || 'Curated by Spotify'}</p>
+                  </IonLabel>
+                  <IonIcon icon={playCircleOutline} slot="end" color="medium" />
+                </IonItem>
+              ))}
+            </IonList>
+          </IonCardContent>
+        </IonCard>
+      )}
+
+      {/* Playlist Detail Modal */}
+      <PlaylistDetailModal
+        isOpen={showPlaylistDetail}
+        playlist={viewingPlaylist}
+        onDismiss={handleModalDismiss}
+      />
+    </>
+  );
+};
 
 const Tab2: React.FC = () => {
   const {
@@ -195,19 +446,8 @@ const Tab2: React.FC = () => {
                 </IonCardContent>
               </IonCard>
 
-              {/* Placeholder for future music selection UI */}
-              {isPremium && (
-                <IonCard>
-                  <IonCardHeader>
-                    <IonCardTitle>Your Music</IonCardTitle>
-                  </IonCardHeader>
-                  <IonCardContent>
-                    <IonText color="medium" className="text-center">
-                      <p>Music selection will be available in Phase 3</p>
-                    </IonText>
-                  </IonCardContent>
-                </IonCard>
-              )}
+              {/* Music Selection UI */}
+              {isPremium && <MusicSelection />}
             </>
           )}
         </div>

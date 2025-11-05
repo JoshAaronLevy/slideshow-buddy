@@ -143,6 +143,110 @@
   --border-color: var(--ion-color-danger);
 }
 
+/* Music Selection Styles */
+.music-search {
+  padding: 0 16px 8px 16px;
+  position: sticky;
+  top: 0;
+  background: var(--ion-background-color);
+  z-index: 10;
+}
+
+.music-loading {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+.music-card-content {
+  padding: 0 !important;
+}
+
+.music-card-content ion-list {
+  padding: 0;
+}
+
+/* Track Items */
+.track-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+  margin: 8px 0;
+}
+
+.track-item h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 4px 0;
+}
+
+.track-item p {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin: 0;
+}
+
+/* Playlist Items */
+.playlist-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+  margin: 8px 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.playlist-item.selected {
+  --background: var(--ion-color-primary-tint);
+}
+
+.playlist-thumbnail {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  --border-radius: 4px;
+}
+
+.playlist-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playlist-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ion-color-light);
+  color: var(--ion-color-medium);
+}
+
+.playlist-placeholder ion-icon {
+  font-size: 32px;
+}
+
+.playlist-item h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-item p {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Responsive */
 @media (max-width: 576px) {
   .profile-header {
@@ -154,5 +258,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+  }
+  
+  .music-search {
+    padding: 0 8px 8px 8px;
+  }
+  
+  .music-container {
+    padding: 8px;
   }
 }
