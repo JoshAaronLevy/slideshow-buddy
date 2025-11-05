@@ -1,0 +1,299 @@
+/**
+ * Tab2 (Music) Styles
+ */
+
+.music-container {
+  padding: 16px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Connection Card */
+.connection-card {
+  text-align: center;
+}
+
+.spotify-logo-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.spotify-logo {
+  font-size: 80px;
+  color: #1db954; /* Spotify green */
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-center p {
+  margin: 8px 0;
+}
+
+.premium-note {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
+.spotify-button {
+  margin-top: 24px;
+  --background: #1db954;
+  --background-hover: #1ed760;
+  --background-activated: #1aa34a;
+  --color: white;
+  font-weight: 600;
+}
+
+/* Loading Card */
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 16px;
+}
+
+/* Profile Card */
+.profile-card {
+  margin-bottom: 16px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ion-color-primary);
+  color: white;
+  font-size: 32px;
+  font-weight: bold;
+}
+
+.profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-info h2 {
+  margin: 0 0 4px 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.profile-info p {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.account-status {
+  margin-top: 8px;
+}
+
+.account-status ion-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.account-status ion-icon {
+  font-size: 16px;
+}
+
+/* Premium Warning */
+.premium-warning {
+  margin: 16px 0;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border-radius: 8px;
+  border-left: 4px solid var(--ion-color-warning);
+}
+
+.premium-warning p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.premium-warning p:first-child {
+  margin-bottom: 8px;
+}
+
+/* Disconnect Button */
+.disconnect-button {
+  margin-top: 16px;
+  --color: var(--ion-color-danger);
+  --border-color: var(--ion-color-danger);
+}
+
+/* Music Selection Styles */
+.music-search {
+  padding: 0 16px 8px 16px;
+  position: sticky;
+  top: 0;
+  background: var(--ion-background-color);
+  z-index: 10;
+}
+
+.music-loading {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+.music-card-content {
+  padding: 0 !important;
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 80px;
+  color: var(--ion-color-medium);
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.empty-state p {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.empty-state-hint {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ion-color-medium);
+  opacity: 0.8;
+}
+
+.music-card-content ion-list {
+  padding: 0;
+}
+
+/* Track Items */
+.track-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+  margin: 8px 0;
+}
+
+.track-item h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 4px 0;
+}
+
+.track-item p {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin: 0;
+}
+
+/* Playlist Items */
+.playlist-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+  margin: 8px 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.playlist-item.selected {
+  --background: var(--ion-color-primary-tint);
+}
+
+.playlist-thumbnail {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  --border-radius: 4px;
+}
+
+.playlist-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.playlist-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ion-color-light);
+  color: var(--ion-color-medium);
+}
+
+.playlist-placeholder ion-icon {
+  font-size: 32px;
+}
+
+.playlist-item h3 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 4px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-item p {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .profile-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .profile-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .music-search {
+    padding: 0 8px 8px 8px;
+  }
+  
+  .music-container {
+    padding: 8px;
+  }
+}

@@ -1,0 +1,159 @@
+/**
+ * PlaylistDetailModal Styles
+ */
+
+.playlist-detail-header {
+  text-align: center;
+  padding: 24px 16px;
+  background: var(--ion-color-light);
+}
+
+.playlist-detail-cover {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 16px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  object-fit: cover;
+}
+
+.playlist-detail-cover-placeholder {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 16px;
+  border-radius: 8px;
+  background: var(--ion-color-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.playlist-detail-cover-placeholder ion-icon {
+  font-size: 80px;
+  color: var(--ion-color-light);
+}
+
+.playlist-detail-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.playlist-description {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin: 0 0 16px 0;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.playlist-meta {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.playlist-meta ion-badge {
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+/* Loading/Error States */
+.playlist-loading,
+.playlist-error,
+.playlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 16px;
+}
+
+.playlist-empty ion-icon {
+  font-size: 64px;
+  color: var(--ion-color-medium);
+}
+
+/* Track List */
+.track-list {
+  padding: 0;
+}
+
+.track-list-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.track-list-item.selected {
+  --background: var(--ion-color-primary-tint);
+}
+
+.track-list-item:hover {
+  --background: var(--ion-color-light);
+}
+
+.track-number {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  font-weight: 500;
+  margin-right: 12px;
+}
+
+.track-number ion-icon {
+  font-size: 24px;
+}
+
+.track-name {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 4px 0;
+  color: var(--ion-text-color);
+}
+
+.track-artist {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin: 0;
+}
+
+.track-duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ion-color-medium);
+  white-space: nowrap;
+}
+
+.track-duration ion-icon {
+  font-size: 16px;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .playlist-detail-cover,
+  .playlist-detail-cover-placeholder {
+    width: 160px;
+    height: 160px;
+  }
+
+  .playlist-detail-header h2 {
+    font-size: 20px;
+  }
+
+  .playlist-description {
+    font-size: 13px;
+  }
+}
