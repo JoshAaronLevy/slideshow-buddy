@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>slideshow-buddy</string>
+        <string>Slideshow Buddy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -45,5 +45,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Slideshow Buddy needs access to your photo library to create beautiful slideshows with your favorite memories.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Slideshow Buddy would like to save photos to your library.</string>
 </dict>
 </plist>
