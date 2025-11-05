@@ -18,9 +18,12 @@ import {
   closeOutline,
   chevronBackOutline,
   chevronForwardOutline,
+  musicalNotesOutline,
 } from 'ionicons/icons';
 import { useSlideshowStore } from '../stores/slideshowStore';
+import { useMusicStore } from '../stores/musicStore';
 import { keepAwake, allowSleep, preloadNextImages } from '../services/SlideshowService';
+import * as MusicPlayerService from '../services/MusicPlayerService';
 import './SlideshowPlayer.css';
 
 const SlideshowPlayer: React.FC = () => {
@@ -31,24 +34,107 @@ const SlideshowPlayer: React.FC = () => {
     currentIndex,
     photos,
     config,
+    currentTrack,
+    isMusicPlaying,
+    musicError,
     pause,
     resume,
     stop,
     next,
     previous,
+    setCurrentTrack,
+    setMusicPlaying,
+    setMusicError,
   } = useSlideshowStore();
+
+  const { selectedPlaylist, selectedTrack } = useMusicStore();
 
   const [showControls, setShowControls] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState(config.transitionTime);
+  const [musicInitialized, setMusicInitialized] = useState(false);
   const [presentToast] = useIonToast();
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const imageContainerRef = useRef<HTMLDivElement>(null);
   const gestureRef = useRef<Gesture | null>(null);
+  const trackUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Current photo
   const currentPhoto = photos[currentIndex];
+
+  // Initialize music player when slideshow opens
+  useEffect(() => {
+    const initMusic = async () => {
+      if (showPlayer && !musicInitialized) {
+        try {
+          setMusicError(null);
+          
+          await MusicPlayerService.initializePlayer(
+            // On state change
+            async (state) => {
+              if (state && state.track_window?.current_track) {
+                const track = state.track_window.current_track;
+                setCurrentTrack({
+                  name: track.name,
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  artists: track.artists.map((a: any) => a.name),
+                  album: track.album.name,
+                  imageUrl: track.album.images[0]?.url || '',
+                });
+                setMusicPlaying(!state.paused);
+              }
+            },
+            // On error
+            (error) => {
+              setMusicError(error);
+              presentToast({
+                message: error,
+                duration: 4000,
+                color: 'danger',
+                position: 'top',
+              });
+            }
+          );
+
+          setMusicInitialized(true);
+
+          // Start playback
+          const musicUri = selectedPlaylist?.uri || selectedTrack?.uri;
+          if (musicUri) {
+            await MusicPlayerService.startPlayback(
+              musicUri,
+              !!selectedPlaylist // true if playlist, false if track
+            );
+            setMusicPlaying(true);
+          }
+        } catch (error) {
+          console.error('Failed to initialize music:', error);
+          setMusicError(error instanceof Error ? error.message : 'Failed to start music');
+        }
+      }
+    };
+
+    initMusic();
+  }, [showPlayer, musicInitialized, selectedPlaylist, selectedTrack, setCurrentTrack, setMusicPlaying, setMusicError, presentToast]);
+
+  // Update current track info periodically
+  useEffect(() => {
+    if (showPlayer && isMusicPlaying) {
+      trackUpdateIntervalRef.current = setInterval(async () => {
+        const trackInfo = await MusicPlayerService.getCurrentTrack();
+        if (trackInfo) {
+          setCurrentTrack(trackInfo);
+        }
+      }, 5000); // Update every 5 seconds
+    }
+
+    return () => {
+      if (trackUpdateIntervalRef.current) {
+        clearInterval(trackUpdateIntervalRef.current);
+      }
+    };
+  }, [showPlayer, isMusicPlaying, setCurrentTrack]);
 
   // Auto-hide controls after 3 seconds
   const resetControlsTimeout = useCallback(() => {
@@ -78,11 +164,25 @@ const SlideshowPlayer: React.FC = () => {
   };
 
   // Handle play/pause
-  const handlePlayPause = () => {
+  const handlePlayPause = async () => {
     if (isPlaying) {
       pause();
+      // Pause music
+      try {
+        await MusicPlayerService.pausePlayback();
+        setMusicPlaying(false);
+      } catch (error) {
+        console.error('Failed to pause music:', error);
+      }
     } else {
       resume();
+      // Resume music
+      try {
+        await MusicPlayerService.resumePlayback();
+        setMusicPlaying(true);
+      } catch (error) {
+        console.error('Failed to resume music:', error);
+      }
     }
     resetControlsTimeout();
   };
@@ -91,6 +191,17 @@ const SlideshowPlayer: React.FC = () => {
   const handleStop = async () => {
     stop();
     await allowSleep();
+    
+    // Stop music and cleanup
+    try {
+      await MusicPlayerService.stopPlayback();
+      MusicPlayerService.cleanup();
+      setMusicPlaying(false);
+      setCurrentTrack(null);
+      setMusicInitialized(false);
+    } catch (error) {
+      console.error('Failed to stop music:', error);
+    }
   };
 
   // Handle next photo
@@ -247,6 +358,30 @@ const SlideshowPlayer: React.FC = () => {
 
         {/* Controls Overlay */}
         <div className={`slideshow-controls ${showControls ? 'visible' : 'hidden'}`}>
+          {/* Now Playing */}
+          {currentTrack && (
+            <div className="now-playing">
+              <IonIcon icon={musicalNotesOutline} className="now-playing-icon" />
+              <div className="now-playing-info">
+                <IonText>
+                  <p className="now-playing-track">{currentTrack.name}</p>
+                </IonText>
+                <IonText color="medium">
+                  <p className="now-playing-artist">{currentTrack.artists.join(', ')}</p>
+                </IonText>
+              </div>
+            </div>
+          )}
+
+          {/* Music Error */}
+          {musicError && !currentTrack && (
+            <div className="music-error">
+              <IonText color="warning">
+                <p>{musicError}</p>
+              </IonText>
+            </div>
+          )}
+
           {/* Progress Indicator */}
           <div className="slideshow-progress">
             <IonText>

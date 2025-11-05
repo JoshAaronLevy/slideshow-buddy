@@ -12,6 +12,13 @@ interface SlideshowConfig {
   loop: boolean;
 }
 
+interface CurrentTrack {
+  name: string;
+  artists: string[];
+  album: string;
+  imageUrl: string;
+}
+
 interface SlideshowState {
   // Configuration
   config: SlideshowConfig;
@@ -21,6 +28,11 @@ interface SlideshowState {
   isPaused: boolean;
   currentIndex: number;
   photos: Photo[]; // Ordered photos for playback (may be shuffled)
+  
+  // Music state
+  currentTrack: CurrentTrack | null;
+  isMusicPlaying: boolean;
+  musicError: string | null;
   
   // UI state
   showPlayer: boolean;
@@ -34,6 +46,9 @@ interface SlideshowState {
   next: () => void;
   previous: () => void;
   goToIndex: (index: number) => void;
+  setCurrentTrack: (track: CurrentTrack | null) => void;
+  setMusicPlaying: (playing: boolean) => void;
+  setMusicError: (error: string | null) => void;
   reset: () => void;
 }
 
@@ -49,6 +64,9 @@ const initialState = {
   isPaused: false,
   currentIndex: 0,
   photos: [],
+  currentTrack: null,
+  isMusicPlaying: false,
+  musicError: null,
   showPlayer: false,
 };
 
@@ -135,6 +153,18 @@ export const useSlideshowStore = create<SlideshowState>((set, get) => ({
     if (index >= 0 && index < photos.length) {
       set({ currentIndex: index });
     }
+  },
+
+  setCurrentTrack: (track: CurrentTrack | null) => {
+    set({ currentTrack: track });
+  },
+
+  setMusicPlaying: (playing: boolean) => {
+    set({ isMusicPlaying: playing });
+  },
+
+  setMusicError: (error: string | null) => {
+    set({ musicError: error });
   },
 
   reset: () => {
