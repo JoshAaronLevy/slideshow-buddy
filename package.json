@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run build && npm run cap:sync:ios && npx cap run ios --target=\"8072B42B-6F3A-4054-9C95-731B0406DC71\"",
+    "vite": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test.e2e": "cypress run",
@@ -16,7 +17,7 @@
     "cap:run:ios": "npx cap run ios",
     "cap:copy": "npx cap copy",
     "cap:update": "npx cap update",
-    "ionic:serve": "ionic serve",
+    "ionic:serve": "ionic serve --ssl --port=5173",
     "ionic:build": "ionic build",
     "ios:dev": "npm run build && npm run cap:sync:ios && npm run cap:open:ios",
     "ios:sync": "npm run build && npm run cap:sync:ios",

@@ -28,7 +28,7 @@ export const SPOTIFY_CONFIG = {
  * Slideshow default settings
  */
 export const SLIDESHOW_DEFAULTS = {
-  TRANSITION_TIME: 3, // seconds
+  TRANSITION_TIME: 5, // seconds
   MIN_TRANSITION_TIME: 2,
   MAX_TRANSITION_TIME: 10,
   SHUFFLE_ENABLED: true,
