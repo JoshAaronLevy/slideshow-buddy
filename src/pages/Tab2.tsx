@@ -37,6 +37,8 @@ import { useMusicStore } from '../stores/musicStore';
 import { setupAuthListener } from '../services/SpotifyAuthService';
 import { SpotifyPlaylist } from '../types';
 import PlaylistDetailModal from '../components/PlaylistDetailModal';
+import SkeletonLoader from '../components/SkeletonLoader';
+import * as HapticService from '../services/HapticService';
 import './Tab2.css';
 
 /**
@@ -111,7 +113,8 @@ const MusicSelection: React.FC = () => {
     event.detail.complete();
   };
 
-  const handlePlaylistClick = (playlist: SpotifyPlaylist) => {
+  const handlePlaylistClick = async (playlist: SpotifyPlaylist) => {
+    await HapticService.impactLight();
     selectPlaylist(playlist);
     setViewingPlaylist(playlist);
     setShowPlaylistDetail(true);
@@ -148,13 +151,28 @@ const MusicSelection: React.FC = () => {
 
       {/* Loading State */}
       {isLoading && (
-        <div className="music-loading">
-          <IonSpinner name="crescent" />
-        </div>
+        <>
+          <IonCard>
+            <IonCardHeader>
+              <SkeletonLoader type="text" width="60%" height="24px" />
+            </IonCardHeader>
+            <IonCardContent className="music-card-content">
+              <SkeletonLoader type="list-item" count={5} />
+            </IonCardContent>
+          </IonCard>
+          <IonCard>
+            <IonCardHeader>
+              <SkeletonLoader type="text" width="50%" height="24px" />
+            </IonCardHeader>
+            <IonCardContent className="music-card-content">
+              <SkeletonLoader type="list-item" count={8} />
+            </IonCardContent>
+          </IonCard>
+        </>
       )}
 
       {/* Recently Played Section */}
-      {showRecentTracks && (
+      {!isLoading && showRecentTracks && (
         <IonCard>
           <IonCardHeader>
             <IonCardTitle>Recently Played</IonCardTitle>
@@ -176,21 +194,30 @@ const MusicSelection: React.FC = () => {
       )}
 
       {/* Playlists Section */}
-      <IonCard>
-        <IonCardHeader>
-          <IonCardTitle>
-            {searchQuery ? 'Search Results' : 'Your Playlists'}
-          </IonCardTitle>
-        </IonCardHeader>
-        <IonCardContent className="music-card-content">
-          {displayPlaylists.length === 0 && !isLoading && (
-            <IonText color="medium" className="text-center">
-              <p>
-                {searchQuery
-                  ? 'No playlists found'
-                  : 'No playlists available. Create some playlists in Spotify!'}
-              </p>
-            </IonText>
+      {!isLoading && (
+        <IonCard>
+          <IonCardHeader>
+            <IonCardTitle>
+              {searchQuery ? 'Search Results' : 'Your Playlists'}
+            </IonCardTitle>
+          </IonCardHeader>
+          <IonCardContent className="music-card-content">
+            {displayPlaylists.length === 0 && !isLoading && (
+            <div className="empty-state">
+              <IonIcon icon={musicalNotesSharp} className="empty-state-icon" />
+              <IonText color="medium" className="text-center">
+                <p>
+                  {searchQuery
+                    ? 'No playlists found'
+                    : 'No playlists available'}
+                </p>
+                {!searchQuery && (
+                  <p className="empty-state-hint">
+                    Create some playlists in Spotify to get started
+                  </p>
+                )}
+              </IonText>
+            </div>
           )}
 
           <IonList lines="none">
@@ -201,6 +228,9 @@ const MusicSelection: React.FC = () => {
                 onClick={() => handlePlaylistClick(playlist)}
                 className={`playlist-item ${
                   selectedPlaylist?.id === playlist.id ? 'selected' : ''
+                }`}
+                aria-label={`${playlist.name} playlist by ${playlist.owner}, ${playlist.track_count} tracks${
+                  selectedPlaylist?.id === playlist.id ? ', currently selected' : ''
                 }`}
               >
                 <IonThumbnail slot="start" className="playlist-thumbnail">
@@ -225,10 +255,11 @@ const MusicSelection: React.FC = () => {
             ))}
           </IonList>
         </IonCardContent>
-      </IonCard>
+        </IonCard>
+      )}
 
       {/* Featured Playlists Section */}
-      {showFeaturedPlaylists && (
+      {!isLoading && showFeaturedPlaylists && (
         <IonCard>
           <IonCardHeader>
             <IonCardTitle>Featured Playlists</IonCardTitle>
@@ -241,6 +272,7 @@ const MusicSelection: React.FC = () => {
                   button
                   onClick={() => handlePlaylistClick(playlist)}
                   className="playlist-item"
+                  aria-label={`Featured playlist: ${playlist.name}, ${playlist.description || 'Curated by Spotify'}`}
                 >
                   <IonThumbnail slot="start" className="playlist-thumbnail">
                     {playlist.image_url ? (
@@ -314,10 +346,12 @@ const Tab2: React.FC = () => {
   }, [error, presentToast, setError]);
 
   const handleLogin = async () => {
+    await HapticService.impactMedium();
     await login();
   };
 
   const handleLogout = async () => {
+    await HapticService.impactLight();
     await logout();
   };
 
@@ -373,6 +407,7 @@ const Tab2: React.FC = () => {
                   onClick={handleLogin}
                   className="spotify-button"
                   disabled={isLoading}
+                  aria-label="Connect with Spotify to access your music"
                 >
                   <IonIcon icon={musicalNotesOutline} slot="start" />
                   Connect with Spotify
@@ -440,6 +475,7 @@ const Tab2: React.FC = () => {
                     fill="outline"
                     onClick={handleLogout}
                     className="disconnect-button"
+                    aria-label="Disconnect from Spotify"
                   >
                     Disconnect
                   </IonButton>

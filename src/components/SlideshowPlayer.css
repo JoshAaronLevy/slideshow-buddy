@@ -121,6 +121,37 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+/* Music Loading Overlay */
+.music-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  z-index: 15;
+}
+
+.music-loading-overlay ion-spinner {
+  width: 48px;
+  height: 48px;
+  --color: var(--ion-color-primary);
+}
+
+.music-loading-overlay p {
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
 /* Music Error */
 .music-error {
   margin-bottom: 12px;

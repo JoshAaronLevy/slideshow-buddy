@@ -77,7 +77,7 @@ const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
         <IonToolbar>
           <IonTitle>{playlist.name}</IonTitle>
           <IonButtons slot="end">
-            <IonButton onClick={onDismiss}>
+            <IonButton onClick={onDismiss} aria-label="Close playlist details">
               <IonIcon icon={closeOutline} />
             </IonButton>
           </IonButtons>
@@ -139,6 +139,9 @@ const PlaylistDetailModal: React.FC<PlaylistDetailModalProps> = ({
                 onClick={() => handleTrackSelect(track)}
                 className={`track-list-item ${
                   selectedTrack?.id === track.id ? 'selected' : ''
+                }`}
+                aria-label={`Track ${index + 1}: ${track.name} by ${track.artists.join(', ')}, duration ${formatDuration(track.duration_ms)}${
+                  selectedTrack?.id === track.id ? ', currently selected' : ''
                 }`}
               >
                 <div slot="start" className="track-number">

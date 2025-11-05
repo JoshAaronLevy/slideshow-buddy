@@ -31,6 +31,7 @@ import { useMusicStore } from '../stores/musicStore';
 import { useSlideshowStore } from '../stores/slideshowStore';
 import SlideshowPlayer from '../components/SlideshowPlayer';
 import { SLIDESHOW_DEFAULTS } from '../constants';
+import * as HapticService from '../services/HapticService';
 import './Tab3.css';
 
 const Tab3: React.FC = () => {
@@ -45,8 +46,9 @@ const Tab3: React.FC = () => {
 
   const musicName = selectedPlaylist?.name || selectedTrack?.name || 'None';
 
-  const handleStartSlideshow = () => {
+  const handleStartSlideshow = async () => {
     if (!canStart) {
+      await HapticService.notificationWarning();
       presentToast({
         message: 'Please select photos and music first',
         duration: 2500,
@@ -60,6 +62,7 @@ const Tab3: React.FC = () => {
     const photosToShow = selectedPhotos.filter((photo) => photo.selected);
     
     if (photosToShow.length === 0) {
+      await HapticService.notificationWarning();
       presentToast({
         message: 'Please select at least one photo',
         duration: 2500,
@@ -69,6 +72,7 @@ const Tab3: React.FC = () => {
       return;
     }
 
+    await HapticService.impactHeavy();
     start(photosToShow);
     
     presentToast({
@@ -146,6 +150,7 @@ const Tab3: React.FC = () => {
                 disabled={!canStart}
                 className="start-button"
                 size="large"
+                aria-label={`Start slideshow with ${selectedPhotos.length} photos and ${musicName}`}
               >
                 <IonIcon icon={playCircleOutline} slot="start" />
                 Start Slideshow
@@ -177,7 +182,11 @@ const Tab3: React.FC = () => {
                   </IonLabel>
                   <IonToggle
                     checked={config.shuffle}
-                    onIonChange={(e) => updateConfig({ shuffle: e.detail.checked })}
+                    onIonChange={async (e) => {
+                      await HapticService.impactLight();
+                      updateConfig({ shuffle: e.detail.checked });
+                    }}
+                    aria-label="Toggle shuffle photos on or off"
                   />
                 </IonItem>
 
@@ -201,6 +210,7 @@ const Tab3: React.FC = () => {
                       }
                       pin
                       pinFormatter={(value: number) => `${value}s`}
+                      aria-label={`Transition speed: ${config.transitionTime} seconds per photo`}
                     >
                       <IonLabel slot="start">
                         {SLIDESHOW_DEFAULTS.MIN_TRANSITION_TIME}s
@@ -221,7 +231,11 @@ const Tab3: React.FC = () => {
                   </IonLabel>
                   <IonToggle
                     checked={config.loop}
-                    onIonChange={(e) => updateConfig({ loop: e.detail.checked })}
+                    onIonChange={async (e) => {
+                      await HapticService.impactLight();
+                      updateConfig({ loop: e.detail.checked });
+                    }}
+                    aria-label="Toggle loop slideshow on or off"
                   />
                 </IonItem>
               </IonList>

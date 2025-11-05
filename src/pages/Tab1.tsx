@@ -9,13 +9,14 @@ import {
   IonIcon,
   IonButton,
   IonBadge,
-  IonSpinner,
   IonText,
   useIonToast,
 } from '@ionic/react';
-import { addOutline, checkmarkCircle } from 'ionicons/icons';
+import { addOutline, checkmarkCircle, imagesOutline } from 'ionicons/icons';
 import { useEffect } from 'react';
 import { usePhotoStore } from '../stores/photoStore';
+import SkeletonLoader from '../components/SkeletonLoader';
+import * as HapticService from '../services/HapticService';
 import './Tab1.css';
 
 const Tab1: React.FC = () => {
@@ -47,11 +48,23 @@ const Tab1: React.FC = () => {
   }, [error, presentToast, setError]);
 
   const handleImportPhotos = async () => {
+    HapticService.impactMedium();
     await importPhotos();
   };
 
   const handlePhotoClick = (photoId: string) => {
+    HapticService.impactLight();
     togglePhotoSelection(photoId);
+  };
+
+  const handleSelectAll = () => {
+    HapticService.impactMedium();
+    selectAll();
+  };
+
+  const handleClearSelection = () => {
+    HapticService.impactLight();
+    clearSelection();
   };
 
   return (
@@ -76,22 +89,29 @@ const Tab1: React.FC = () => {
         {/* Selection Actions Bar */}
         {selectedPhotos.length > 0 && (
           <div className="selection-actions">
-            <IonButton size="small" fill="clear" onClick={selectAll}>
+            <IonButton 
+              size="small" 
+              fill="clear" 
+              onClick={handleSelectAll}
+              aria-label="Select all photos"
+            >
               Select All
             </IonButton>
-            <IonButton size="small" fill="clear" onClick={clearSelection}>
+            <IonButton 
+              size="small" 
+              fill="clear" 
+              onClick={handleClearSelection}
+              aria-label="Deselect all photos"
+            >
               Deselect All
             </IonButton>
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Loading State with Skeleton */}
         {isLoading && (
-          <div className="loading-container">
-            <IonSpinner name="crescent" />
-            <IonText>
-              <p>Importing photos...</p>
-            </IonText>
+          <div className="photos-grid">
+            <SkeletonLoader type="photo" count={12} />
           </div>
         )}
 
@@ -99,12 +119,15 @@ const Tab1: React.FC = () => {
         {!isLoading && photos.length === 0 && (
           <div className="empty-state">
             <IonIcon
-              icon={addOutline}
-              style={{ fontSize: '80px', color: 'var(--ion-color-medium)' }}
+              icon={imagesOutline}
+              className="empty-state-icon"
             />
             <IonText color="medium">
               <h2>No Photos Yet</h2>
               <p>Tap the + button below to import photos from your library</p>
+              <p className="empty-state-hint">
+                You'll need to select photos before you can create a slideshow
+              </p>
             </IonText>
           </div>
         )}

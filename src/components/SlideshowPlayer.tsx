@@ -8,6 +8,7 @@ import {
   IonButton,
   IonIcon,
   IonText,
+  IonSpinner,
   useIonToast,
   createGesture,
   Gesture,
@@ -24,6 +25,7 @@ import { useSlideshowStore } from '../stores/slideshowStore';
 import { useMusicStore } from '../stores/musicStore';
 import { keepAwake, allowSleep, preloadNextImages } from '../services/SlideshowService';
 import * as MusicPlayerService from '../services/MusicPlayerService';
+import * as HapticService from '../services/HapticService';
 import './SlideshowPlayer.css';
 
 const SlideshowPlayer: React.FC = () => {
@@ -165,6 +167,7 @@ const SlideshowPlayer: React.FC = () => {
 
   // Handle play/pause
   const handlePlayPause = async () => {
+    await HapticService.impactMedium();
     if (isPlaying) {
       pause();
       // Pause music
@@ -189,6 +192,7 @@ const SlideshowPlayer: React.FC = () => {
 
   // Handle stop/exit
   const handleStop = async () => {
+    await HapticService.impactLight();
     stop();
     await allowSleep();
     
@@ -205,21 +209,24 @@ const SlideshowPlayer: React.FC = () => {
   };
 
   // Handle next photo
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
+    await HapticService.impactLight();
     next();
     setTimeRemaining(config.transitionTime);
     resetControlsTimeout();
   }, [next, config.transitionTime, resetControlsTimeout]);
 
   // Handle previous photo
-  const handlePrevious = useCallback(() => {
+  const handlePrevious = useCallback(async () => {
+    await HapticService.impactLight();
     previous();
     setTimeRemaining(config.transitionTime);
     resetControlsTimeout();
   }, [previous, config.transitionTime, resetControlsTimeout]);
 
   // Handle speed change
-  const handleSpeedChange = (speed: number) => {
+  const handleSpeedChange = async (speed: number) => {
+    await HapticService.impactLight();
     useSlideshowStore.getState().updateConfig({ transitionTime: speed });
     setTimeRemaining(speed);
     resetControlsTimeout();
@@ -356,6 +363,16 @@ const SlideshowPlayer: React.FC = () => {
           />
         </div>
 
+        {/* Music Loading Overlay */}
+        {!musicInitialized && (
+          <div className="music-loading-overlay">
+            <IonSpinner name="crescent" />
+            <IonText>
+              <p>Initializing music player...</p>
+            </IonText>
+          </div>
+        )}
+
         {/* Controls Overlay */}
         <div className={`slideshow-controls ${showControls ? 'visible' : 'hidden'}`}>
           {/* Now Playing */}
@@ -407,6 +424,7 @@ const SlideshowPlayer: React.FC = () => {
               onClick={handlePrevious}
               disabled={currentIndex === 0 && !config.loop}
               className="control-button"
+              aria-label="Previous photo"
             >
               <IonIcon icon={chevronBackOutline} />
             </IonButton>
@@ -416,6 +434,7 @@ const SlideshowPlayer: React.FC = () => {
               fill="solid"
               onClick={handlePlayPause}
               className="control-button play-button"
+              aria-label={isPlaying ? 'Pause slideshow' : 'Resume slideshow'}
             >
               <IonIcon icon={isPlaying ? pauseOutline : playOutline} />
             </IonButton>
@@ -426,6 +445,7 @@ const SlideshowPlayer: React.FC = () => {
               onClick={handleNext}
               disabled={currentIndex === photos.length - 1 && !config.loop}
               className="control-button"
+              aria-label="Next photo"
             >
               <IonIcon icon={chevronForwardOutline} />
             </IonButton>
@@ -443,6 +463,9 @@ const SlideshowPlayer: React.FC = () => {
                 size="small"
                 onClick={() => handleSpeedChange(speed)}
                 className="speed-button"
+                aria-label={`Set transition speed to ${speed} seconds${
+                  config.transitionTime === speed ? ', currently selected' : ''
+                }`}
               >
                 {speed}s
               </IonButton>
@@ -454,6 +477,7 @@ const SlideshowPlayer: React.FC = () => {
             fill="clear"
             onClick={handleStop}
             className="exit-button"
+            aria-label="Exit slideshow"
           >
             <IonIcon icon={closeOutline} />
           </IonButton>
