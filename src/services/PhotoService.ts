@@ -2,7 +2,9 @@
  * PhotoService - Handles photo library access and import functionality
  */
 
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Camera } from '@capacitor/camera';
+import { Media } from '@capacitor-community/media';
+import { Capacitor } from '@capacitor/core';
 import { Photo } from '../types';
 
 /**
@@ -27,11 +29,12 @@ export const requestPhotoLibraryPermission = async (): Promise<boolean> => {
 };
 
 /**
- * Import photos from the device photo library
- * Capacitor Camera plugin allows selecting multiple photos
+ * Import photos from the device photo library using multi-select
+ * Uses @capacitor-community/media for true multi-select capability
+ * @param quantity - Maximum number of photos to fetch (default: 50)
  * @returns Promise<Photo[]> - Array of imported photos
  */
-export const importPhotos = async (): Promise<Photo[]> => {
+export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
   try {
     // Check/request permissions first
     const hasPermission = await requestPhotoLibraryPermission();
@@ -39,62 +42,78 @@ export const importPhotos = async (): Promise<Photo[]> => {
       throw new Error('Photo library permission denied');
     }
 
-    // Use Camera plugin to pick photos from gallery
-    // Note: Capacitor Camera doesn't support true multi-select natively
-    // For MVP, we'll import one photo at a time
-    // In future, could use @capacitor-community/media for better multi-select
-    const photo = await Camera.getPhoto({
-      quality: 90,
-      allowEditing: false,
-      resultType: CameraResultType.Uri,
-      source: CameraSource.Photos,
-    });
+    const platform = Capacitor.getPlatform();
 
-    if (!photo.webPath) {
-      throw new Error('No photo selected');
+    if (platform === 'ios') {
+      // Use Media plugin for iOS with multi-select
+      const result = await Media.getMedias({
+        quantity,
+        types: 'photos',
+        thumbnailWidth: 512,
+        thumbnailHeight: 512,
+        thumbnailQuality: 90,
+      });
+
+      if (!result.medias || result.medias.length === 0) {
+        return [];
+      }
+
+      // Convert MediaAsset to Photo
+      // For iOS, we need to use the identifier and base64 data
+      const photos: Photo[] = result.medias.map((media) => {
+        // Create data URI from base64
+        const dataUri = `data:image/jpeg;base64,${media.data}`;
+        
+        return {
+          id: media.identifier,
+          uri: dataUri,
+          filename: `photo_${media.creationDate}.jpg`,
+          timestamp: new Date(media.creationDate).getTime(),
+          selected: false,
+        };
+      });
+
+      return photos;
+    } else if (platform === 'android') {
+      // On Android, Media plugin's identifier IS the file path
+      const result = await Media.getMedias({
+        quantity,
+        types: 'photos',
+        thumbnailWidth: 512,
+        thumbnailHeight: 512,
+        thumbnailQuality: 90,
+      });
+
+      if (!result.medias || result.medias.length === 0) {
+        return [];
+      }
+
+      const photos: Photo[] = result.medias.map((media) => {
+        // On Android, identifier is the file path
+        const dataUri = `data:image/jpeg;base64,${media.data}`;
+        
+        return {
+          id: media.identifier,
+          uri: dataUri,
+          filename: media.identifier.split('/').pop() || `photo_${Date.now()}.jpg`,
+          timestamp: new Date(media.creationDate).getTime(),
+          selected: false,
+        };
+      });
+
+      return photos;
+    } else {
+      // Web fallback - not fully functional but prevents errors
+      console.warn('Photo import not supported on web platform');
+      throw new Error('Photo import only available on iOS and Android');
     }
-
-    // Convert to our Photo interface
-    const importedPhoto: Photo = {
-      id: `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      uri: photo.webPath,
-      filename: photo.path?.split('/').pop() || `photo_${Date.now()}.jpg`,
-      timestamp: Date.now(),
-      selected: false,
-    };
-
-    return [importedPhoto];
   } catch (error) {
     console.error('Error importing photos:', error);
     throw error;
   }
 };
 
-/**
- * Import multiple photos by calling importPhotos repeatedly
- * This is a workaround until we implement better multi-select
- * @param count - Number of photos to import
- * @returns Promise<Photo[]> - Array of imported photos
- */
-export const importMultiplePhotos = async (count: number = 1): Promise<Photo[]> => {
-  const photos: Photo[] = [];
-  
-  for (let i = 0; i < count; i++) {
-    try {
-      const result = await importPhotos();
-      photos.push(...result);
-    } catch (error) {
-      // User cancelled or error occurred
-      if (photos.length > 0) {
-        // Return what we have so far
-        break;
-      }
-      throw error;
-    }
-  }
-  
-  return photos;
-};
+
 
 /**
  * Check if the app has photo library permission
@@ -108,18 +127,6 @@ export const hasPhotoLibraryPermission = async (): Promise<boolean> => {
     console.error('Error checking photo library permission:', error);
     return false;
   }
-};
-
-/**
- * Convert a native photo URI to a web-compatible format
- * This is useful for displaying photos in the web view
- * @param uri - Native photo URI
- * @returns string - Web-compatible URI
- */
-export const convertToWebUri = (uri: string): string => {
-  // Capacitor already provides webPath, so this is mostly a passthrough
-  // But we keep the function for future compatibility
-  return uri;
 };
 
 /**
