@@ -1,0 +1,37 @@
+/**
+ * SpotifyLoginButton styles
+ */
+
+.spotify-login-button-container {
+  width: 100%;
+}
+
+.spotify-login-button {
+  --background: #1db954;
+  --background-hover: #1ed760;
+  --background-activated: #169c46;
+  --color: #ffffff;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.5px;
+}
+
+.spotify-login-button[color="success"] {
+  --background: var(--ion-color-success);
+  --background-hover: var(--ion-color-success-shade);
+}
+
+.spotify-login-button[color="danger"] {
+  --background: var(--ion-color-danger);
+  --background-hover: var(--ion-color-danger-shade);
+}
+
+.spotify-login-status {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.spotify-login-status p {
+  margin: 4px 0;
+  font-size: 14px;
+}

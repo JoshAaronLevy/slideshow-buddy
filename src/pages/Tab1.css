@@ -109,6 +109,23 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
+/* Spotify Demo Card */
+.spotify-demo-card {
+  margin: 16px;
+  border: 2px dashed var(--ion-color-primary);
+  background: var(--ion-color-primary-tint);
+}
+
+.spotify-demo-card ion-card-title {
+  font-size: 18px;
+  color: var(--ion-color-primary);
+}
+
+.spotify-demo-card p {
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
 /* Responsive adjustments */
 @media (min-width: 768px) {
   .photos-grid,
