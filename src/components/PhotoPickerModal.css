@@ -214,6 +214,18 @@
   margin: 8px 16px;
 }
 
+/* Infinite Scroll Loading */
+ion-infinite-scroll-content {
+  --color: var(--ion-color-primary);
+}
+
+ion-infinite-scroll-content::part(spinner) {
+  color: var(--ion-color-primary);
+  width: 40px;
+  height: 40px;
+  margin: 20px auto;
+}
+
 /* Responsive adjustments */
 @media (min-width: 768px) {
   .photo-picker-grid {

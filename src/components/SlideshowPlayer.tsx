@@ -21,6 +21,7 @@ import {
   chevronBackOutline,
   chevronForwardOutline,
   musicalNotesOutline,
+  exitOutline,
 } from 'ionicons/icons';
 import { SavedSlideshow } from '../types/slideshow';
 import { Photo } from '../types';
@@ -81,6 +82,15 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       setIsPlaying(true);
       setIsPaused(false);
       setMusicInitialized(false);
+      setShowControls(true);
+      
+      // Start auto-hide timer for controls
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
     }
   }, [isOpen, slideshow]);
   
@@ -217,6 +227,15 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     }
   };
 
+  // Hide controls (X button)
+  const handleHideControls = async () => {
+    await HapticService.impactLight();
+    setShowControls(false);
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+  };
+
   // Handle play/pause
   const handlePlayPause = async () => {
     await HapticService.impactMedium();
@@ -281,12 +300,36 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     if (isManual) {
       await HapticService.impactLight();
     }
-    setCurrentIndex((prev) => (prev + 1) % photos.length);
+    
+    setCurrentIndex((prev) => {
+      const nextIndex = prev + 1;
+      
+      // Check if we've reached the end
+      if (nextIndex >= photos.length) {
+        // If loop is enabled, restart from beginning
+        if (slideshow?.settings.loop) {
+          // If shuffle is also enabled, re-shuffle the photos for a fresh experience
+          if (slideshow?.settings.shuffle && slideshow.photos) {
+            const reshuffled = [...slideshow.photos].sort(() => Math.random() - 0.5);
+            setPhotos(reshuffled);
+          }
+          return 0; // Start from first photo
+        } else {
+          // If not looping, pause at the last photo
+          setIsPlaying(false);
+          setIsPaused(true);
+          return prev; // Stay at current photo
+        }
+      }
+      
+      return nextIndex;
+    });
+    
     setTimeRemaining(transitionTime);
     if (isManual) {
       resetControlsTimeout();
     }
-  }, [photos.length, transitionTime, resetControlsTimeout]);
+  }, [photos.length, transitionTime, resetControlsTimeout, slideshow]);
 
   // Handle previous photo
   const handlePrevious = useCallback(async () => {
@@ -546,15 +589,29 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
             ))}
           </div>
 
-          {/* Exit Button */}
-          <IonButton
-            fill="clear"
-            onClick={handleStop}
-            className="exit-button"
-            aria-label="Exit slideshow"
-          >
-            <IonIcon icon={closeOutline} />
-          </IonButton>
+          {/* Control Buttons Row */}
+          <div className="slideshow-control-buttons">
+            {/* Hide Controls Button (X) */}
+            <IonButton
+              fill="clear"
+              onClick={handleHideControls}
+              className="hide-controls-button"
+              aria-label="Hide controls"
+            >
+              <IonIcon icon={closeOutline} />
+            </IonButton>
+
+            {/* Exit Slideshow Button */}
+            <IonButton
+              fill="clear"
+              onClick={handleStop}
+              className="exit-button"
+              aria-label="Exit slideshow"
+            >
+              <IonIcon icon={exitOutline} />
+              <span className="exit-text">Exit</span>
+            </IonButton>
+          </div>
         </div>
       </div>
     </IonModal>
