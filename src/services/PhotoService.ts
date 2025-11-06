@@ -5,7 +5,7 @@
 import { Camera } from '@capacitor/camera';
 import { Media } from '@capacitor-community/media';
 import { Capacitor } from '@capacitor/core';
-import { Photo } from '../types';
+import { Photo, PhotoAlbum } from '../types';
 
 /**
  * Request permission to access the photo library
@@ -114,6 +114,120 @@ export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
 };
 
 
+
+/**
+ * Get photo albums from the device
+ * @returns Promise<PhotoAlbum[]> - Array of photo albums
+ */
+export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
+  try {
+    // Check/request permissions first
+    const hasPermission = await requestPhotoLibraryPermission();
+    if (!hasPermission) {
+      throw new Error('Photo library permission denied');
+    }
+
+    const platform = Capacitor.getPlatform();
+
+    if (platform === 'ios' || platform === 'android') {
+      const result = await Media.getAlbums();
+      
+      if (!result.albums || result.albums.length === 0) {
+        return [];
+      }
+
+      const albums: PhotoAlbum[] = result.albums.map((album) => ({
+        identifier: album.identifier,
+        name: album.name,
+        type: album.type || 'album',
+        count: 0, // Count not provided by Media plugin
+      }));
+
+      return albums;
+    } else {
+      // Web fallback
+      console.warn('Photo albums not supported on web platform');
+      throw new Error('Photo albums only available on iOS and Android');
+    }
+  } catch (error) {
+    console.error('Error fetching photo albums:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get photos from a specific album or all photos
+ * @param albumIdentifier - Album ID (optional, if not provided gets all photos)
+ * @param quantity - Maximum number of photos to fetch (default: 50)
+ * @param createdBefore - Timestamp to fetch photos created before this time (for pagination)
+ * @returns Promise<Photo[]> - Array of photos
+ */
+export const getPhotosFromAlbum = async (
+  albumIdentifier?: string,
+  quantity: number = 50,
+  createdBefore?: number
+): Promise<Photo[]> => {
+  try {
+    // Check/request permissions first
+    const hasPermission = await requestPhotoLibraryPermission();
+    if (!hasPermission) {
+      throw new Error('Photo library permission denied');
+    }
+
+    const platform = Capacitor.getPlatform();
+
+    if (platform === 'ios' || platform === 'android') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const options: any = {
+        quantity,
+        types: 'photos',
+        thumbnailWidth: 512,
+        thumbnailHeight: 512,
+        thumbnailQuality: 90,
+      };
+
+      // Add album identifier if provided
+      if (albumIdentifier) {
+        options.albumIdentifier = albumIdentifier;
+      }
+
+      // Add createdBefore for pagination if provided
+      if (createdBefore) {
+        options.createdBefore = createdBefore;
+      }
+
+      const result = await Media.getMedias(options);
+
+      if (!result.medias || result.medias.length === 0) {
+        return [];
+      }
+
+      // Convert MediaAsset to Photo
+      const photos: Photo[] = result.medias.map((media) => {
+        const dataUri = `data:image/jpeg;base64,${media.data}`;
+        
+        return {
+          id: media.identifier,
+          uri: dataUri,
+          filename: platform === 'android' 
+            ? (media.identifier.split('/').pop() || `photo_${Date.now()}.jpg`)
+            : `photo_${media.creationDate}.jpg`,
+          timestamp: new Date(media.creationDate).getTime(),
+          selected: false,
+        };
+      });
+
+      return photos;
+    } else {
+      // Web fallback
+      console.warn('Photo loading not supported on web platform');
+      throw new Error('Photo loading only available on iOS and Android');
+    }
+  } catch (error) {
+    console.error('Error loading photos from album:', error);
+    throw error;
+  }
+};
 
 /**
  * Check if the app has photo library permission

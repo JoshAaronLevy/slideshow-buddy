@@ -18,6 +18,16 @@ export interface Photo {
 }
 
 /**
+ * Represents a photo album from the device
+ */
+export interface PhotoAlbum {
+  identifier: string;
+  name: string;
+  type: string;
+  count: number;
+}
+
+/**
  * Represents a Spotify track
  */
 export interface SpotifyTrack {

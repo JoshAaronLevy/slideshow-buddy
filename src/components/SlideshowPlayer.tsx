@@ -24,7 +24,6 @@ import {
 } from 'ionicons/icons';
 import { SavedSlideshow } from '../types/slideshow';
 import { Photo } from '../types';
-import { usePhotoStore } from '../stores/photoStore';
 import { usePlaylistLibraryStore } from '../stores/playlistLibraryStore';
 import { useSlideshowLibraryStore } from '../stores/slideshowLibraryStore';
 import { useMusicStore } from '../stores/musicStore';
@@ -40,7 +39,6 @@ interface SlideshowPlayerProps {
 }
 
 const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, onClose }) => {
-  const { photos: allPhotos } = usePhotoStore();
   const { playlists: customPlaylists } = usePlaylistLibraryStore();
   const { recordPlay } = useSlideshowLibraryStore();
   const { playlists: spotifyPlaylists } = useMusicStore();
@@ -68,10 +66,8 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   // Initialize slideshow from SavedSlideshow
   useEffect(() => {
     if (isOpen && slideshow) {
-      // Load photos by IDs
-      const slideshowPhotos = slideshow.photoIds
-        .map(id => allPhotos.find(p => p.id === id))
-        .filter((p): p is Photo => p !== undefined);
+      // Use photos directly from slideshow
+      const slideshowPhotos = slideshow.photos || [];
 
       // Shuffle if needed
       const orderedPhotos = slideshow.settings.shuffle
@@ -86,7 +82,7 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       setIsPaused(false);
       setMusicInitialized(false);
     }
-  }, [isOpen, slideshow, allPhotos]);
+  }, [isOpen, slideshow]);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -281,11 +277,15 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   };
 
   // Handle next photo
-  const handleNext = useCallback(async () => {
-    await HapticService.impactLight();
+  const handleNext = useCallback(async (isManual: boolean = true) => {
+    if (isManual) {
+      await HapticService.impactLight();
+    }
     setCurrentIndex((prev) => (prev + 1) % photos.length);
     setTimeRemaining(transitionTime);
-    resetControlsTimeout();
+    if (isManual) {
+      resetControlsTimeout();
+    }
   }, [photos.length, transitionTime, resetControlsTimeout]);
 
   // Handle previous photo
@@ -317,7 +317,8 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       timerRef.current = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
-            handleNext();
+            // Auto-advance - don't show controls
+            handleNext(false);
             return transitionTime;
           }
           return prev - 1;
@@ -370,11 +371,11 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       onEnd: (detail) => {
         const deltaX = detail.deltaX;
         
-        // Swipe left = next
+        // Swipe left = next (manual)
         if (deltaX < -50) {
-          handleNext();
+          handleNext(true);
         }
-        // Swipe right = previous
+        // Swipe right = previous (manual)
         else if (deltaX > 50) {
           handlePrevious();
         }
@@ -514,7 +515,7 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
             {/* Next */}
             <IonButton
               fill="clear"
-              onClick={handleNext}
+              onClick={() => handleNext(true)}
               disabled={currentIndex === photos.length - 1 && !slideshow?.settings.loop}
               className="control-button"
               aria-label="Next photo"
