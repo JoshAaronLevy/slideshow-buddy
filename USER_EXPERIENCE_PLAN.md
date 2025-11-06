@@ -43,8 +43,8 @@ Tab 1 (Slideshows) → View saved slideshows
             Select photos (multi-select in one go)
                    ↓
             Configuration screen:
-              - Name the slideshow
-              - Choose music source (playlist/none)
+              - Auto-generated name "Slideshow-Nov-5-2024" (editable)
+              - Choose music source (custom playlist/none)
               - Set slide duration (5s default)
               - Toggle shuffle
               - Save & Play or just Save
@@ -78,43 +78,34 @@ Tab 2 (Music) → Connect Spotify (if not connected)
 
 ---
 
-## Alternative UX Approach (Recommendation)
+## Confirmed Flow: "Photos First" Approach
 
-I recommend a **slightly modified flow** for slideshow creation that feels more natural:
+Based on user feedback, we'll implement the **"Photos First"** flow:
 
-### Recommended: "Name First" Flow
 ```
 Tap "New Slideshow"
     ↓
-Configuration Screen First:
-  - Name your slideshow (required)
-  - Choose music (optional, can add later)
-  - Set preferences (duration, shuffle)
+Multi-photo picker opens immediately
     ↓
-Tap "Add Photos" button
+User selects photos (25, 50, 100, or any number)
     ↓
-Multi-photo picker
-    ↓
-Return to config screen with photo count displayed
-    ↓
-Can add more photos, adjust settings, or save
+Configuration screen:
+  - Auto-generated name: "Slideshow-Nov-5-2024" (fully editable)
+  - Choose music: Custom playlists or None
+  - Set slide duration: 5s default (2-10s range)
+  - Toggle shuffle: on/off
     ↓
 Tap "Save" or "Save & Play"
+    ↓
+Slideshow saved to local storage
 ```
 
-**Why this is better:**
-1. **More intentional:** Naming first makes users think about what they're creating
-2. **Flexible:** Can configure settings before/after photo selection
-3. **Editable:** Easy to add more photos or change music before saving
-4. **Clear state:** Users see all their choices in one place before committing
-5. **Standard pattern:** Matches iOS/Android app conventions (name → content → save)
-
-**Why your original flow is also valid:**
-- Faster for users who know what they want
-- Photos-first feels natural for a photo app
-- Less friction for quick slideshow creation
-
-**My suggestion:** Implement the "name first" flow initially, but we can easily adjust based on your preference after you try it.
+**Why this works well:**
+1. **Photos are the core content** - Get them selected first
+2. **Low friction** - Users can quickly create slideshows
+3. **Smart defaults** - Auto-generated name reduces cognitive load
+4. **Single configuration screen** - All settings in one place after photo selection
+5. **Natural flow** - Select content → Configure → Save
 
 ---
 
@@ -214,13 +205,18 @@ Tap "Save" or "Save & Play"
    - "New Slideshow" FAB button
    - Tap slideshow card to see options: Play, Edit, Delete
 
-2. Create Slideshow Creation Modal:
-   - File: `src/components/SlideshowCreationModal.tsx`
-   - Form fields: Name (required), Music selector, Duration slider, Shuffle toggle
-   - "Add Photos" button → opens PhotoPickerModal
-   - Shows thumbnail strip of selected photos
+2. Create Slideshow Configuration Modal:
+   - File: `src/components/SlideshowConfigModal.tsx`
+   - **Opens AFTER photo selection** (photos already selected via multi-picker)
+   - Form fields:
+     - Name (pre-filled with "Slideshow-Nov-5-2024", fully editable)
+     - Music selector (choose custom playlist or none)
+     - Duration slider (2-10s, default 5s)
+     - Shuffle toggle (default on)
+   - Shows thumbnail strip/grid of selected photos at top
+   - Photo count indicator (e.g., "25 photos selected")
    - "Save" and "Save & Play" buttons
-   - Validation: require name and at least 1 photo
+   - Validation: require name and at least 1 photo (already guaranteed by flow)
 
 3. Create Slideshow Edit Modal:
    - File: `src/components/SlideshowEditModal.tsx`
@@ -243,9 +239,9 @@ Tap "Save" or "Save & Play"
 **Files to create:**
 - `src/pages/SlideshowsTab.tsx` (rename from Tab1)
 - `src/pages/SlideshowsTab.css`
-- `src/components/SlideshowCreationModal.tsx`
-- `src/components/SlideshowCreationModal.css`
-- `src/components/SlideshowEditModal.tsx`
+- `src/components/SlideshowConfigModal.tsx` (configuration screen, opens after photo selection)
+- `src/components/SlideshowConfigModal.css`
+- `src/components/SlideshowEditModal.tsx` (similar to config modal but for editing)
 - `src/components/SlideshowEditModal.css`
 - `src/components/MusicSelectorModal.tsx`
 - `src/components/MusicSelectorModal.css`
@@ -272,19 +268,25 @@ Tap "Save" or "Save & Play"
 
 2. Create Track Picker Modal:
    - File: `src/components/TrackPickerModal.tsx`
-   - Search Spotify tracks (already have search in musicStore)
-   - Browse user's saved tracks
-   - Browse playlists and select individual tracks
-   - Multi-select with checkboxes
-   - Shows selection count
-   - Preview track button
+   - **Tab 1: Search** - Search all of Spotify
+   - **Tab 2: My Library** - Browse user's saved tracks
+   - **Tab 3: From Playlists** - Browse Spotify playlists, then select tracks from within them
+     - Show list of user's Spotify playlists
+     - Tap playlist → see all tracks in that playlist
+     - Multi-select tracks from the playlist
+     - Can navigate back to browse other playlists
+   - Multi-select with checkboxes across all tabs
+   - Shows running selection count (sticky footer)
+   - Preview track button (30s preview if available)
+   - "Done" button to confirm selection
 
 3. Create Playlist Creation Modal:
    - File: `src/components/PlaylistCreationModal.tsx`
    - Name field (required)
-   - "Add Tracks" button → opens TrackPickerModal
-   - Shows list of selected tracks with reorder capability
+   - "Add Tracks" button → opens TrackPickerModal (with all 3 tabs)
+   - Shows list of selected tracks
    - Remove track button per track
+   - **Note:** Tracks play in the order they were added (no reorder UI for MVP)
    - Save button
 
 4. Create Playlist Edit Modal:
@@ -329,21 +331,16 @@ Tap "Save" or "Save & Play"
    - Handle music source types correctly
    - Update "currently playing" slideshow in store
 
-2. Refactor Tab3 or remove it:
-   - **Option A (Recommended):** Remove Tab3 entirely
-     - Slideshow player is modal/overlay only
-     - Launched from Slideshows tab when user taps "Play"
-     - Reduces tab count to 2 as desired
-   
-   - **Option B:** Keep Tab3 as "Now Playing"
-     - Shows currently playing slideshow
-     - Shows history of played slideshows
-     - Quick access to recently played
-     - Could be useful but not essential for MVP
+2. Hide Tab3 (comment out, don't delete):
+   - Comment out Tab3 in App.tsx routing
+   - Comment out Tab3 button in tab bar
+   - Keep the file for future "Quick Play" feature (see Stage 7)
+   - Reduces tab count to 2 for MVP
 
 3. Update App.tsx routing:
-   - Remove Tab3 route if going with Option A
-   - Update tab bar to only show 2 tabs
+   - Comment out Tab3 route
+   - Comment out Tab3 tab button
+   - Keep code intact for future re-implementation
 
 4. Add "Play" functionality to Slideshows tab:
    - Tap slideshow card → show action sheet
@@ -353,12 +350,9 @@ Tap "Save" or "Save & Play"
 **Files to modify:**
 - `src/components/SlideshowPlayer.tsx`
 - `src/components/SlideshowPlayer.css`
-- `src/App.tsx` (routing)
+- `src/App.tsx` (comment out Tab3 routing and tab button)
 - `src/pages/SlideshowsTab.tsx` (add play action)
-- `src/pages/Tab3.tsx` → delete if going with Option A
-
-**Files to create (if Option B):**
-- `src/pages/NowPlayingTab.tsx`
+- `src/pages/Tab3.tsx` → keep as-is (commented out, for future use)
 
 **Testing:** Play saved slideshows with different music sources
 
@@ -430,31 +424,141 @@ Tap "Save" or "Save & Play"
 **Goal:** Advanced features mentioned by the user as "nice to have."
 
 **Tasks:**
-1. Song/Playlist tagging system:
-   - Add `tags: string[]` to CustomPlaylist
-   - Tag management UI (add, remove, search by tag)
-   - Create tag-based "Smart Playlists" in slideshow music selector
-   - Filter playlists by tag
-   - Auto-shuffle tracks with matching tag(s)
 
-2. Smart slideshow suggestions:
-   - "Recently added photos" slideshow
-   - "Photos from this month" slideshow
-   - Seasonal playlists (holiday music with matching photos)
+#### 7A. Quick Play Tab (High Priority)
+Transform the current Tab3 into a "Quick Play" feature for instant slideshows.
 
-3. Slideshow templates:
-   - Pre-configured settings for common use cases
-   - "Quick 1-minute", "5-minute story", "Long form 30-minute"
+**Concept:**
+- Re-enable Tab3 as "Quick Play" tab
+- Three large, prominent buttons:
+  - **"Quick 25"** - Play 25 random photos
+  - **"Quick 50"** - Play 50 random photos
+  - **"Quick 100"** - Play 100 random photos
+- When tapped:
+  - Randomly selects N photos from user's library
+  - Randomly selects a custom playlist (if any exist) or plays without music
+  - Immediately starts playing with shuffle enabled
+  - Uses default settings (5s per slide, loop enabled)
+- Ephemeral - not saved as a slideshow
+- Great for "I just want to see my photos with music right now"
 
-4. Photo editing:
-   - Basic filters
-   - Crop/rotate
-   - Captions overlay
+**UI Design:**
+```
+┌─────────────────────────────┐
+│       Quick Play            │
+├─────────────────────────────┤
+│                             │
+│  ┌───────────────────────┐ │
+│  │                       │ │
+│  │      Quick 25         │ │
+│  │   [shuffle icon]      │ │
+│  │                       │ │
+│  └───────────────────────┘ │
+│                             │
+│  ┌───────────────────────┐ │
+│  │                       │ │
+│  │      Quick 50         │ │
+│  │   [shuffle icon]      │ │
+│  │                       │ │
+│  └───────────────────────┘ │
+│                             │
+│  ┌───────────────────────┐ │
+│  │                       │ │
+│  │     Quick 100         │ │
+│  │   [shuffle icon]      │ │
+│  │                       │ │
+│  └───────────────────────┘ │
+│                             │
+│  Settings:                  │
+│  ⚙️ Slide duration: 5s     │
+│  🎵 Random music: On       │
+│                             │
+└─────────────────────────────┘
+```
 
-5. Social features:
-   - Share slideshow export (video file)
-   - QR code to view slideshow on another device
-   - Collaborative slideshows
+**Implementation:**
+- Minimal changes to existing Tab3
+- Add random selection logic to photoStore
+- Add random playlist selection to musicStore
+- Wire up to existing SlideshowPlayer
+- Add optional Quick Play settings (mini config panel)
+
+**Files to modify:**
+- `src/pages/Tab3.tsx` (complete redesign)
+- `src/pages/Tab3.css` (new styling)
+- `src/App.tsx` (uncomment Tab3)
+- `src/stores/photoStore.ts` (add `getRandomPhotos(count)`)
+- `src/stores/playlistLibraryStore.ts` (add `getRandomPlaylist()`)
+
+**Testing:** 
+- Test with small photo library (< 25 photos)
+- Test with large photo library (> 100 photos)
+- Test with no custom playlists
+- Test all three quick play options
+
+---
+
+#### 7B. Song/Playlist Tagging System
+- Add `tags: string[]` to CustomPlaylist
+- Tag management UI (add, remove, search by tag)
+- Create tag-based "Smart Playlists" in slideshow music selector
+- Filter playlists by tag
+- Auto-shuffle tracks with matching tag(s)
+- Example: Tag songs as "Zoe" (dog's name), create slideshow, select "Shuffle songs tagged: Zoe"
+
+---
+
+#### 7C. Track Reordering in Playlists
+- Drag-and-drop reordering in PlaylistCreationModal and PlaylistEditModal
+- Visual drag handles on each track
+- Smooth animations during reorder
+- Persist new order to storage
+
+---
+
+#### 7D. Playlist Playback Options
+- Add `playbackMode` to CustomPlaylist:
+  - `sequential` - Play in order added
+  - `shuffle` - Randomize each time
+  - `user-choice` - Prompt user when selecting for slideshow
+- Add toggle in playlist creation/edit modal
+- Show playback mode icon on playlist cards
+
+---
+
+#### 7E. Photo Library Management
+- View all imported photos in a separate "Photo Library" view
+- Remove photos from app library (not from device)
+- Photo metadata (date imported, used in N slideshows)
+- Bulk operations (select multiple, remove)
+- Search/filter photos by date
+
+---
+
+#### 7F. Smart Slideshow Suggestions
+- "Recently added photos" auto-slideshow
+- "Photos from this month" auto-slideshow
+- Seasonal playlists (holiday music with matching photos)
+- "On this day" memories
+
+---
+
+#### 7G. Slideshow Templates
+- Pre-configured settings for common use cases
+- "Quick 1-minute" (12 photos, 5s each)
+- "5-minute story" (60 photos, 5s each)
+- "Long form 30-minute" (360 photos, 5s each)
+- Custom templates (user-created)
+
+---
+
+#### 7H. Social Features
+- Export slideshow as video file (MP4)
+- Share via iOS share sheet
+- QR code to view slideshow on another device
+- Collaborative slideshows (multiple users contribute photos)
+
+---
 
 **Files to create:** TBD based on which features are chosen
 
@@ -560,43 +664,48 @@ Since this is a breaking change from the current version, we need a migration st
 ### Creating a Slideshow
 1. Open app → Slideshows tab (empty state)
 2. Tap "New Slideshow" FAB
-3. Creation modal opens
-4. Enter name: "Summer Vacation 2024"
-5. Tap "Add Photos"
-6. Photo picker opens (empty - first time)
-7. Tap "Import Photos" button
-8. System photo picker appears (multi-select)
-9. Select 15 photos → Tap "Add"
-10. Return to creation modal, see 15 photos
-11. Tap "Choose Music"
-12. Music selector opens
-13. Select "Road Trip Tunes" custom playlist
-14. Return to creation modal
-15. Adjust duration slider to 7 seconds
-16. Enable shuffle
-17. Tap "Save & Play"
-18. Slideshow saves and immediately starts playing
-19. Full-screen player with photos + music
-20. After slideshow, return to Slideshows tab
-21. See new slideshow card in list
+3. System photo picker opens immediately (multi-select enabled via @capacitor-community/media)
+4. Select 15 photos → Tap "Add"
+5. Configuration modal opens
+6. See auto-generated name: "Slideshow-Nov-5-2024" in editable text field
+7. Edit name to: "Summer Vacation 2024"
+8. See thumbnail grid of 15 photos at top of modal
+9. Tap "Choose Music" button
+10. Music selector opens showing custom playlists
+11. Select "Road Trip Tunes" custom playlist
+12. Return to config modal
+13. Adjust duration slider to 7 seconds
+14. Shuffle toggle already on (keep it)
+15. Tap "Save & Play"
+16. Slideshow saves to local storage
+17. Immediately starts playing full-screen
+18. Player shows photos + music
+19. After slideshow ends (or user closes), return to Slideshows tab
+20. See new "Summer Vacation 2024" slideshow card in list with thumbnail
 
-### Creating a Custom Playlist
+### Creating a Custom Playlist (from Spotify Playlist)
 1. Open app → Music tab
 2. Connect Spotify (if not already)
 3. Scroll to "Custom Playlists" section (empty state)
 4. Tap "New Playlist" button
-5. Creation modal opens
-6. Enter name: "Chill Vibes"
+5. Playlist creation modal opens
+6. Enter name: "Mallory - Romantic"
 7. Tap "Add Tracks"
-8. Track picker opens
-9. Search "lofi hip hop"
-10. Select 8 tracks with checkboxes
-11. Tap "Done"
-12. Return to creation modal, see 8 tracks listed
-13. Tap "Save"
-14. Playlist saves
-15. See new playlist card in Custom Playlists section
-16. Can now use in slideshows
+8. Track picker modal opens with 3 tabs
+9. Tap "From Playlists" tab
+10. See list of user's Spotify playlists
+11. Tap "Mallory - All Songs" playlist (the big diverse one)
+12. See all tracks in that playlist
+13. Scroll through and select 12 romantic tracks with checkboxes
+14. Selection counter shows "12 tracks selected"
+15. Tap "Done"
+16. Return to playlist creation modal
+17. See 12 tracks listed in order selected
+18. Tap "Save"
+19. Playlist "Mallory - Romantic" saves to local storage
+20. See new playlist card in Custom Playlists section
+21. Can now use this playlist in slideshows
+22. Later, create "Mallory - Adventures" by repeating with different track selection
 
 ### Editing a Slideshow
 1. Slideshows tab → Tap existing slideshow card
@@ -617,18 +726,24 @@ Since this is a breaking change from the current version, we need a migration st
 ### Storage Size Considerations
 - **Photos:** Store only URIs, not actual image data (images stay in photo library)
 - **Tracks:** Store Spotify IDs + cached metadata, not audio files
-- **Slideshows:** Small JSON objects, ~1-5KB each
+- **Slideshows:** Small JSON objects, ~1-5KB each (even with 800 photos, just storing IDs)
 - **Playlists:** Small JSON objects, ~2-10KB each depending on track count
 - **Estimated total:** ~100 slideshows + 50 playlists = ~1-2MB max
+- **Large slideshow (800 photos):** Still only ~10KB (800 photo URIs + metadata)
 
-Capacitor Preferences has no hard limit but recommend keeping under 5MB. We're well under that.
+Capacitor Preferences has no hard limit but recommend keeping under 5MB. We're well under that even with large slideshows.
 
 ### Performance Considerations
 - Load slideshows/playlists on app start (async, don't block UI)
 - Cache photo URIs to avoid repeated lookups
 - Lazy load playlist track details (show name first, fetch details later)
 - Debounce search inputs
-- Virtualize long lists (if >100 items)
+- **Virtualize long lists** - Essential for 800-photo slideshows and large playlists
+  - Use `react-window` or `react-virtualized` for photo grids
+  - Only render visible items + small buffer
+  - Dramatically improves scroll performance
+- Photo thumbnail generation on-demand with caching
+- Batch operations for storage updates
 
 ### Error Handling
 - Network errors: Show toast, cache last good state, retry with exponential backoff
@@ -652,19 +767,19 @@ Capacitor Preferences has no hard limit but recommend keeping under 5MB. We're w
 
 ---
 
-## Open Questions for User
+## Open Questions - ANSWERED ✅
 
-1. **Creation flow preference:** Do you prefer the "name first" approach I recommended, or stick with your original "photos first → config screen" flow?
+1. **Creation flow preference:** ✅ **Photos first**, with auto-generated name (e.g., "Slideshow-Nov-5-2024") that's editable. Config screen comes after photo selection.
 
-2. **Tab 3 removal:** Are you okay with completely removing the third tab, or would you like to keep it as a "Now Playing" or "Settings" tab?
+2. **Tab 3 removal:** ✅ **Comment out for MVP**, keep code intact. Future "Quick Play" feature planned (see Stage 7A) with 25/50/100 random photo options.
 
-3. **Playlist behavior:** Should custom playlists play in the order you added tracks, or always shuffled? Or user choice per playlist?
+3. **Playlist behavior:** ✅ **Play in order added** for MVP. User choice per playlist can be a future enhancement (Stage 7D).
 
-4. **Photo library management:** Should users be able to permanently delete photos from their app library, or just remove them from slideshows?
+4. **Photo library management:** ✅ **No deletion from device photo library**. Users can only remove photos from individual slideshows. No write access to device photo library for MVP.
 
-5. **Spotify playlists:** Should users be able to select individual Spotify playlists for slideshows, or only custom playlists? (Currently shows Spotify playlists, but can't edit them)
+5. **Spotify playlists:** ✅ **Custom playlists only for slideshow music**. BUT users can browse their Spotify playlists to pick individual tracks when building custom playlists. Track picker has 3 tabs: Search, My Library, and From Playlists (browse Spotify playlists → select tracks from within).
 
-6. **Slideshow limits:** Any max limits? (e.g., max 100 photos per slideshow, max 50 slideshows total)
+6. **Slideshow limits:** ✅ **No limits**. User has 800-photo albums and wants to create slideshows from entire albums. Design for scale.
 
 ---
 
