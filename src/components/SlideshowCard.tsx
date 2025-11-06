@@ -9,6 +9,10 @@ import {
   IonText,
   IonButton,
   IonActionSheet,
+  IonAccordionGroup,
+  IonAccordion,
+  IonItem,
+  IonLabel,
 } from '@ionic/react';
 import {
   playCircleOutline,
@@ -122,33 +126,48 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
             </IonButton>
           </div>
 
-          <div className="slideshow-card-metadata">
-            <div className="metadata-item">
-              <IonIcon icon={imagesOutline} />
-              <IonText>{slideshow.photoIds.length} photos</IonText>
-            </div>
-            <div className="metadata-item">
-              <IonIcon icon={musicalNotesOutline} />
-              <IonText>{getMusicSourceText(slideshow)}</IonText>
-            </div>
-            <div className="metadata-item">
-              <IonIcon icon={timeOutline} />
-              <IonText>{slideshow.settings.transitionTime}s per slide</IonText>
-            </div>
-          </div>
-
-          <div className="slideshow-card-footer">
-            <IonText color="medium" className="slideshow-card-date">
-              {slideshow.lastPlayedAt 
-                ? `Played ${formatDate(slideshow.lastPlayedAt)}`
-                : `Created ${formatDate(slideshow.createdAt)}`}
-            </IonText>
-            {slideshow.playCount > 0 && (
-              <IonText color="medium" className="slideshow-card-plays">
-                {slideshow.playCount} {slideshow.playCount === 1 ? 'play' : 'plays'}
-              </IonText>
-            )}
-          </div>
+          <IonAccordionGroup>
+            <IonAccordion value="details" toggleIconSlot="start">
+              <IonItem slot="header" lines="none" className="slideshow-details-header">
+                <IonLabel>
+                  <IonText color="medium">
+                    <p className="details-toggle">Show Details</p>
+                  </IonText>
+                </IonLabel>
+              </IonItem>
+              
+              <div slot="content" className="slideshow-card-metadata">
+                <div className="metadata-item">
+                  <IonIcon icon={imagesOutline} />
+                  <IonText>{slideshow.photoIds.length} photos</IonText>
+                </div>
+                <div className="metadata-item">
+                  <IonIcon icon={musicalNotesOutline} />
+                  <IonText>{getMusicSourceText(slideshow)}</IonText>
+                </div>
+                <div className="metadata-item">
+                  <IonIcon icon={timeOutline} />
+                  <IonText>{slideshow.settings.transitionTime}s per slide</IonText>
+                </div>
+                <div className="metadata-item">
+                  <IonIcon icon={timeOutline} />
+                  <IonText color="medium">
+                    {slideshow.lastPlayedAt 
+                      ? `Played ${formatDate(slideshow.lastPlayedAt)}`
+                      : `Created ${formatDate(slideshow.createdAt)}`}
+                  </IonText>
+                </div>
+                {slideshow.playCount > 0 && (
+                  <div className="metadata-item">
+                    <IonIcon icon={playCircleOutline} />
+                    <IonText color="medium">
+                      {slideshow.playCount} {slideshow.playCount === 1 ? 'play' : 'plays'}
+                    </IonText>
+                  </div>
+                )}
+              </div>
+            </IonAccordion>
+          </IonAccordionGroup>
         </IonCardContent>
       </IonCard>
 
