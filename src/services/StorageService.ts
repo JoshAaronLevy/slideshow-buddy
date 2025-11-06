@@ -28,6 +28,18 @@ export const generateSlideshowName = (): string => {
   return `Slideshow-${month}-${day}-${year}`;
 };
 
+/**
+ * Generate a default playlist name with current date
+ * Format: "Playlist-Nov-5-2024"
+ */
+export const generatePlaylistName = (): string => {
+  const date = new Date();
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `Playlist-${month}-${day}-${year}`;
+};
+
 // ============================================================================
 // SLIDESHOW STORAGE
 // ============================================================================

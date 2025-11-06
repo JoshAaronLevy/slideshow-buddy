@@ -276,7 +276,61 @@
   white-space: nowrap;
 }
 
+/* Section Header */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.section-header ion-button {
+  margin: 0;
+}
+
+/* Custom Playlists Grid */
+.custom-playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+}
+
+/* Small Empty State (for custom playlists section) */
+.empty-state-small {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty-state-icon-small {
+  font-size: 48px;
+  color: var(--ion-color-medium);
+  opacity: 0.5;
+  margin-bottom: 12px;
+}
+
+.empty-state-small p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.empty-hint-small {
+  font-size: 12px !important;
+  font-style: italic;
+  opacity: 0.8;
+}
+
 /* Responsive */
+@media (max-width: 768px) {
+  .custom-playlists-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
 @media (max-width: 576px) {
   .profile-header {
     flex-direction: column;
@@ -295,5 +349,15 @@
   
   .music-container {
     padding: 8px;
+  }
+
+  .section-header {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .section-header ion-button {
+    align-self: flex-end;
   }
 }

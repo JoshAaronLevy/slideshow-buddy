@@ -1,0 +1,122 @@
+/**
+ * TrackPickerModal Styles
+ */
+
+/* Loading/Error/Empty States */
+.track-picker-loading,
+.track-picker-error,
+.track-picker-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+  min-height: 300px;
+}
+
+.track-picker-empty ion-icon {
+  font-size: 64px;
+  color: var(--ion-color-medium);
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.track-picker-empty p {
+  margin: 0;
+  font-size: 16px;
+}
+
+.track-picker-error p {
+  margin: 0;
+}
+
+/* Track List Items */
+ion-item ion-checkbox {
+  margin-right: 12px;
+}
+
+ion-item ion-label h3 {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+ion-item ion-label p {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin-bottom: 2px;
+}
+
+ion-item ion-note {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+  opacity: 0.8;
+}
+
+/* Footer */
+.track-picker-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+}
+
+.selection-info {
+  flex-shrink: 0;
+}
+
+.track-picker-footer ion-button {
+  flex: 1;
+  margin: 0;
+}
+
+/* Segment Buttons */
+ion-segment-button {
+  min-height: 48px;
+}
+
+ion-segment-button ion-icon {
+  margin-bottom: 4px;
+}
+
+/* Search Bar */
+ion-searchbar {
+  --border-radius: 8px;
+}
+
+/* List Styling */
+ion-list {
+  background: transparent;
+  padding: 0;
+}
+
+ion-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --min-height: 72px;
+}
+
+/* Playlist Browse */
+ion-item[button] {
+  cursor: pointer;
+}
+
+ion-item[button]:hover {
+  --background: var(--ion-color-light);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .track-picker-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .track-picker-footer ion-button {
+    width: 100%;
+  }
+
+  .selection-info {
+    align-self: flex-start;
+  }
+}
