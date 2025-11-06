@@ -44,6 +44,7 @@ const SlideshowsTab: React.FC = () => {
     updateSlideshow,
     deleteSlideshow,
     selectSlideshow,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     recordPlay,
   } = useSlideshowLibraryStore();
 
