@@ -101,8 +101,8 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
 
   return (
     <>
-      <IonCard className="slideshow-card" button onClick={handleCardClick}>
-        <div className="slideshow-card-thumbnail">
+      <IonCard className="slideshow-card">
+        <div className="slideshow-card-thumbnail" onClick={handleCardClick}>
           {slideshow.thumbnailUri ? (
             <img src={slideshow.thumbnailUri} alt={slideshow.name} />
           ) : (
@@ -128,7 +128,12 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
 
           <IonAccordionGroup>
             <IonAccordion value="details" toggleIconSlot="start">
-              <IonItem slot="header" lines="none" className="slideshow-details-header">
+              <IonItem 
+                slot="header" 
+                lines="none" 
+                className="slideshow-details-header"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <IonLabel>
                   <IonText color="medium">
                     <p className="details-toggle">Show Details</p>

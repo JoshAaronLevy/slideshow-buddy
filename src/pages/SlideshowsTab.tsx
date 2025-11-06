@@ -291,19 +291,47 @@ const SlideshowsTab: React.FC = () => {
           </div>
         )}
 
-        {/* Slideshows Grid */}
+        {/* Slideshows Content */}
         {!isLoading && slideshows.length > 0 && (
-          <div className="slideshows-grid">
-            {slideshows.map((slideshow) => (
-              <SlideshowCard
-                key={slideshow.id}
-                slideshow={slideshow}
-                onPlay={handlePlaySlideshow}
-                onEdit={handleEditSlideshow}
-                onDelete={handleDeleteSlideshow}
-              />
-            ))}
-          </div>
+          <>
+            {/* Recently Played Section */}
+            {slideshows.filter(s => s.lastPlayedAt).length > 0 && (
+              <div className="slideshows-section">
+                <h3 className="section-heading">Recently Played</h3>
+                <div className="slideshows-grid">
+                  {slideshows
+                    .filter(s => s.lastPlayedAt)
+                    .sort((a, b) => (b.lastPlayedAt || 0) - (a.lastPlayedAt || 0))
+                    .slice(0, 4)
+                    .map((slideshow) => (
+                      <SlideshowCard
+                        key={slideshow.id}
+                        slideshow={slideshow}
+                        onPlay={handlePlaySlideshow}
+                        onEdit={handleEditSlideshow}
+                        onDelete={handleDeleteSlideshow}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* All Slideshows Section */}
+            <div className="slideshows-section">
+              <h3 className="section-heading">All Slideshows</h3>
+              <div className="slideshows-grid">
+                {slideshows.map((slideshow) => (
+                  <SlideshowCard
+                    key={slideshow.id}
+                    slideshow={slideshow}
+                    onPlay={handlePlaySlideshow}
+                    onEdit={handleEditSlideshow}
+                    onDelete={handleDeleteSlideshow}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
         {/* Floating Action Button */}
