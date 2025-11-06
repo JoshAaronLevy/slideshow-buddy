@@ -8,7 +8,7 @@
  */
 export const SPOTIFY_CONFIG = {
   CLIENT_ID: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
-  REDIRECT_URI: 'slideshowbuddy://callback',
+  REDIRECT_URI: 'com.slideshowbuddy://callback',
   SCOPES: [
     'user-read-private',
     'user-read-email',
