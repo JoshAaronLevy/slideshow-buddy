@@ -73,9 +73,22 @@ export const getSlideshow = async (id: string): Promise<SavedSlideshow | null> =
  */
 export const saveSlideshow = async (slideshow: NewSlideshow): Promise<SavedSlideshow> => {
   const now = Date.now();
+  
+  // Set thumbnail to the last (most recent) photo if not already set and photos exist
+  let thumbnailUri = slideshow.thumbnailUri;
+  if (!thumbnailUri && slideshow.photoIds.length > 0) {
+    const photos = await getPhotos();
+    const lastPhotoId = slideshow.photoIds[slideshow.photoIds.length - 1];
+    const lastPhoto = photos.find(p => p.id === lastPhotoId);
+    if (lastPhoto) {
+      thumbnailUri = lastPhoto.uri;
+    }
+  }
+  
   const newSlideshow: SavedSlideshow = {
     ...slideshow,
     id: slideshow.id || generateId(),
+    thumbnailUri,
     createdAt: slideshow.createdAt || now,
     updatedAt: now,
     playCount: slideshow.playCount || 0,
@@ -267,11 +280,18 @@ export const getPhotos = async (): Promise<Photo[]> => {
 
 /**
  * Save photos to the library
- * Appends new photos to existing library
+ * Appends new photos to existing library, filtering out duplicates by ID
  */
 export const savePhotos = async (newPhotos: Photo[]): Promise<Photo[]> => {
   const existingPhotos = await getPhotos();
-  const allPhotos = [...existingPhotos, ...newPhotos];
+  
+  // Create a Set of existing photo IDs for efficient lookup
+  const existingPhotoIds = new Set(existingPhotos.map(p => p.id));
+  
+  // Filter out photos that already exist
+  const uniqueNewPhotos = newPhotos.filter(photo => !existingPhotoIds.has(photo.id));
+  
+  const allPhotos = [...existingPhotos, ...uniqueNewPhotos];
   
   await Preferences.set({
     key: STORAGE_KEYS.PHOTO_LIBRARY,

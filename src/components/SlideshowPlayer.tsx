@@ -101,6 +101,14 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   useEffect(() => {
     const initMusic = async () => {
       if (isOpen && slideshow && !musicInitialized) {
+        const { musicSource } = slideshow;
+        
+        // If no music is selected, skip initialization and allow slideshow to play
+        if (musicSource.type === 'none') {
+          setMusicInitialized(true);
+          return;
+        }
+
         try {
           setMusicError(null);
           
@@ -123,18 +131,15 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
             (error) => {
               setMusicError(error);
               presentToast({
-                message: error,
+                message: `Music error: ${error}. Slideshow will continue without music.`,
                 duration: 4000,
-                color: 'danger',
+                color: 'warning',
                 position: 'top',
               });
             }
           );
 
-          setMusicInitialized(true);
-
           // Start playback based on music source type
-          const { musicSource } = slideshow;
           if (musicSource.type === 'custom-playlist') {
             const playlist = customPlaylists.find(p => p.id === musicSource.playlistId);
             if (playlist && playlist.tracks.length > 0) {
@@ -149,10 +154,21 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
               setMusicPlaying(true);
             }
           }
-          // If type is 'none', no music will play
         } catch (error) {
           console.error('Failed to initialize music:', error);
-          setMusicError(error instanceof Error ? error.message : 'Failed to start music');
+          const errorMsg = error instanceof Error ? error.message : 'Failed to start music';
+          setMusicError(errorMsg);
+          
+          // Show toast with specific music error message
+          presentToast({
+            message: `Music error: ${errorMsg}. Slideshow will continue without music.`,
+            duration: 4000,
+            color: 'warning',
+            position: 'top',
+          });
+        } finally {
+          // Always set musicInitialized to true so the slideshow can play
+          setMusicInitialized(true);
         }
       }
     };
