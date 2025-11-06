@@ -10,12 +10,17 @@ import {
   IonButton,
   IonBadge,
   IonText,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardContent,
   useIonToast,
 } from '@ionic/react';
 import { addOutline, checkmarkCircle, imagesOutline } from 'ionicons/icons';
 import { useEffect } from 'react';
 import { usePhotoStore } from '../stores/photoStore';
 import SkeletonLoader from '../components/SkeletonLoader';
+import SpotifyLoginButton from '../components/SpotifyLoginButton';
 import * as HapticService from '../services/HapticService';
 import './Tab1.css';
 
@@ -114,6 +119,40 @@ const Tab1: React.FC = () => {
             <SkeletonLoader type="photo" count={12} />
           </div>
         )}
+
+        {/* Spotify OAuth Demo (for testing new implementation) */}
+        <IonCard className="spotify-demo-card">
+          <IonCardHeader>
+            <IonCardTitle>Spotify OAuth Demo</IonCardTitle>
+          </IonCardHeader>
+          <IonCardContent>
+            <IonText color="medium">
+              <p>Test the new Spotify OAuth implementation with PKCE and backend token exchange.</p>
+            </IonText>
+            <SpotifyLoginButton
+              onSuccess={(tokens) => {
+                presentToast({
+                  message: `Login successful! Token: ${tokens.access_token.substring(0, 20)}...`,
+                  duration: 4000,
+                  color: 'success',
+                  position: 'top',
+                });
+                console.log('Spotify tokens:', tokens);
+                // TODO: Store tokens securely (e.g., Capacitor Preferences)
+              }}
+              onError={(error) => {
+                presentToast({
+                  message: `Login failed: ${error.message}`,
+                  duration: 4000,
+                  color: 'danger',
+                  position: 'top',
+                });
+                console.error('Spotify login error:', error);
+              }}
+              showStatus={true}
+            />
+          </IonCardContent>
+        </IonCard>
 
         {/* Empty State */}
         {!isLoading && photos.length === 0 && (

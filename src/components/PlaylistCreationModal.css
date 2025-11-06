@@ -1,0 +1,126 @@
+/**
+ * PlaylistCreationModal Styles
+ */
+
+/* Header Section */
+.playlist-creation-header {
+  padding: 24px 16px 16px;
+  background: var(--ion-color-light);
+  border-bottom: 1px solid var(--ion-color-light-shade);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.playlist-icon {
+  font-size: 48px;
+  color: var(--ion-color-primary);
+  margin-bottom: 16px;
+}
+
+.playlist-creation-header ion-list {
+  width: 100%;
+  max-width: 500px;
+  background: transparent;
+  padding: 0;
+}
+
+/* Add Tracks Section */
+.add-tracks-section {
+  padding: 24px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--ion-color-light-shade);
+}
+
+.add-tracks-section ion-button {
+  margin-bottom: 12px;
+}
+
+.add-tracks-section p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Empty State */
+.empty-tracks-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+  min-height: 300px;
+}
+
+.empty-tracks-state ion-icon {
+  font-size: 64px;
+  color: var(--ion-color-medium);
+  opacity: 0.5;
+  margin-bottom: 16px;
+}
+
+.empty-tracks-state p {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.empty-hint {
+  font-size: 14px !important;
+  opacity: 0.8;
+}
+
+/* Track List */
+ion-list {
+  background: transparent;
+  padding: 0;
+}
+
+ion-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --min-height: 72px;
+}
+
+ion-item ion-label h3 {
+  font-weight: 500;
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+ion-item ion-label p {
+  font-size: 14px;
+  color: var(--ion-color-medium);
+  margin-bottom: 2px;
+}
+
+ion-item ion-label small {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+  opacity: 0.8;
+}
+
+/* Reorder Handle */
+ion-reorder {
+  margin-right: 8px;
+}
+
+ion-reorder ion-icon {
+  color: var(--ion-color-medium);
+}
+
+/* Remove Button */
+ion-item ion-button[color="danger"] {
+  --padding-start: 8px;
+  --padding-end: 8px;
+}
+
+/* Input Field */
+ion-input {
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+}
+
+/* Footer */
+ion-footer ion-button {
+  height: 48px;
+}

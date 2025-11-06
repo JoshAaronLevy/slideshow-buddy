@@ -10,10 +10,10 @@ import {
   setupIonicReact
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { imagesOutline, musicalNotesOutline, playCircleOutline } from 'ionicons/icons';
-import Tab1 from './pages/Tab1';
+import { imagesOutline, musicalNotesOutline } from 'ionicons/icons';
+import SlideshowsTab from './pages/SlideshowsTab';
 import Tab2 from './pages/Tab2';
-import Tab3 from './pages/Tab3';
+// import Tab3 from './pages/Tab3'; // Commented out for redesign (Stage 5 will reintegrate)
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -52,32 +52,34 @@ const App: React.FC = () => (
     <IonReactRouter>
       <IonTabs>
         <IonRouterOutlet>
-          <Route exact path="/tab1">
-            <Tab1 />
+          <Route exact path="/slideshows">
+            <SlideshowsTab />
           </Route>
-          <Route exact path="/tab2">
+          <Route exact path="/music">
             <Tab2 />
           </Route>
-          <Route path="/tab3">
+          {/* Tab3 (Play) temporarily removed during redesign - will be reintegrated in Stage 5 */}
+          {/* <Route path="/play">
             <Tab3 />
-          </Route>
+          </Route> */}
           <Route exact path="/">
-            <Redirect to="/tab1" />
+            <Redirect to="/slideshows" />
           </Route>
         </IonRouterOutlet>
         <IonTabBar slot="bottom">
-          <IonTabButton tab="tab1" href="/tab1">
+          <IonTabButton tab="slideshows" href="/slideshows">
             <IonIcon aria-hidden="true" icon={imagesOutline} />
-            <IonLabel>Photos</IonLabel>
+            <IonLabel>Slideshows</IonLabel>
           </IonTabButton>
-          <IonTabButton tab="tab2" href="/tab2">
+          <IonTabButton tab="music" href="/music">
             <IonIcon aria-hidden="true" icon={musicalNotesOutline} />
             <IonLabel>Music</IonLabel>
           </IonTabButton>
-          <IonTabButton tab="tab3" href="/tab3">
+          {/* Play tab temporarily removed during redesign */}
+          {/* <IonTabButton tab="play" href="/play">
             <IonIcon aria-hidden="true" icon={playCircleOutline} />
             <IonLabel>Play</IonLabel>
-          </IonTabButton>
+          </IonTabButton> */}
         </IonTabBar>
       </IonTabs>
     </IonReactRouter>

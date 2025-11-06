@@ -1,0 +1,128 @@
+/**
+ * SlideshowConfigModal Styles
+ */
+
+/* Photo Preview Section */
+.config-photos-preview {
+  padding: 24px 16px;
+  text-align: center;
+  background: var(--ion-color-light);
+}
+
+.photos-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  max-width: 400px;
+  margin: 0 auto 12px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.photos-preview-grid img {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  display: block;
+}
+
+.photos-preview-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ion-color-medium);
+  height: 80px;
+}
+
+.photos-preview-more ion-text {
+  font-size: 20px;
+  font-weight: 600;
+  color: white;
+}
+
+.config-photos-preview p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Slider Container */
+.slider-container {
+  width: 100%;
+  padding: 12px 0;
+}
+
+.slider-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.slider-header ion-icon {
+  font-size: 24px;
+  color: var(--ion-color-primary);
+}
+
+.slider-header ion-label h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.slider-header ion-label p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ion-color-medium);
+}
+
+ion-range {
+  padding: 8px 0;
+}
+
+ion-range ion-label {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+}
+
+/* Footer Actions */
+.config-actions {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.config-actions ion-button {
+  flex: 1;
+  margin: 0;
+  height: 48px;
+}
+
+/* Form Adjustments */
+ion-list {
+  background: transparent;
+  padding-top: 0;
+}
+
+ion-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+}
+
+ion-item ion-icon[slot="start"] {
+  font-size: 24px;
+  margin-right: 12px;
+  color: var(--ion-color-primary);
+}
+
+/* Input Field */
+ion-input {
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+}
+
+/* Toggle Styling */
+ion-toggle {
+  --handle-width: 26px;
+  --handle-height: 26px;
+}

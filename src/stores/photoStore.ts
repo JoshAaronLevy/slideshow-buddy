@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { Photo } from '../types';
 import { importPhotos as importPhotosService } from '../services/PhotoService';
+import * as StorageService from '../services/StorageService';
 
 interface PhotoState {
   // State
@@ -14,6 +15,7 @@ interface PhotoState {
   error: string | null;
 
   // Actions
+  loadPhotos: () => Promise<void>;
   importPhotos: () => Promise<void>;
   togglePhotoSelection: (photoId: string) => void;
   clearSelection: () => void;
@@ -34,7 +36,29 @@ export const usePhotoStore = create<PhotoState>((set) => ({
   error: null,
 
   /**
-   * Import photos from the device library
+   * Load photos from persistent storage
+   */
+  loadPhotos: async () => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      const photos = await StorageService.getPhotos();
+      
+      set({ 
+        photos,
+        isLoading: false,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load photos';
+      set({ 
+        error: errorMessage,
+        isLoading: false,
+      });
+    }
+  },
+
+  /**
+   * Import photos from the device library and persist them
    */
   importPhotos: async () => {
     set({ isLoading: true, error: null });
@@ -42,10 +66,13 @@ export const usePhotoStore = create<PhotoState>((set) => ({
     try {
       const importedPhotos = await importPhotosService();
       
-      set((state) => ({
-        photos: [...state.photos, ...importedPhotos],
+      // Save to persistent storage
+      const allPhotos = await StorageService.savePhotos(importedPhotos);
+      
+      set({
+        photos: allPhotos,
         isLoading: false,
-      }));
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to import photos';
       set({ 

@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-11-05
+
+### Fixed
+- Fixed slideshow card thumbnail displaying as blank gray box - now shows the most recent photo from the slideshow
+- Fixed "Save and Play" getting stuck on "Initializing music player..." overlay when music fails to load or no music is selected - slideshow now plays regardless of music status with appropriate error toasts
+- Fixed photo duplication bug where photos appeared multiple times in the picker after creating multiple slideshows - photo library now properly filters out duplicate imports
+
+## [0.2.0] - 2025-11-05
+
+### Added
+- Spotify OAuth implementation with Authorization Code + PKCE (S256) flow
+- `src/lib/pkce.ts` - PKCE utility functions (code verifier generation, SHA-256, base64url encoding, S256 challenge)
+- `src/services/spotifyAuth.ts` - Backend token exchange service (buildAuthUrl, exchangeCodeForTokens, verifyState)
+- `src/hooks/useSpotifyAuth.ts` - React hook for Spotify OAuth with callbacks and App URL listener
+- `src/components/SpotifyLoginButton.tsx` - Reusable Spotify login button component with status indicators
+- Demo integration in Tab1 (My Photos) page to showcase new OAuth implementation
+- Comprehensive OAuth documentation in `SPOTIFY_OAUTH_IMPLEMENTATION.md`
+- Environment variable support for backend token exchange (VITE_API_BASE_URL)
+- Custom URL scheme handling via @capacitor/app for `com.slideshowbuddy://callback`
+- sessionStorage-based OAuth state management (non-persistent, secure)
+
+### Changed
+- Updated `.env.example` with backend API URL and OAuth scopes configuration
+- Enhanced Tab1 page with Spotify OAuth demo card for testing
+
+### Security
+- OAuth state stored in sessionStorage (cleared on browser close) instead of localStorage
+- Token exchange performed via backend to keep client secret secure (never exposed to mobile app)
+- PKCE (Proof Key for Code Exchange) prevents authorization code interception attacks
+- State parameter verification prevents CSRF attacks
+
 ## [0.1.0] - 2025-11-05
 
 ### Added

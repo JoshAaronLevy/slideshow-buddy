@@ -8,7 +8,7 @@
  */
 export const SPOTIFY_CONFIG = {
   CLIENT_ID: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
-  REDIRECT_URI: 'slideshowbuddy://callback',
+  REDIRECT_URI: 'com.slideshowbuddy://callback',
   SCOPES: [
     'user-read-private',
     'user-read-email',
@@ -28,7 +28,7 @@ export const SPOTIFY_CONFIG = {
  * Slideshow default settings
  */
 export const SLIDESHOW_DEFAULTS = {
-  TRANSITION_TIME: 3, // seconds
+  TRANSITION_TIME: 5, // seconds
   MIN_TRANSITION_TIME: 2,
   MAX_TRANSITION_TIME: 10,
   SHUFFLE_ENABLED: true,
@@ -45,6 +45,11 @@ export const STORAGE_KEYS = {
   SPOTIFY_USER: 'spotify_user',
   LAST_SELECTED_MUSIC: 'last_selected_music',
   SLIDESHOW_SETTINGS: 'slideshow_settings',
+  // New storage keys for persistent data
+  SLIDESHOWS: 'slideshows',
+  CUSTOM_PLAYLISTS: 'custom_playlists',
+  PHOTO_LIBRARY: 'photo_library',
+  APP_VERSION: 'app_version', // For future data migrations
 };
 
 /**

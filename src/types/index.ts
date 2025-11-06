@@ -2,6 +2,10 @@
  * Core type definitions for Slideshow Buddy
  */
 
+// Re-export types from separate files
+export * from './slideshow';
+export * from './playlist';
+
 /**
  * Represents a photo from the user's library
  */

@@ -1,5 +1,6 @@
 /**
  * SlideshowPlayer - Full-screen slideshow player with controls
+ * Updated to work with SavedSlideshow from library
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
@@ -21,40 +22,71 @@ import {
   chevronForwardOutline,
   musicalNotesOutline,
 } from 'ionicons/icons';
-import { useSlideshowStore } from '../stores/slideshowStore';
+import { SavedSlideshow } from '../types/slideshow';
+import { Photo } from '../types';
+import { usePhotoStore } from '../stores/photoStore';
+import { usePlaylistLibraryStore } from '../stores/playlistLibraryStore';
+import { useSlideshowLibraryStore } from '../stores/slideshowLibraryStore';
 import { useMusicStore } from '../stores/musicStore';
 import { keepAwake, allowSleep, preloadNextImages } from '../services/SlideshowService';
 import * as MusicPlayerService from '../services/MusicPlayerService';
 import * as HapticService from '../services/HapticService';
 import './SlideshowPlayer.css';
 
-const SlideshowPlayer: React.FC = () => {
-  const {
-    showPlayer,
-    isPlaying,
-    isPaused,
-    currentIndex,
-    photos,
-    config,
-    currentTrack,
-    isMusicPlaying,
-    musicError,
-    pause,
-    resume,
-    stop,
-    next,
-    previous,
-    setCurrentTrack,
-    setMusicPlaying,
-    setMusicError,
-  } = useSlideshowStore();
+interface SlideshowPlayerProps {
+  slideshow: SavedSlideshow | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-  const { selectedPlaylist, selectedTrack } = useMusicStore();
+const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, onClose }) => {
+  const { photos: allPhotos } = usePhotoStore();
+  const { playlists: customPlaylists } = usePlaylistLibraryStore();
+  const { recordPlay } = useSlideshowLibraryStore();
+  const { playlists: spotifyPlaylists } = useMusicStore();
+
+  // Local playback state
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [transitionTime, setTransitionTime] = useState(5);
+  const [currentTrack, setCurrentTrack] = useState<{
+    name: string;
+    artists: string[];
+    album: string;
+    imageUrl: string;
+  } | null>(null);
+  const [isMusicPlaying, setMusicPlaying] = useState(false);
+  const [musicError, setMusicError] = useState<string | null>(null);
 
   const [showControls, setShowControls] = useState(true);
-  const [timeRemaining, setTimeRemaining] = useState(config.transitionTime);
+  const [timeRemaining, setTimeRemaining] = useState(5);
   const [musicInitialized, setMusicInitialized] = useState(false);
   const [presentToast] = useIonToast();
+
+  // Initialize slideshow from SavedSlideshow
+  useEffect(() => {
+    if (isOpen && slideshow) {
+      // Load photos by IDs
+      const slideshowPhotos = slideshow.photoIds
+        .map(id => allPhotos.find(p => p.id === id))
+        .filter((p): p is Photo => p !== undefined);
+
+      // Shuffle if needed
+      const orderedPhotos = slideshow.settings.shuffle
+        ? [...slideshowPhotos].sort(() => Math.random() - 0.5)
+        : slideshowPhotos;
+
+      setPhotos(orderedPhotos);
+      setTransitionTime(slideshow.settings.transitionTime);
+      setTimeRemaining(slideshow.settings.transitionTime);
+      setCurrentIndex(0);
+      setIsPlaying(true);
+      setIsPaused(false);
+      setMusicInitialized(false);
+    }
+  }, [isOpen, slideshow, allPhotos]);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -68,7 +100,15 @@ const SlideshowPlayer: React.FC = () => {
   // Initialize music player when slideshow opens
   useEffect(() => {
     const initMusic = async () => {
-      if (showPlayer && !musicInitialized) {
+      if (isOpen && slideshow && !musicInitialized) {
+        const { musicSource } = slideshow;
+        
+        // If no music is selected, skip initialization and allow slideshow to play
+        if (musicSource.type === 'none') {
+          setMusicInitialized(true);
+          return;
+        }
+
         try {
           setMusicError(null);
           
@@ -91,38 +131,54 @@ const SlideshowPlayer: React.FC = () => {
             (error) => {
               setMusicError(error);
               presentToast({
-                message: error,
+                message: `Music error: ${error}. Slideshow will continue without music.`,
                 duration: 4000,
-                color: 'danger',
+                color: 'warning',
                 position: 'top',
               });
             }
           );
 
-          setMusicInitialized(true);
-
-          // Start playback
-          const musicUri = selectedPlaylist?.uri || selectedTrack?.uri;
-          if (musicUri) {
-            await MusicPlayerService.startPlayback(
-              musicUri,
-              !!selectedPlaylist // true if playlist, false if track
-            );
-            setMusicPlaying(true);
+          // Start playback based on music source type
+          if (musicSource.type === 'custom-playlist') {
+            const playlist = customPlaylists.find(p => p.id === musicSource.playlistId);
+            if (playlist && playlist.tracks.length > 0) {
+              // Play first track URI (Spotify doesn't support playing custom playlists directly)
+              await MusicPlayerService.startPlayback(playlist.tracks[0].uri, false);
+              setMusicPlaying(true);
+            }
+          } else if (musicSource.type === 'spotify-playlist') {
+            const playlist = spotifyPlaylists.find(p => p.id === musicSource.playlistId);
+            if (playlist) {
+              await MusicPlayerService.startPlayback(playlist.uri, true);
+              setMusicPlaying(true);
+            }
           }
         } catch (error) {
           console.error('Failed to initialize music:', error);
-          setMusicError(error instanceof Error ? error.message : 'Failed to start music');
+          const errorMsg = error instanceof Error ? error.message : 'Failed to start music';
+          setMusicError(errorMsg);
+          
+          // Show toast with specific music error message
+          presentToast({
+            message: `Music error: ${errorMsg}. Slideshow will continue without music.`,
+            duration: 4000,
+            color: 'warning',
+            position: 'top',
+          });
+        } finally {
+          // Always set musicInitialized to true so the slideshow can play
+          setMusicInitialized(true);
         }
       }
     };
 
     initMusic();
-  }, [showPlayer, musicInitialized, selectedPlaylist, selectedTrack, setCurrentTrack, setMusicPlaying, setMusicError, presentToast]);
+  }, [isOpen, slideshow, musicInitialized, customPlaylists, spotifyPlaylists, presentToast]);
 
   // Update current track info periodically
   useEffect(() => {
-    if (showPlayer && isMusicPlaying) {
+    if (isOpen && isMusicPlaying) {
       trackUpdateIntervalRef.current = setInterval(async () => {
         const trackInfo = await MusicPlayerService.getCurrentTrack();
         if (trackInfo) {
@@ -136,7 +192,7 @@ const SlideshowPlayer: React.FC = () => {
         clearInterval(trackUpdateIntervalRef.current);
       }
     };
-  }, [showPlayer, isMusicPlaying, setCurrentTrack]);
+  }, [isOpen, isMusicPlaying]);
 
   // Auto-hide controls after 3 seconds
   const resetControlsTimeout = useCallback(() => {
@@ -169,7 +225,8 @@ const SlideshowPlayer: React.FC = () => {
   const handlePlayPause = async () => {
     await HapticService.impactMedium();
     if (isPlaying) {
-      pause();
+      setIsPlaying(false);
+      setIsPaused(true);
       // Pause music
       try {
         await MusicPlayerService.pausePlayback();
@@ -178,7 +235,8 @@ const SlideshowPlayer: React.FC = () => {
         console.error('Failed to pause music:', error);
       }
     } else {
-      resume();
+      setIsPlaying(true);
+      setIsPaused(false);
       // Resume music
       try {
         await MusicPlayerService.resumePlayback();
@@ -193,7 +251,18 @@ const SlideshowPlayer: React.FC = () => {
   // Handle stop/exit
   const handleStop = async () => {
     await HapticService.impactLight();
-    stop();
+    
+    // Update play count in library
+    if (slideshow) {
+      await recordPlay(slideshow.id);
+    }
+    
+    // Reset local state
+    setIsPlaying(false);
+    setIsPaused(false);
+    setCurrentIndex(0);
+    setMusicInitialized(false);
+    
     await allowSleep();
     
     // Stop music and cleanup
@@ -206,28 +275,31 @@ const SlideshowPlayer: React.FC = () => {
     } catch (error) {
       console.error('Failed to stop music:', error);
     }
+    
+    // Call parent's onClose callback
+    onClose();
   };
 
   // Handle next photo
   const handleNext = useCallback(async () => {
     await HapticService.impactLight();
-    next();
-    setTimeRemaining(config.transitionTime);
+    setCurrentIndex((prev) => (prev + 1) % photos.length);
+    setTimeRemaining(transitionTime);
     resetControlsTimeout();
-  }, [next, config.transitionTime, resetControlsTimeout]);
+  }, [photos.length, transitionTime, resetControlsTimeout]);
 
   // Handle previous photo
   const handlePrevious = useCallback(async () => {
     await HapticService.impactLight();
-    previous();
-    setTimeRemaining(config.transitionTime);
+    setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length);
+    setTimeRemaining(transitionTime);
     resetControlsTimeout();
-  }, [previous, config.transitionTime, resetControlsTimeout]);
+  }, [photos.length, transitionTime, resetControlsTimeout]);
 
   // Handle speed change
   const handleSpeedChange = async (speed: number) => {
     await HapticService.impactLight();
-    useSlideshowStore.getState().updateConfig({ transitionTime: speed });
+    setTransitionTime(speed);
     setTimeRemaining(speed);
     resetControlsTimeout();
     
@@ -245,8 +317,8 @@ const SlideshowPlayer: React.FC = () => {
       timerRef.current = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
-            next();
-            return config.transitionTime;
+            handleNext();
+            return transitionTime;
           }
           return prev - 1;
         });
@@ -262,23 +334,23 @@ const SlideshowPlayer: React.FC = () => {
         clearInterval(timerRef.current);
       }
     };
-  }, [isPlaying, isPaused, config.transitionTime, next]);
+  }, [isPlaying, isPaused, transitionTime, handleNext]);
 
   // Keep screen awake when playing
   useEffect(() => {
-    if (showPlayer && isPlaying) {
+    if (isOpen && isPlaying) {
       keepAwake();
-    } else if (showPlayer && isPaused) {
+    } else if (isOpen && isPaused) {
       // Keep awake even when paused
       keepAwake();
     }
 
     return () => {
-      if (!showPlayer) {
+      if (!isOpen) {
         allowSleep();
       }
     };
-  }, [showPlayer, isPlaying, isPaused]);
+  }, [isOpen, isPlaying, isPaused]);
 
   // Preload next images
   useEffect(() => {
@@ -315,7 +387,7 @@ const SlideshowPlayer: React.FC = () => {
     return () => {
       gesture.destroy();
     };
-  }, [currentIndex, photos.length, config.loop, handleNext, handlePrevious]);
+  }, [handleNext, handlePrevious]);
 
   // Show controls when paused
   useEffect(() => {
@@ -345,7 +417,7 @@ const SlideshowPlayer: React.FC = () => {
 
   return (
     <IonModal
-      isOpen={showPlayer}
+      isOpen={isOpen}
       onDidDismiss={handleStop}
       className="slideshow-modal"
     >
@@ -410,7 +482,7 @@ const SlideshowPlayer: React.FC = () => {
               <div
                 className="progress-fill"
                 style={{
-                  width: `${((config.transitionTime - timeRemaining) / config.transitionTime) * 100}%`,
+                  width: `${((transitionTime - timeRemaining) / transitionTime) * 100}%`,
                 }}
               />
             </div>
@@ -422,7 +494,7 @@ const SlideshowPlayer: React.FC = () => {
             <IonButton
               fill="clear"
               onClick={handlePrevious}
-              disabled={currentIndex === 0 && !config.loop}
+              disabled={currentIndex === 0 && !slideshow?.settings.loop}
               className="control-button"
               aria-label="Previous photo"
             >
@@ -443,7 +515,7 @@ const SlideshowPlayer: React.FC = () => {
             <IonButton
               fill="clear"
               onClick={handleNext}
-              disabled={currentIndex === photos.length - 1 && !config.loop}
+              disabled={currentIndex === photos.length - 1 && !slideshow?.settings.loop}
               className="control-button"
               aria-label="Next photo"
             >
@@ -459,13 +531,14 @@ const SlideshowPlayer: React.FC = () => {
             {[2, 3, 5, 10].map((speed) => (
               <IonButton
                 key={speed}
-                fill={config.transitionTime === speed ? 'solid' : 'outline'}
+                fill={transitionTime === speed ? 'solid' : 'outline'}
                 size="small"
                 onClick={() => handleSpeedChange(speed)}
                 className="speed-button"
-                aria-label={`Set transition speed to ${speed} seconds${
-                  config.transitionTime === speed ? ', currently selected' : ''
-                }`}
+                aria-label={
+                  `Set transition speed to ${speed} seconds` +
+                  (transitionTime === speed ? ', currently selected' : '')
+                }
               >
                 {speed}s
               </IonButton>

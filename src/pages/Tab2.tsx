@@ -30,13 +30,19 @@ import {
   warningOutline,
   musicalNotesSharp,
   playCircleOutline,
+  addCircleOutline,
 } from 'ionicons/icons';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
 import { useMusicStore } from '../stores/musicStore';
+import { usePlaylistLibraryStore } from '../stores/playlistLibraryStore';
 import { setupAuthListener } from '../services/SpotifyAuthService';
 import { SpotifyPlaylist } from '../types';
+import { CustomPlaylist } from '../types/playlist';
 import PlaylistDetailModal from '../components/PlaylistDetailModal';
+import CustomPlaylistCard from '../components/CustomPlaylistCard';
+import PlaylistCreationModal from '../components/PlaylistCreationModal';
+import PlaylistEditModal from '../components/PlaylistEditModal';
 import SkeletonLoader from '../components/SkeletonLoader';
 import * as HapticService from '../services/HapticService';
 import './Tab2.css';
@@ -62,16 +68,29 @@ const MusicSelection: React.FC = () => {
     clearSearchResults,
   } = useMusicStore();
 
+  const {
+    playlists: customPlaylists,
+    loadPlaylists: loadCustomPlaylists,
+    createPlaylist,
+    updatePlaylist,
+    deletePlaylist,
+  } = usePlaylistLibraryStore();
+
+  const [presentToast] = useIonToast();
   const [searchDebounce, setSearchDebounce] = useState<NodeJS.Timeout | null>(null);
   const [showPlaylistDetail, setShowPlaylistDetail] = useState(false);
   const [viewingPlaylist, setViewingPlaylist] = useState<SpotifyPlaylist | null>(null);
+  const [showPlaylistCreation, setShowPlaylistCreation] = useState(false);
+  const [showPlaylistEdit, setShowPlaylistEdit] = useState(false);
+  const [editingPlaylist, setEditingPlaylist] = useState<CustomPlaylist | null>(null);
 
   // Fetch initial data
   useEffect(() => {
+    loadCustomPlaylists();
     fetchPlaylists();
     fetchRecentTracks();
     fetchFeaturedPlaylists();
-  }, [fetchPlaylists, fetchRecentTracks, fetchFeaturedPlaylists]);
+  }, [loadCustomPlaylists, fetchPlaylists, fetchRecentTracks, fetchFeaturedPlaylists]);
 
   // Handle search with debouncing
   const handleSearch = useCallback(
@@ -125,6 +144,93 @@ const MusicSelection: React.FC = () => {
     setViewingPlaylist(null);
   };
 
+  // Custom Playlist Handlers
+  const handleNewPlaylist = () => {
+    HapticService.impactMedium();
+    setShowPlaylistCreation(true);
+  };
+
+  const handlePlaylistCreated = async (name: string, tracks: import('../types').SpotifyTrack[]) => {
+    try {
+      await createPlaylist({
+        name,
+        trackIds: tracks.map(t => t.id),
+        tracks,
+      });
+      setShowPlaylistCreation(false);
+      await presentToast({
+        message: 'Playlist created!',
+        duration: 2000,
+        color: 'success',
+        position: 'top',
+      });
+    } catch {
+      await presentToast({
+        message: 'Failed to create playlist',
+        duration: 3000,
+        color: 'danger',
+        position: 'top',
+      });
+    }
+  };
+
+  const handlePlayCustomPlaylist = (playlist: CustomPlaylist) => {
+    HapticService.impactMedium();
+    // TODO: Play custom playlist (Stage 5)
+    presentToast({
+      message: `Playing "${playlist.name}"`,
+      duration: 2000,
+      color: 'primary',
+      position: 'top',
+    });
+  };
+
+  const handleEditCustomPlaylist = (playlist: CustomPlaylist) => {
+    HapticService.impactLight();
+    setEditingPlaylist(playlist);
+    setShowPlaylistEdit(true);
+  };
+
+  const handlePlaylistEdited = async (updated: CustomPlaylist) => {
+    try {
+      await updatePlaylist(updated);
+      setShowPlaylistEdit(false);
+      setEditingPlaylist(null);
+      await presentToast({
+        message: 'Playlist updated!',
+        duration: 2000,
+        color: 'success',
+        position: 'top',
+      });
+    } catch {
+      await presentToast({
+        message: 'Failed to update playlist',
+        duration: 3000,
+        color: 'danger',
+        position: 'top',
+      });
+    }
+  };
+
+  const handleDeleteCustomPlaylist = async (playlist: CustomPlaylist) => {
+    try {
+      await deletePlaylist(playlist.id);
+      await presentToast({
+        message: 'Playlist deleted',
+        duration: 2000,
+        color: 'medium',
+        position: 'top',
+      });
+    } catch {
+      await presentToast({
+        message: 'Failed to delete playlist',
+        duration: 3000,
+        color: 'danger',
+        position: 'top',
+      });
+    }
+  };
+
   // Determine which playlists to show
   const displayPlaylists = searchQuery
     ? searchResults.playlists
@@ -148,6 +254,49 @@ const MusicSelection: React.FC = () => {
           debounce={0} // We handle debouncing manually
         />
       </div>
+
+      {/* Custom Playlists Section */}
+      {!searchQuery && (
+        <IonCard>
+          <IonCardHeader>
+            <div className="section-header">
+              <IonCardTitle>My Playlists</IonCardTitle>
+              <IonButton
+                fill="clear"
+                size="small"
+                onClick={handleNewPlaylist}
+              >
+                <IonIcon icon={addCircleOutline} slot="start" />
+                New
+              </IonButton>
+            </div>
+          </IonCardHeader>
+          <IonCardContent>
+            {customPlaylists.length === 0 && (
+              <div className="empty-state-small">
+                <IonIcon icon={musicalNotesOutline} className="empty-state-icon-small" />
+                <IonText color="medium">
+                  <p>No custom playlists yet</p>
+                  <p className="empty-hint-small">Create playlists to use in your slideshows</p>
+                </IonText>
+              </div>
+            )}
+            {customPlaylists.length > 0 && (
+              <div className="custom-playlists-grid">
+                {customPlaylists.map((playlist) => (
+                  <CustomPlaylistCard
+                    key={playlist.id}
+                    playlist={playlist}
+                    onPlay={handlePlayCustomPlaylist}
+                    onEdit={handleEditCustomPlaylist}
+                    onDelete={handleDeleteCustomPlaylist}
+                  />
+                ))}
+              </div>
+            )}
+          </IonCardContent>
+        </IonCard>
+      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -300,6 +449,24 @@ const MusicSelection: React.FC = () => {
         isOpen={showPlaylistDetail}
         playlist={viewingPlaylist}
         onDismiss={handleModalDismiss}
+      />
+
+      {/* Custom Playlist Creation Modal */}
+      <PlaylistCreationModal
+        isOpen={showPlaylistCreation}
+        onDismiss={() => setShowPlaylistCreation(false)}
+        onSave={handlePlaylistCreated}
+      />
+
+      {/* Custom Playlist Edit Modal */}
+      <PlaylistEditModal
+        isOpen={showPlaylistEdit}
+        playlist={editingPlaylist}
+        onDismiss={() => {
+          setShowPlaylistEdit(false);
+          setEditingPlaylist(null);
+        }}
+        onSave={handlePlaylistEdited}
       />
     </>
   );
