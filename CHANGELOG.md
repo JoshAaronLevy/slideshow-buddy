@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-11-06
+
+### Added
+- Loop/repeat toggle for slideshows - automatically restart from beginning when finished
+- Re-shuffle feature - when both loop and shuffle are enabled, photos are randomly shuffled each time the slideshow restarts
+- Photo permission check on app launch with user-friendly alert if access is denied
+- Spotify sync modal that appears after photo permissions are granted (first launch only)
+- SpotifySyncModal component with "Sync Now" and "Sync Later" options
+- User preference storage to remember if Spotify sync was dismissed
+
+### Fixed
+- Controls no longer auto-hide in slideshow player - now hide after 3 seconds on slideshow start
+- X button in slideshow player now only hides controls instead of closing the entire slideshow
+- Added dedicated "Exit" button (with text label) to properly close slideshows
+- Infinite scroll loading spinner now clearly visible when fetching more photos in PhotoPickerModal
+
+### Changed
+- Redesigned slideshow player control buttons layout with separate hide/exit actions
+- Enhanced infinite scroll spinner visibility with larger size and primary color styling
+
 ## [0.3.0] - 2025-11-06
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "name": "slideshow-buddy",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "npm run build && npm run cap:sync:ios && npx cap run ios --target=\"8072B42B-6F3A-4054-9C95-731B0406DC71\"",

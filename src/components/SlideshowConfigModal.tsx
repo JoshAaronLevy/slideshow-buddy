@@ -28,6 +28,7 @@ import {
   timerOutline,
   checkmarkCircle,
   playCircle,
+  repeatOutline,
 } from 'ionicons/icons';
 import { useState, useEffect } from 'react';
 import { Photo } from '../types';
@@ -85,6 +86,7 @@ const SlideshowConfigModal: React.FC<SlideshowConfigModalProps> = ({
   const [musicSource, setMusicSource] = useState<MusicSource>({ type: 'none' });
   const [transitionTime, setTransitionTime] = useState(SLIDESHOW_DEFAULTS.TRANSITION_TIME);
   const [shuffle, setShuffle] = useState(SLIDESHOW_DEFAULTS.SHUFFLE_ENABLED);
+  const [loop, setLoop] = useState(SLIDESHOW_DEFAULTS.LOOP_ENABLED);
   const [showMusicSelector, setShowMusicSelector] = useState(false);
 
   // Initialize with default name when modal opens
@@ -94,6 +96,7 @@ const SlideshowConfigModal: React.FC<SlideshowConfigModalProps> = ({
       setMusicSource({ type: 'none' });
       setTransitionTime(SLIDESHOW_DEFAULTS.TRANSITION_TIME);
       setShuffle(SLIDESHOW_DEFAULTS.SHUFFLE_ENABLED);
+      setLoop(SLIDESHOW_DEFAULTS.LOOP_ENABLED);
     }
   }, [isOpen]);
 
@@ -112,7 +115,7 @@ const SlideshowConfigModal: React.FC<SlideshowConfigModalProps> = ({
     const settings: SlideshowSettings = {
       transitionTime,
       shuffle,
-      loop: false, // Default for now
+      loop,
     };
     onSave(name.trim() || generateSlideshowName(), musicSource, settings);
   };
@@ -122,7 +125,7 @@ const SlideshowConfigModal: React.FC<SlideshowConfigModalProps> = ({
     const settings: SlideshowSettings = {
       transitionTime,
       shuffle,
-      loop: false,
+      loop,
     };
     onSaveAndPlay(name.trim() || generateSlideshowName(), musicSource, settings);
   };
@@ -220,6 +223,22 @@ const SlideshowConfigModal: React.FC<SlideshowConfigModalProps> = ({
                 onIonChange={async (e) => {
                   await HapticService.impactLight();
                   setShuffle(e.detail.checked);
+                }}
+              />
+            </IonItem>
+
+            {/* Loop Toggle */}
+            <IonItem>
+              <IonIcon icon={repeatOutline} slot="start" />
+              <IonLabel>
+                <h3>Repeat Slideshow</h3>
+                <p>Restart from beginning when finished</p>
+              </IonLabel>
+              <IonToggle
+                checked={loop}
+                onIonChange={async (e) => {
+                  await HapticService.impactLight();
+                  setLoop(e.detail.checked);
                 }}
               />
             </IonItem>

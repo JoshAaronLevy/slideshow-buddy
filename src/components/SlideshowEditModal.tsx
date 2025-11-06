@@ -27,6 +27,7 @@ import {
   shuffleOutline,
   timerOutline,
   checkmarkCircle,
+  repeatOutline,
 } from 'ionicons/icons';
 import { useState, useEffect } from 'react';
 import { SavedSlideshow } from '../types/slideshow';
@@ -81,6 +82,7 @@ const SlideshowEditModal: React.FC<SlideshowEditModalProps> = ({
   const [musicSource, setMusicSource] = useState<MusicSource>({ type: 'none' });
   const [transitionTime, setTransitionTime] = useState(SLIDESHOW_DEFAULTS.TRANSITION_TIME);
   const [shuffle, setShuffle] = useState(SLIDESHOW_DEFAULTS.SHUFFLE_ENABLED);
+  const [loop, setLoop] = useState(SLIDESHOW_DEFAULTS.LOOP_ENABLED);
   const [showMusicSelector, setShowMusicSelector] = useState(false);
 
   // Initialize with slideshow data when modal opens or slideshow changes
@@ -90,6 +92,7 @@ const SlideshowEditModal: React.FC<SlideshowEditModalProps> = ({
       setMusicSource(slideshow.musicSource);
       setTransitionTime(slideshow.settings.transitionTime);
       setShuffle(slideshow.settings.shuffle);
+      setLoop(slideshow.settings.loop);
     }
   }, [isOpen, slideshow]);
 
@@ -116,6 +119,7 @@ const SlideshowEditModal: React.FC<SlideshowEditModalProps> = ({
         ...slideshow.settings,
         transitionTime,
         shuffle,
+        loop,
       },
       updatedAt: Date.now(),
     };
@@ -214,6 +218,22 @@ const SlideshowEditModal: React.FC<SlideshowEditModalProps> = ({
                 onIonChange={async (e) => {
                   await HapticService.impactLight();
                   setShuffle(e.detail.checked);
+                }}
+              />
+            </IonItem>
+
+            {/* Loop Toggle */}
+            <IonItem>
+              <IonIcon icon={repeatOutline} slot="start" />
+              <IonLabel>
+                <h3>Repeat Slideshow</h3>
+                <p>Restart from beginning when finished</p>
+              </IonLabel>
+              <IonToggle
+                checked={loop}
+                onIonChange={async (e) => {
+                  await HapticService.impactLight();
+                  setLoop(e.detail.checked);
                 }}
               />
             </IonItem>
