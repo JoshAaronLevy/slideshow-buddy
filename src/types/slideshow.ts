@@ -3,6 +3,8 @@
  * Defines the structure for saved slideshows and music sources
  */
 
+import { Photo } from './index';
+
 /**
  * Music source discriminated union
  * Represents different types of music that can be played during a slideshow
@@ -28,7 +30,8 @@ export interface SlideshowSettings {
 export interface SavedSlideshow {
   id: string; // UUID
   name: string; // User-defined name
-  photoIds: string[]; // IDs of photos from photo library
+  photoIds: string[]; // IDs of photos from device library
+  photos: Photo[]; // Complete photo objects with data URIs
   musicSource: MusicSource; // What music to play
   settings: SlideshowSettings; // Playback settings
   thumbnailUri?: string; // First photo URI for display

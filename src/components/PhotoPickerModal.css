@@ -76,6 +76,82 @@
   margin: 0 auto;
 }
 
+/* Error State */
+.photo-picker-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.photo-picker-error .error-icon {
+  font-size: 80px;
+  color: var(--ion-color-danger);
+  margin-bottom: 20px;
+}
+
+.photo-picker-error h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.photo-picker-error p {
+  margin: 0 0 24px 0;
+  font-size: 16px;
+}
+
+/* Albums View */
+.photo-picker-albums {
+  padding: 8px 0;
+}
+
+.photo-picker-album-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--ion-color-light-shade);
+}
+
+.photo-picker-album-item:active {
+  background-color: var(--ion-color-light);
+}
+
+.album-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.album-icon {
+  font-size: 32px;
+  color: var(--ion-color-primary);
+}
+
+.album-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.album-text p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ion-color-medium);
+}
+
+.album-chevron {
+  font-size: 20px;
+  color: var(--ion-color-medium);
+}
+
 /* Photo Grid */
 .photo-picker-grid {
   display: grid;
@@ -133,20 +209,21 @@
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* Import More Section */
-.photo-picker-import-more {
-  padding: 20px 16px 24px;
-  text-align: center;
-}
-
-.photo-picker-import-more ion-button {
-  max-width: 280px;
-  margin: 0 auto;
-}
-
 /* Confirm Button */
 .photo-picker-confirm {
   margin: 8px 16px;
+}
+
+/* Infinite Scroll Loading */
+ion-infinite-scroll-content {
+  --color: var(--ion-color-primary);
+}
+
+ion-infinite-scroll-content::part(spinner) {
+  color: var(--ion-color-primary);
+  width: 40px;
+  height: 40px;
+  margin: 20px auto;
 }
 
 /* Responsive adjustments */
@@ -168,5 +245,13 @@
 @media (prefers-color-scheme: dark) {
   .photo-picker-item {
     background-color: var(--ion-color-dark);
+  }
+  
+  .photo-picker-album-item {
+    border-bottom-color: var(--ion-color-dark-shade);
+  }
+  
+  .photo-picker-album-item:active {
+    background-color: var(--ion-color-dark-tint);
   }
 }

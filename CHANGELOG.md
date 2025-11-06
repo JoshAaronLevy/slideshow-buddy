@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-11-06
+
+### Added
+- Loop/repeat toggle for slideshows - automatically restart from beginning when finished
+- Re-shuffle feature - when both loop and shuffle are enabled, photos are randomly shuffled each time the slideshow restarts
+- Photo permission check on app launch with user-friendly alert if access is denied
+- Spotify sync modal that appears after photo permissions are granted (first launch only)
+- SpotifySyncModal component with "Sync Now" and "Sync Later" options
+- User preference storage to remember if Spotify sync was dismissed
+
+### Fixed
+- Controls no longer auto-hide in slideshow player - now hide after 3 seconds on slideshow start
+- X button in slideshow player now only hides controls instead of closing the entire slideshow
+- Added dedicated "Exit" button (with text label) to properly close slideshows
+- Infinite scroll loading spinner now clearly visible when fetching more photos in PhotoPickerModal
+
+### Changed
+- Redesigned slideshow player control buttons layout with separate hide/exit actions
+- Enhanced infinite scroll spinner visibility with larger size and primary color styling
+
+## [0.3.0] - 2025-11-06
+
+### Added
+- Photo album browsing - users can now view and select photos from any album in their device library
+- `PhotoAlbum` type for representing device photo albums
+- `getPhotoAlbums()` function to fetch available photo albums from device
+- `getPhotosFromAlbum()` function with pagination support for loading photos from specific albums or all photos
+- Infinite scroll for photo loading - photos load automatically as user scrolls (no "Load More" button needed)
+- Album view with "All Photos" option plus all device albums in PhotoPickerModal
+- Complete photo objects (with base64 data URIs) now stored in slideshows instead of just IDs
+
+### Changed
+- **BREAKING**: Completely rewrote PhotoPickerModal to support album browsing and direct device library access
+- **BREAKING**: Removed "imported photos" workflow - photos are now selected directly from device library when creating slideshows
+- **BREAKING**: Slideshows now store complete Photo objects instead of relying on separate photo store
+- PhotoService now uses pagination with `createdBefore` parameter for efficient photo loading
+- SlideshowsTab no longer uses photoStore for photo management
+- Photo selection flow simplified - clicking "+" button now directly opens device photo library
+
+### Fixed
+- **Bug 1**: Users can now view and browse all their photo albums, not just the default photo library
+- **Bug 2**: Eliminated confusing "imported photos" page - photo selection is now direct and intuitive
+- **Bug 3**: Fixed "Load More Photos" button not working - replaced with infinite scroll that properly loads all photos
+- **Bug 4**: Fixed slideshow controls automatically appearing and disappearing after each photo transition - controls now only appear on user tap
+
+### Removed
+- Photo import workflow from photoStore (photos no longer need to be imported into app before creating slideshows)
+- "Import Photos" and "Import More Photos" buttons from PhotoPickerModal
+- Dependency on photoStore in SlideshowsTab and SlideshowPlayer
+
 ## [0.2.1] - 2025-11-05
 
 ### Fixed

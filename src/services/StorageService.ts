@@ -74,15 +74,10 @@ export const getSlideshow = async (id: string): Promise<SavedSlideshow | null> =
 export const saveSlideshow = async (slideshow: NewSlideshow): Promise<SavedSlideshow> => {
   const now = Date.now();
   
-  // Set thumbnail to the last (most recent) photo if not already set and photos exist
+  // Set thumbnail to the first photo if not already set and photos exist
   let thumbnailUri = slideshow.thumbnailUri;
-  if (!thumbnailUri && slideshow.photoIds.length > 0) {
-    const photos = await getPhotos();
-    const lastPhotoId = slideshow.photoIds[slideshow.photoIds.length - 1];
-    const lastPhoto = photos.find(p => p.id === lastPhotoId);
-    if (lastPhoto) {
-      thumbnailUri = lastPhoto.uri;
-    }
+  if (!thumbnailUri && slideshow.photos && slideshow.photos.length > 0) {
+    thumbnailUri = slideshow.photos[0].uri;
   }
   
   const newSlideshow: SavedSlideshow = {

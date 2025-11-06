@@ -24,7 +24,6 @@ import { SavedSlideshow, MusicSource, SlideshowSettings } from '../types/slidesh
 import { Photo } from '../types';
 import { useSlideshowLibraryStore } from '../stores/slideshowLibraryStore';
 import { usePlaylistLibraryStore } from '../stores/playlistLibraryStore';
-import { usePhotoStore } from '../stores/photoStore';
 import { useMusicStore } from '../stores/musicStore';
 import SlideshowCard from '../components/SlideshowCard';
 import PhotoPickerModal from '../components/PhotoPickerModal';
@@ -49,7 +48,6 @@ const SlideshowsTab: React.FC = () => {
   } = useSlideshowLibraryStore();
 
   const { playlists, loadPlaylists } = usePlaylistLibraryStore();
-  const { photos } = usePhotoStore();
   const { playlists: spotifyPlaylists } = useMusicStore();
 
   const [presentToast] = useIonToast();
@@ -61,7 +59,6 @@ const SlideshowsTab: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPlayer, setShowPlayer] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<Photo[]>([]);
-  const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [slideshowToEdit, setSlideshowToEdit] = useState<SavedSlideshow | null>(null);
   const [slideshowToPlay, setSlideshowToPlay] = useState<SavedSlideshow | null>(null);
 
@@ -81,23 +78,14 @@ const SlideshowsTab: React.FC = () => {
   // Start creating a new slideshow
   const handleStartNewSlideshow = () => {
     HapticService.impactMedium();
-    setSelectedPhotoIds([]);
     setShowPhotoPicker(true);
   };
 
   // After photos selected, show config modal
-  const handlePhotosSelected = (photoIds: string[]) => {
-    const selectedPhotoObjects = photos.filter(p => photoIds.includes(p.id));
-    setSelectedPhotos(selectedPhotoObjects);
+  const handlePhotosSelected = (photos: Photo[]) => {
+    setSelectedPhotos(photos);
     setShowPhotoPicker(false);
     setShowConfigModal(true);
-  };
-
-  // Handle photo import
-  const handleImportPhotos = async () => {
-    // Use photoStore's import functionality
-    const { importPhotos } = usePhotoStore.getState();
-    await importPhotos();
   };
 
   // Save new slideshow
@@ -110,6 +98,7 @@ const SlideshowsTab: React.FC = () => {
       const newSlideshow: import('../types/slideshow').NewSlideshow = {
         name,
         photoIds: selectedPhotos.map(p => p.id),
+        photos: selectedPhotos, // Store complete photo objects
         musicSource,
         settings,
       };
@@ -143,6 +132,7 @@ const SlideshowsTab: React.FC = () => {
       const newSlideshowData: import('../types/slideshow').NewSlideshow = {
         name,
         photoIds: selectedPhotos.map(p => p.id),
+        photos: selectedPhotos, // Store complete photo objects
         musicSource,
         settings,
       };
@@ -345,11 +335,8 @@ const SlideshowsTab: React.FC = () => {
       {/* Photo Picker Modal */}
       <PhotoPickerModal
         isOpen={showPhotoPicker}
-        photos={photos}
-        selectedPhotoIds={selectedPhotoIds}
         onDismiss={() => setShowPhotoPicker(false)}
         onConfirm={handlePhotosSelected}
-        onImportPhotos={handleImportPhotos}
       />
 
       {/* Slideshow Config Modal */}
