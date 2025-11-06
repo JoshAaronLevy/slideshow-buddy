@@ -1,0 +1,65 @@
+/**
+ * MusicSelectorModal Styles
+ */
+
+.section-header {
+  --background: var(--ion-color-light);
+  --padding-start: 16px;
+  --padding-top: 12px;
+  --padding-bottom: 8px;
+  margin-top: 8px;
+}
+
+.section-header ion-label h2 {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ion-color-medium-shade);
+  margin: 0;
+}
+
+.playlist-thumbnail {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.music-selector-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.music-selector-empty .empty-icon {
+  font-size: 80px;
+  color: var(--ion-color-medium);
+  margin-bottom: 20px;
+}
+
+.music-selector-empty h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.music-selector-empty p {
+  margin: 0;
+  font-size: 15px;
+  max-width: 280px;
+}
+
+.confirm-button {
+  margin: 8px 16px;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .section-header {
+    --background: var(--ion-color-dark);
+  }
+}

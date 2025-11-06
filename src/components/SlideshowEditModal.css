@@ -1,0 +1,84 @@
+/**
+ * SlideshowEditModal Styles
+ */
+
+/* Slideshow Info Section */
+.edit-slideshow-info {
+  padding: 24px 16px 12px;
+  background: var(--ion-color-light);
+  border-bottom: 1px solid var(--ion-color-light-shade);
+}
+
+.edit-slideshow-info ion-text p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+/* Slider Container */
+.slider-container {
+  width: 100%;
+  padding: 12px 0;
+}
+
+.slider-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.slider-header ion-icon {
+  font-size: 24px;
+  color: var(--ion-color-primary);
+}
+
+.slider-header ion-label h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.slider-header ion-label p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ion-color-medium);
+}
+
+ion-range {
+  padding: 8px 0;
+}
+
+ion-range ion-label {
+  font-size: 12px;
+  color: var(--ion-color-medium);
+}
+
+/* Form Adjustments */
+ion-list {
+  background: transparent;
+  padding-top: 12px;
+}
+
+ion-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+}
+
+ion-item ion-icon[slot="start"] {
+  font-size: 24px;
+  margin-right: 12px;
+  color: var(--ion-color-primary);
+}
+
+/* Input Field */
+ion-input {
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+}
+
+/* Toggle Styling */
+ion-toggle {
+  --handle-width: 26px;
+  --handle-height: 26px;
+}
