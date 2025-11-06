@@ -45,6 +45,11 @@ export const STORAGE_KEYS = {
   SPOTIFY_USER: 'spotify_user',
   LAST_SELECTED_MUSIC: 'last_selected_music',
   SLIDESHOW_SETTINGS: 'slideshow_settings',
+  // New storage keys for persistent data
+  SLIDESHOWS: 'slideshows',
+  CUSTOM_PLAYLISTS: 'custom_playlists',
+  PHOTO_LIBRARY: 'photo_library',
+  APP_VERSION: 'app_version', // For future data migrations
 };
 
 /**
