@@ -30,6 +30,7 @@ import SlideshowCard from '../components/SlideshowCard';
 import PhotoPickerModal from '../components/PhotoPickerModal';
 import SlideshowConfigModal from '../components/SlideshowConfigModal';
 import SlideshowEditModal from '../components/SlideshowEditModal';
+import SlideshowPlayer from '../components/SlideshowPlayer';
 import SkeletonLoader from '../components/SkeletonLoader';
 import * as HapticService from '../services/HapticService';
 import './SlideshowsTab.css';
@@ -57,9 +58,11 @@ const SlideshowsTab: React.FC = () => {
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPlayer, setShowPlayer] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState<Photo[]>([]);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<string[]>([]);
   const [slideshowToEdit, setSlideshowToEdit] = useState<SavedSlideshow | null>(null);
+  const [slideshowToPlay, setSlideshowToPlay] = useState<SavedSlideshow | null>(null);
 
   // Load slideshows and playlists on mount
   useEffect(() => {
@@ -148,15 +151,8 @@ const SlideshowsTab: React.FC = () => {
 
       // Play the slideshow
       selectSlideshow(newSlideshow);
-      await recordPlay(newSlideshow.id);
-      
-      // TODO: Navigate to player (Stage 5)
-      await presentToast({
-        message: 'Slideshow saved! Opening player...',
-        duration: 2000,
-        color: 'success',
-        position: 'top',
-      });
+      setSlideshowToPlay(newSlideshow);
+      setShowPlayer(true);
     } catch {
       await presentToast({
         message: 'Failed to create slideshow',
@@ -171,15 +167,14 @@ const SlideshowsTab: React.FC = () => {
   const handlePlaySlideshow = async (slideshow: SavedSlideshow) => {
     HapticService.impactHeavy();
     selectSlideshow(slideshow);
-    await recordPlay(slideshow.id);
-    
-    // TODO: Navigate to player (Stage 5)
-    await presentToast({
-      message: `Playing "${slideshow.name}"`,
-      duration: 2000,
-      color: 'primary',
-      position: 'top',
-    });
+    setSlideshowToPlay(slideshow);
+    setShowPlayer(true);
+  };
+  
+  // Handle player close
+  const handlePlayerClose = () => {
+    setShowPlayer(false);
+    setSlideshowToPlay(null);
   };
 
   // Handle edit action from card
@@ -353,6 +348,13 @@ const SlideshowsTab: React.FC = () => {
           setSlideshowToEdit(null);
         }}
         onSave={handleSaveEditedSlideshow}
+      />
+
+      {/* Slideshow Player */}
+      <SlideshowPlayer
+        slideshow={slideshowToPlay}
+        isOpen={showPlayer}
+        onClose={handlePlayerClose}
       />
     </IonPage>
   );

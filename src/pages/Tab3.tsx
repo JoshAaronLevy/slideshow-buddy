@@ -29,7 +29,7 @@ import {
 import { usePhotoStore } from '../stores/photoStore';
 import { useMusicStore } from '../stores/musicStore';
 import { useSlideshowStore } from '../stores/slideshowStore';
-import SlideshowPlayer from '../components/SlideshowPlayer';
+// import SlideshowPlayer from '../components/SlideshowPlayer'; // Commented out during Stage 5 refactor
 import { SLIDESHOW_DEFAULTS } from '../constants';
 import * as HapticService from '../services/HapticService';
 import './Tab3.css';
@@ -243,8 +243,8 @@ const Tab3: React.FC = () => {
           </IonCard>
         </div>
 
-        {/* Slideshow Player */}
-        <SlideshowPlayer />
+        {/* Slideshow Player - Commented out during Stage 5 refactor */}
+        {/* <SlideshowPlayer slideshow={null} isOpen={false} onClose={() => {}} /> */}
       </IonContent>
     </IonPage>
   );
