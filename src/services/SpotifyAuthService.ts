@@ -331,8 +331,9 @@ export const setupAuthListener = (onCallback: (code: string, state: string) => v
       });
       
       // Check if this is our OAuth callback
-      // Support both 'slideshowbuddy:' and 'com.slideshowbuddy.app:' schemes
+      // Support multiple URL schemes for backward compatibility
       const isCallback = (
+        (url.protocol === 'com.slideshowbuddy:' && url.host === 'callback') ||
         (url.protocol === 'slideshowbuddy:' && url.host === 'callback') ||
         (url.protocol === 'com.slideshowbuddy.app:' && url.host === 'callback')
       );

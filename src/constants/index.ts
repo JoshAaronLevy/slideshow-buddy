@@ -8,8 +8,8 @@
  */
 export const SPOTIFY_CONFIG = {
   CLIENT_ID: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
-  // Updated to match Capacitor app ID for proper deep linking
-  REDIRECT_URI: 'com.slideshowbuddy.app://callback',
+  // Mobile app deep link redirect URI (must match Spotify Developer Dashboard)
+  REDIRECT_URI: 'com.slideshowbuddy://callback',
   SCOPES: [
     'user-read-private',
     'user-read-email',
