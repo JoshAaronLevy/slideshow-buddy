@@ -6,7 +6,7 @@
  * 
  * Environment Variables Required:
  * - VITE_SPOTIFY_CLIENT_ID: Spotify application client ID
- * - VITE_API_BASE_URL: Backend API base URL (for token exchange)
+ * - VITE_BACKEND_URL: Backend server URL (for token exchange)
  * - VITE_SPOTIFY_SCOPES: Space-delimited scopes (optional)
  */
 
@@ -100,14 +100,14 @@ export const buildAuthUrl = async (): Promise<{ url: string; state: string }> =>
  * @returns Promise resolving to tokens from backend
  * @throws Error if backend request fails or code_verifier not found
  * 
- * TODO: Implement backend endpoint at ${VITE_API_BASE_URL}/auth/spotify/token
+ * Backend endpoint: POST ${VITE_BACKEND_URL}/auth/spotify/token
  */
 export const exchangeCodeForTokens = async (code: string): Promise<SpotifyTokenResponse> => {
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
   const clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
 
-  if (!apiBaseUrl) {
-    throw new Error('VITE_API_BASE_URL environment variable is not configured');
+  if (!backendUrl) {
+    throw new Error('VITE_BACKEND_URL environment variable is not configured');
   }
 
   if (!clientId) {
@@ -123,7 +123,7 @@ export const exchangeCodeForTokens = async (code: string): Promise<SpotifyTokenR
 
   try {
     // Exchange code for tokens via backend
-    const response = await fetch(`${apiBaseUrl}/auth/spotify/token`, {
+    const response = await fetch(`${backendUrl}/auth/spotify/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

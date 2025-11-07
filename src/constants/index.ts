@@ -8,7 +8,8 @@
  */
 export const SPOTIFY_CONFIG = {
   CLIENT_ID: import.meta.env.VITE_SPOTIFY_CLIENT_ID || '',
-  REDIRECT_URI: 'com.slideshowbuddy://callback',
+  // Updated to match Capacitor app ID for proper deep linking
+  REDIRECT_URI: 'com.slideshowbuddy.app://callback',
   SCOPES: [
     'user-read-private',
     'user-read-email',
@@ -20,7 +21,11 @@ export const SPOTIFY_CONFIG = {
     'user-modify-playback-state',
   ].join(' '),
   AUTH_URL: 'https://accounts.spotify.com/authorize',
-  TOKEN_URL: 'https://accounts.spotify.com/api/token',
+  // Backend server URLs for token exchange (PKCE)
+  BACKEND_URL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080',
+  TOKEN_ENDPOINT: '/auth/spotify/token',
+  REFRESH_ENDPOINT: '/auth/spotify/refresh',
+  // Spotify API
   API_BASE_URL: 'https://api.spotify.com/v1',
 };
 
