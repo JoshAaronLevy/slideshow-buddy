@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2025-11-11
+
+### Fixed
+- Photo pagination now loads unique photos instead of repeating the same batch - users can now access all photos beyond the first 50
+- Slideshow control buttons (play/pause/skip) are now perfectly circular instead of appearing oval
+
+### Changed
+- Back button icon in photo picker changed from X to left-pointing arrow for better UX clarity
+
 ## [0.4.0] - 2025-11-06
 
 ### Added

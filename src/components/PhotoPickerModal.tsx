@@ -19,7 +19,7 @@ import {
   IonInfiniteScroll,
   IonInfiniteScrollContent,
 } from '@ionic/react';
-import { close, checkmarkCircle, chevronForward, imagesOutline, alertCircle } from 'ionicons/icons';
+import { close, checkmarkCircle, chevronForward, chevronBack, imagesOutline, alertCircle } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
 import { Photo, PhotoAlbum } from '../types';
 import { getPhotoAlbums, getPhotosFromAlbum } from '../services/PhotoService';
@@ -201,7 +201,7 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           {view === 'photos' && (
             <IonButtons slot="start">
               <IonButton onClick={handleBackToAlbums}>
-                <IonIcon slot="icon-only" icon={close} />
+                <IonIcon slot="icon-only" icon={chevronBack} />
               </IonButton>
             </IonButtons>
           )}

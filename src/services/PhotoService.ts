@@ -192,8 +192,9 @@ export const getPhotosFromAlbum = async (
       }
 
       // Add createdBefore for pagination if provided
+      // Subtract 1ms to ensure we don't include the last photo from previous batch
       if (createdBefore) {
-        options.createdBefore = createdBefore;
+        options.createdBefore = createdBefore - 1;
       }
 
       const result = await Media.getMedias(options);

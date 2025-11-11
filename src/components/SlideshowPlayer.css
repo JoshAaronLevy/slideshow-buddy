@@ -211,11 +211,16 @@
   --background-activated: rgba(255, 255, 255, 0.4);
   --color: white;
   --border-radius: 50%;
-  --padding-start: 16px;
-  --padding-end: 16px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
   width: 56px;
   height: 56px;
+  min-width: 56px;
+  min-height: 56px;
   font-size: 28px;
+  aspect-ratio: 1 / 1;
 }
 
 .control-button ion-icon {
@@ -228,7 +233,10 @@
   --background-activated: var(--ion-color-primary-tint);
   width: 64px;
   height: 64px;
+  min-width: 64px;
+  min-height: 64px;
   font-size: 32px;
+  aspect-ratio: 1 / 1;
 }
 
 .play-button ion-icon {
@@ -288,10 +296,15 @@
   --background-activated: rgba(255, 255, 255, 0.35);
   --color: white;
   --border-radius: 50%;
-  --padding-start: 12px;
-  --padding-end: 12px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --padding-top: 0;
+  --padding-bottom: 0;
   width: 44px;
   height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  aspect-ratio: 1 / 1;
 }
 
 .hide-controls-button ion-icon {
@@ -356,6 +369,8 @@
   .control-button {
     width: 48px;
     height: 48px;
+    min-width: 48px;
+    min-height: 48px;
     font-size: 24px;
   }
 
@@ -366,6 +381,8 @@
   .play-button {
     width: 56px;
     height: 56px;
+    min-width: 56px;
+    min-height: 56px;
     font-size: 28px;
   }
 
@@ -385,6 +402,8 @@
   .hide-controls-button {
     width: 40px;
     height: 40px;
+    min-width: 40px;
+    min-height: 40px;
   }
 
   .hide-controls-button ion-icon {
