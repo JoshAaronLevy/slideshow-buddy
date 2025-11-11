@@ -72,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `src/components/SpotifyLoginButton.tsx` - Reusable Spotify login button component with status indicators
 - Demo integration in Tab1 (My Photos) page to showcase new OAuth implementation
 - Comprehensive OAuth documentation in `SPOTIFY_OAUTH_IMPLEMENTATION.md`
-- Environment variable support for backend token exchange (VITE_API_BASE_URL)
+- Environment variable support for backend token exchange (VITE_BACKEND_URL)
 - Custom URL scheme handling via @capacitor/app for `com.slideshowbuddy://callback`
 - sessionStorage-based OAuth state management (non-persistent, secure)
 

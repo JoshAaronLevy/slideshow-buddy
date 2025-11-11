@@ -60,14 +60,19 @@ export const useAuthStore = create<AuthState>((set) => ({
    * Called when user is redirected back to app
    */
   handleCallback: async (code: string, state: string) => {
+    console.log('[AuthStore] handleCallback invoked');
     set({ isLoading: true, error: null });
 
     try {
       // Exchange code for tokens
+      console.log('[AuthStore] Exchanging code for tokens...');
       const tokens = await SpotifyAuthService.handleCallback(code, state);
+      console.log('[AuthStore] Tokens received successfully');
 
       // Get user profile
+      console.log('[AuthStore] Fetching user profile...');
       const user = await SpotifyAuthService.getCurrentUser();
+      console.log('[AuthStore] User profile received:', user.display_name);
 
       set({
         isAuthenticated: true,
@@ -75,7 +80,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         accessToken: tokens.access_token,
         isLoading: false,
       });
+      
+      console.log('[AuthStore] Auth state updated - user is now authenticated');
     } catch (error) {
+      console.error('[AuthStore] Error in handleCallback:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to complete authentication';
       set({
@@ -133,14 +141,22 @@ export const useAuthStore = create<AuthState>((set) => ({
    * Should be called on app launch
    */
   checkAuthStatus: async () => {
+    console.log('[AuthStore] checkAuthStatus called');
     set({ isLoading: true });
 
     try {
       const isAuthenticated = await SpotifyAuthService.checkAuthStatus();
+      console.log('[AuthStore] Auth status check result:', isAuthenticated);
 
       if (isAuthenticated) {
         const user = await SpotifyAuthService.getStoredUser();
         const accessToken = await SpotifyAuthService.getAccessToken();
+
+        console.log('[AuthStore] User authenticated:', {
+          hasUser: !!user,
+          hasToken: !!accessToken,
+          userName: user?.display_name
+        });
 
         set({
           isAuthenticated: true,
@@ -149,6 +165,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
         });
       } else {
+        console.log('[AuthStore] User not authenticated');
         set({
           isAuthenticated: false,
           user: null,
@@ -156,7 +173,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
         });
       }
-    } catch {
+    } catch (error) {
+      console.error('[AuthStore] Error checking auth status:', error);
       set({
         isAuthenticated: false,
         user: null,

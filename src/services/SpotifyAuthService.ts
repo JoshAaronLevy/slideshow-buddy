@@ -35,8 +35,12 @@ export const login = async (): Promise<void> => {
     authUrl.searchParams.append('state', state);
     authUrl.searchParams.append('scope', SPOTIFY_CONFIG.SCOPES);
 
+    const finalUrl = authUrl.toString();
+    console.log('[SpotifyAuth] Opening authorization URL:', finalUrl);
+    console.log('[SpotifyAuth] Redirect URI being sent:', SPOTIFY_CONFIG.REDIRECT_URI);
+
     // Open browser for authentication
-    await Browser.open({ url: authUrl.toString() });
+    await Browser.open({ url: finalUrl });
   } catch (error) {
     console.error('Error starting Spotify login:', error);
     throw new Error('Failed to start Spotify login');
@@ -50,9 +54,20 @@ export const login = async (): Promise<void> => {
  * @param state - State parameter for verification
  */
 export const handleCallback = async (code: string, state: string): Promise<SpotifyTokens> => {
+  console.log('[SpotifyAuth] handleCallback called', { 
+    code: code.substring(0, 10) + '...', 
+    state: state.substring(0, 10) + '...' 
+  });
+  
   try {
     // Verify state to prevent CSRF
     const { value: storedState } = await Preferences.get({ key: 'spotify_state' });
+    console.log('[SpotifyAuth] State verification', { 
+      receivedState: state.substring(0, 10) + '...', 
+      storedState: storedState?.substring(0, 10) + '...',
+      matches: state === storedState 
+    });
+    
     if (state !== storedState) {
       throw new Error('State mismatch - possible CSRF attack');
     }
@@ -62,20 +77,22 @@ export const handleCallback = async (code: string, state: string): Promise<Spoti
     if (!codeVerifier) {
       throw new Error('Code verifier not found');
     }
+    console.log('[SpotifyAuth] Code verifier retrieved');
 
-    // Exchange authorization code for tokens
+    // Exchange authorization code for tokens via backend server
+    console.log('[SpotifyAuth] Exchanging code for tokens via backend server...');
+    const tokenUrl = `${SPOTIFY_CONFIG.BACKEND_URL}${SPOTIFY_CONFIG.TOKEN_ENDPOINT}`;
+    console.log('[SpotifyAuth] Backend token URL:', tokenUrl);
+    
     const response = await axios.post(
-      SPOTIFY_CONFIG.TOKEN_URL,
-      new URLSearchParams({
-        grant_type: 'authorization_code',
+      tokenUrl,
+      {
         code,
-        redirect_uri: SPOTIFY_CONFIG.REDIRECT_URI,
-        client_id: SPOTIFY_CONFIG.CLIENT_ID,
         code_verifier: codeVerifier,
-      }),
+      },
       {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
       }
     );
@@ -84,17 +101,32 @@ export const handleCallback = async (code: string, state: string): Promise<Spoti
       ...response.data,
       expires_at: Date.now() + response.data.expires_in * 1000,
     };
+    
+    console.log('[SpotifyAuth] Tokens received', { 
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: response.data.expires_in 
+    });
 
     // Store tokens securely
     await storeTokens(tokens);
+    console.log('[SpotifyAuth] Tokens stored successfully');
 
     // Clean up temporary data
     await Preferences.remove({ key: 'spotify_code_verifier' });
     await Preferences.remove({ key: 'spotify_state' });
+    console.log('[SpotifyAuth] Temporary data cleaned up');
 
     return tokens;
   } catch (error) {
-    console.error('Error handling Spotify callback:', error);
+    console.error('[SpotifyAuth] Error handling callback:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('[SpotifyAuth] Axios error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+    }
     throw new Error('Failed to complete Spotify authentication');
   }
 };
@@ -111,17 +143,18 @@ export const refreshAccessToken = async (): Promise<SpotifyTokens> => {
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
-
+    
+    console.log('[SpotifyAuth] Refreshing token via backend server...');
+    const refreshUrl = `${SPOTIFY_CONFIG.BACKEND_URL}${SPOTIFY_CONFIG.REFRESH_ENDPOINT}`;
+    
     const response = await axios.post(
-      SPOTIFY_CONFIG.TOKEN_URL,
-      new URLSearchParams({
-        grant_type: 'refresh_token',
+      refreshUrl,
+      {
         refresh_token: refreshToken,
-        client_id: SPOTIFY_CONFIG.CLIENT_ID,
-      }),
+      },
       {
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
       }
     );
@@ -182,11 +215,14 @@ export const isTokenExpired = async (): Promise<boolean> => {
  * Get current user profile from Spotify
  */
 export const getCurrentUser = async (): Promise<SpotifyUser> => {
+  console.log('[SpotifyAuth] Fetching current user profile...');
+  
   try {
     const token = await getAccessToken();
     if (!token) {
       throw new Error('No access token available');
     }
+    console.log('[SpotifyAuth] Access token retrieved for user profile request');
 
     const response = await axios.get(`${SPOTIFY_CONFIG.API_BASE_URL}/me`, {
       headers: {
@@ -201,16 +237,30 @@ export const getCurrentUser = async (): Promise<SpotifyUser> => {
       images: response.data.images,
       product: response.data.product,
     };
+    
+    console.log('[SpotifyAuth] User profile fetched', {
+      id: user.id,
+      displayName: user.display_name,
+      email: user.email,
+      product: user.product
+    });
 
     // Store user data
     await Preferences.set({
       key: STORAGE_KEYS.SPOTIFY_USER,
       value: JSON.stringify(user),
     });
+    console.log('[SpotifyAuth] User profile stored successfully');
 
     return user;
   } catch (error) {
-    console.error('Error getting Spotify user:', error);
+    console.error('[SpotifyAuth] Error getting user profile:', error);
+    if (axios.isAxiosError(error)) {
+      console.error('[SpotifyAuth] API error details:', {
+        status: error.response?.status,
+        data: error.response?.data
+      });
+    }
     throw new Error('Failed to get user profile');
   }
 };
@@ -237,19 +287,31 @@ export const logout = async (): Promise<void> => {
  * Check authentication status on app launch
  */
 export const checkAuthStatus = async (): Promise<boolean> => {
+  console.log('[SpotifyAuth] Checking authentication status...');
+  
   const token = await getAccessToken();
-  if (!token) return false;
+  if (!token) {
+    console.log('[SpotifyAuth] No access token found');
+    return false;
+  }
+  console.log('[SpotifyAuth] Access token found');
 
   const expired = await isTokenExpired();
+  console.log('[SpotifyAuth] Token expired:', expired);
+  
   if (expired) {
     try {
+      console.log('[SpotifyAuth] Attempting to refresh token...');
       await refreshAccessToken();
+      console.log('[SpotifyAuth] Token refreshed successfully');
       return true;
-    } catch {
+    } catch (error) {
+      console.error('[SpotifyAuth] Token refresh failed:', error);
       return false;
     }
   }
 
+  console.log('[SpotifyAuth] Authentication status: valid');
   return true;
 };
 
@@ -258,17 +320,48 @@ export const checkAuthStatus = async (): Promise<boolean> => {
  * Should be called on app initialization
  */
 export const setupAuthListener = (onCallback: (code: string, state: string) => void): void => {
+  console.log('[SpotifyAuth] Setting up app URL listener for OAuth callback');
+  
   App.addListener('appUrlOpen', (data) => {
-    const url = new URL(data.url);
+    console.log('[SpotifyAuth] App URL opened:', data.url);
     
-    // Check if this is our OAuth callback
-    if (url.protocol === 'slideshowbuddy:' && url.host === 'callback') {
-      const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state');
+    try {
+      const url = new URL(data.url);
+      console.log('[SpotifyAuth] Parsed URL:', {
+        protocol: url.protocol,
+        host: url.host,
+        pathname: url.pathname,
+        search: url.search
+      });
       
-      if (code && state) {
-        onCallback(code, state);
+      // Check if this is our OAuth callback
+      // Support multiple URL schemes for backward compatibility
+      const isCallback = (
+        (url.protocol === 'com.slideshowbuddy:' && url.host === 'callback') ||
+        (url.protocol === 'slideshowbuddy:' && url.host === 'callback') ||
+        (url.protocol === 'com.slideshowbuddy.app:' && url.host === 'callback')
+      );
+      
+      if (isCallback) {
+        const code = url.searchParams.get('code');
+        const state = url.searchParams.get('state');
+        
+        console.log('[SpotifyAuth] OAuth callback detected', {
+          hasCode: !!code,
+          hasState: !!state
+        });
+        
+        if (code && state) {
+          console.log('[SpotifyAuth] Invoking callback handler...');
+          onCallback(code, state);
+        } else {
+          console.error('[SpotifyAuth] Missing code or state in callback URL');
+        }
+      } else {
+        console.log('[SpotifyAuth] URL is not an OAuth callback');
       }
+    } catch (error) {
+      console.error('[SpotifyAuth] Error parsing app URL:', error);
     }
   });
 };

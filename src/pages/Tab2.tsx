@@ -489,15 +489,32 @@ const Tab2: React.FC = () => {
 
   // Check auth status on mount
   useEffect(() => {
+    console.log('[Tab2] Component mounted, checking auth status');
     checkAuthStatus();
   }, [checkAuthStatus]);
 
   // Setup OAuth callback listener
   useEffect(() => {
-    setupAuthListener((code, state) => {
-      handleCallback(code, state);
+    console.log('[Tab2] Setting up OAuth callback listener');
+    setupAuthListener(async (code, state) => {
+      console.log('[Tab2] OAuth callback received, handling authentication...');
+      
+      try {
+        // Handle the callback
+        await handleCallback(code, state);
+        
+        console.log('[Tab2] Callback handled, refreshing auth status...');
+        
+        // Force a fresh check of auth status after callback completes
+        // This ensures the UI updates to show the authenticated state
+        await checkAuthStatus();
+        
+        console.log('[Tab2] Auth status refreshed successfully');
+      } catch (error) {
+        console.error('[Tab2] Error handling OAuth callback:', error);
+      }
     });
-  }, [handleCallback]);
+  }, [handleCallback, checkAuthStatus]);
 
   // Show error toast
   useEffect(() => {
