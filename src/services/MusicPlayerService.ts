@@ -192,10 +192,10 @@ export const initializePlayer = async (
 };
 
 /**
- * Start playback with a playlist or track URI
+ * Start playback with a playlist URI or array of track URIs
  */
 export const startPlayback = async (
-  uri: string,
+  uriOrUris: string | string[],
   isPlaylist: boolean = true
 ): Promise<void> => {
   try {
@@ -212,8 +212,8 @@ export const startPlayback = async (
       context_uri?: string;
       uris?: string[];
     } = isPlaylist
-      ? { context_uri: uri }
-      : { uris: [uri] };
+      ? { context_uri: uriOrUris as string }
+      : { uris: Array.isArray(uriOrUris) ? uriOrUris : [uriOrUris] };
 
     await axios.put(
       `${SPOTIFY_CONFIG.API_BASE_URL}/me/player/play?device_id=${deviceId}`,

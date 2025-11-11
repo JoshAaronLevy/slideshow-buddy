@@ -149,8 +149,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
           if (musicSource.type === 'custom-playlist') {
             const playlist = customPlaylists.find(p => p.id === musicSource.playlistId);
             if (playlist && playlist.tracks.length > 0) {
-              // Play first track URI (Spotify doesn't support playing custom playlists directly)
-              await MusicPlayerService.startPlayback(playlist.tracks[0].uri, false);
+              // Play all tracks in the custom playlist
+              const trackUris = playlist.tracks.map(track => track.uri);
+              await MusicPlayerService.startPlayback(trackUris, false);
               setMusicPlaying(true);
             }
           } else if (musicSource.type === 'spotify-playlist') {
