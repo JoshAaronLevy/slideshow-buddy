@@ -35,8 +35,12 @@ export const login = async (): Promise<void> => {
     authUrl.searchParams.append('state', state);
     authUrl.searchParams.append('scope', SPOTIFY_CONFIG.SCOPES);
 
+    const finalUrl = authUrl.toString();
+    console.log('[SpotifyAuth] Opening authorization URL:', finalUrl);
+    console.log('[SpotifyAuth] Redirect URI being sent:', SPOTIFY_CONFIG.REDIRECT_URI);
+
     // Open browser for authentication
-    await Browser.open({ url: authUrl.toString() });
+    await Browser.open({ url: finalUrl });
   } catch (error) {
     console.error('Error starting Spotify login:', error);
     throw new Error('Failed to start Spotify login');
