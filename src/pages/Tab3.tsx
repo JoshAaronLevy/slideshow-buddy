@@ -17,6 +17,7 @@ import {
   IonItem,
   IonList,
   useIonToast,
+  useIonViewWillEnter,
 } from '@ionic/react';
 import {
   playCircleOutline,
@@ -45,6 +46,33 @@ const Tab3: React.FC = () => {
   const canStart = hasPhotos && hasMusic;
 
   const musicName = selectedPlaylist?.name || selectedTrack?.name || 'None';
+
+  // Diagnostic fetch code to test backend connectivity
+  useIonViewWillEnter(() => {
+    const runDiagnostics = async () => {
+      console.log('Running diagnostic fetch tests...');
+      
+      // Test 1: Health check on slideshow-buddy server
+      try {
+        const r = await fetch('https://slideshow-buddy-server.onrender.com/healthz', { cache: 'no-store' });
+        console.log('healthz status', r.status);
+        console.log('healthz json', await r.json());
+      } catch (e) {
+        console.error('healthz fetch failed', e);
+      }
+
+      // Test 2: External service test (postman-echo)
+      try {
+        const r2 = await fetch('https://postman-echo.com/get', { cache: 'no-store' });
+        console.log('echo status', r2.status);
+        console.log('echo json', await r2.json());
+      } catch (e) {
+        console.error('echo fetch failed', e);
+      }
+    };
+
+    runDiagnostics();
+  });
 
   const handleStartSlideshow = async () => {
     if (!canStart) {
