@@ -16,8 +16,6 @@ import {
   IonFooter,
   IonBadge,
   IonSpinner,
-  IonInfiniteScroll,
-  IonInfiniteScrollContent,
 } from '@ionic/react';
 import { close, checkmarkCircle, chevronForward, chevronBack, imagesOutline, alertCircle } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
@@ -106,15 +104,35 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
       const pageToLoad = loadMore ? currentPage + 1 : 1;
       const totalQuantity = PAGE_SIZE * pageToLoad;
       
+      console.log('[PhotoPicker] Loading photos:', {
+        loadMore,
+        currentPage,
+        pageToLoad,
+        totalQuantity,
+        albumIdentifier
+      });
+      
       // Fetch all photos up to the current page
       const allPhotos = await getPhotosFromAlbum(albumIdentifier, totalQuantity);
+      
+      console.log('[PhotoPicker] Received photos:', {
+        allPhotosLength: allPhotos.length,
+        requestedQuantity: totalQuantity
+      });
       
       if (loadMore) {
         // Only add the new photos (slice from previous page's end)
         const previousCount = PAGE_SIZE * currentPage;
         const newPhotos = allPhotos.slice(previousCount);
         
+        console.log('[PhotoPicker] New photos:', {
+          previousCount,
+          newPhotosLength: newPhotos.length,
+          sliceStart: previousCount
+        });
+        
         if (newPhotos.length === 0) {
+          console.log('[PhotoPicker] No more photos - setting hasMore to false');
           setHasMore(false);
         } else {
           setPhotos(prev => [...prev, ...newPhotos]);
@@ -122,7 +140,10 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           
           // If we got fewer new photos than page size, there are no more
           if (newPhotos.length < PAGE_SIZE) {
+            console.log('[PhotoPicker] Got fewer than PAGE_SIZE - setting hasMore to false');
             setHasMore(false);
+          } else {
+            console.log('[PhotoPicker] More photos available');
           }
         }
       } else {
@@ -198,13 +219,6 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const handleDismiss = () => {
     HapticService.impactLight();
     onDismiss();
-  };
-
-  const handleLoadMore = async (event: CustomEvent<void>) => {
-    if (selectedAlbum && hasMore && !isLoading) {
-      await loadPhotos(selectedAlbum.identifier, true);
-    }
-    (event.target as HTMLIonInfiniteScrollElement).complete();
   };
 
   const selectedCount = selectedPhotos.size;
@@ -334,17 +348,24 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
                   })}
                 </div>
 
-                {/* Infinite Scroll */}
-                <IonInfiniteScroll
-                  threshold="100px"
-                  disabled={!hasMore || isLoading}
-                  onIonInfinite={handleLoadMore}
-                >
-                  <IonInfiniteScrollContent
-                    loadingSpinner="crescent"
-                    loadingText="Loading more photos..."
-                  />
-                </IonInfiniteScroll>
+                {/* Load More Button */}
+                {hasMore && !isLoading && (
+                  <div style={{ padding: '16px', textAlign: 'center' }}>
+                    <IonButton
+                      expand="block"
+                      fill="outline"
+                      onClick={() => loadPhotos(selectedAlbum?.identifier, true)}
+                    >
+                      Load More Photos
+                    </IonButton>
+                  </div>
+                )}
+                
+                {isLoading && photos.length > 0 && (
+                  <div style={{ padding: '16px', textAlign: 'center' }}>
+                    <IonSpinner name="crescent" />
+                  </div>
+                )}
               </>
             )}
           </>
