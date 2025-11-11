@@ -53,7 +53,8 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [lastTimestamp, setLastTimestamp] = useState<number | undefined>(undefined);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
 
   // Load albums when modal opens
   useEffect(() => {
@@ -68,7 +69,7 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
       setSelectedPhotos(new Map());
       setError(null);
       setHasMore(true);
-      setLastTimestamp(undefined);
+      setCurrentPage(1);
     }
   }, [isOpen]);
 
@@ -95,31 +96,45 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     }
   };
 
-  const loadPhotos = async (albumId?: string, append: boolean = false) => {
+  const loadPhotos = async (albumId?: string, loadMore: boolean = false) => {
     setIsLoading(true);
     setError(null);
     try {
       const albumIdentifier = albumId === '__ALL_PHOTOS__' ? undefined : albumId;
-      const newPhotos = await getPhotosFromAlbum(
-        albumIdentifier,
-        50,
-        append ? lastTimestamp : undefined
-      );
       
-      if (newPhotos.length === 0) {
-        setHasMore(false);
-      } else {
-        setPhotos(prev => append ? [...prev, ...newPhotos] : newPhotos);
+      // Calculate the page to load
+      const pageToLoad = loadMore ? currentPage + 1 : 1;
+      const totalQuantity = PAGE_SIZE * pageToLoad;
+      
+      // Fetch all photos up to the current page
+      const allPhotos = await getPhotosFromAlbum(albumIdentifier, totalQuantity);
+      
+      if (loadMore) {
+        // Only add the new photos (slice from previous page's end)
+        const previousCount = PAGE_SIZE * currentPage;
+        const newPhotos = allPhotos.slice(previousCount);
         
-        // Update last timestamp for pagination
-        const lastPhoto = newPhotos[newPhotos.length - 1];
-        if (lastPhoto) {
-          setLastTimestamp(lastPhoto.timestamp);
-        }
-        
-        // If we got fewer photos than requested, there are no more
-        if (newPhotos.length < 50) {
+        if (newPhotos.length === 0) {
           setHasMore(false);
+        } else {
+          setPhotos(prev => [...prev, ...newPhotos]);
+          setCurrentPage(pageToLoad);
+          
+          // If we got fewer new photos than page size, there are no more
+          if (newPhotos.length < PAGE_SIZE) {
+            setHasMore(false);
+          }
+        }
+      } else {
+        // Initial load
+        setPhotos(allPhotos);
+        setCurrentPage(1);
+        
+        // If we got fewer photos than page size, there are no more
+        if (allPhotos.length < PAGE_SIZE) {
+          setHasMore(false);
+        } else {
+          setHasMore(true);
         }
       }
     } catch (err) {
@@ -135,7 +150,7 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     setSelectedAlbum(album);
     setPhotos([]);
     setHasMore(true);
-    setLastTimestamp(undefined);
+    setCurrentPage(1);
     setView('photos');
     await loadPhotos(album.identifier);
   };
@@ -146,7 +161,7 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     setSelectedAlbum(null);
     setPhotos([]);
     setHasMore(true);
-    setLastTimestamp(undefined);
+    setCurrentPage(1);
   };
 
   const handlePhotoClick = (photo: Photo) => {

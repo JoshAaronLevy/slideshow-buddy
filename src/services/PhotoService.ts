@@ -158,14 +158,12 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
 /**
  * Get photos from a specific album or all photos
  * @param albumIdentifier - Album ID (optional, if not provided gets all photos)
- * @param quantity - Maximum number of photos to fetch (default: 50)
- * @param createdBefore - Timestamp to fetch photos created before this time (for pagination)
+ * @param quantity - Total number of photos to fetch from the beginning (for pagination, request 50, 100, 150, etc.)
  * @returns Promise<Photo[]> - Array of photos
  */
 export const getPhotosFromAlbum = async (
   albumIdentifier?: string,
-  quantity: number = 50,
-  createdBefore?: number
+  quantity: number = 50
 ): Promise<Photo[]> => {
   try {
     // Check/request permissions first
@@ -189,12 +187,6 @@ export const getPhotosFromAlbum = async (
       // Add album identifier if provided
       if (albumIdentifier) {
         options.albumIdentifier = albumIdentifier;
-      }
-
-      // Add createdBefore for pagination if provided
-      // Subtract 1ms to ensure we don't include the last photo from previous batch
-      if (createdBefore) {
-        options.createdBefore = createdBefore - 1;
       }
 
       const result = await Media.getMedias(options);
