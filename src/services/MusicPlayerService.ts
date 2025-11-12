@@ -15,6 +15,7 @@ let player: any | null = null; // Spotify.Player
 let deviceId: string | null = null;
 let sdkLoaded = false;
 let sdkLoading = false;
+let sdkLoadInterval: NodeJS.Timeout | null = null;
 
 /**
  * Load the Spotify Web Playback SDK script
@@ -41,18 +42,40 @@ export const loadSpotifySDK = (): Promise<void> => {
 
     sdkLoading = true;
 
+    // Clear any existing interval
+    if (sdkLoadInterval) {
+      clearInterval(sdkLoadInterval);
+      sdkLoadInterval = null;
+    }
+
     // Check if script already exists
     const existingScript = document.querySelector(
       'script[src="https://sdk.scdn.co/spotify-player.js"]'
     );
     
     if (existingScript) {
-      // Script exists, wait for it to load
-      window.onSpotifyWebPlaybackSDKReady = () => {
-        sdkLoaded = true;
-        sdkLoading = false;
-        resolve();
-      };
+      // Script exists, wait for it to load with interval
+      sdkLoadInterval = setInterval(() => {
+        if (window.Spotify) {
+          if (sdkLoadInterval) {
+            clearInterval(sdkLoadInterval);
+            sdkLoadInterval = null;
+          }
+          sdkLoaded = true;
+          sdkLoading = false;
+          resolve();
+        }
+      }, 100);
+      
+      // Add timeout to prevent infinite waiting
+      setTimeout(() => {
+        if (sdkLoadInterval) {
+          clearInterval(sdkLoadInterval);
+          sdkLoadInterval = null;
+          sdkLoading = false;
+          reject(new Error('Spotify SDK load timeout'));
+        }
+      }, 10000);
       return;
     }
 
@@ -67,6 +90,10 @@ export const loadSpotifySDK = (): Promise<void> => {
     };
 
     window.onSpotifyWebPlaybackSDKReady = () => {
+      if (sdkLoadInterval) {
+        clearInterval(sdkLoadInterval);
+        sdkLoadInterval = null;
+      }
       sdkLoaded = true;
       sdkLoading = false;
       resolve();
@@ -103,14 +130,15 @@ export const initializePlayer = async (
 
     // Disconnect existing player if any
     if (player) {
+      console.warn('[MusicPlayer:Init] Existing player found, disconnecting before creating new one');
       console.log('[MusicPlayer:Init]', JSON.stringify({
         timestamp: Date.now(),
         action: 'disconnecting_existing_player',
         deviceId: deviceId,
       }));
-      player.disconnect();
-      player = null;
-      deviceId = null;
+      
+      // Use cleanup to ensure full cleanup
+      cleanup();
     }
 
     // Create new player
@@ -575,14 +603,40 @@ export const previousTrack = async (): Promise<void> => {
  * Cleanup and disconnect player
  */
 export const cleanup = (): void => {
+  console.log('[MusicPlayer:Cleanup]', JSON.stringify({
+    timestamp: Date.now(),
+    action: 'cleanup_start',
+    hadPlayer: player !== null,
+    hadDeviceId: deviceId !== null,
+  }));
+  
   try {
+    // Disconnect player
     if (player) {
       player.disconnect();
-      player = null;
-      deviceId = null;
     }
+    
+    // Clear all references
+    player = null;
+    deviceId = null;
+    
+    // Clear SDK load interval if still running
+    if (sdkLoadInterval) {
+      clearInterval(sdkLoadInterval);
+      sdkLoadInterval = null;
+    }
+    
+    console.log('[MusicPlayer:Cleanup]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'cleanup_complete',
+    }));
   } catch (error) {
-    console.error('Error cleaning up player:', error);
+    console.error('[MusicPlayer:Cleanup] Error cleaning up player:', error);
+    console.log('[MusicPlayer:Cleanup]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'cleanup_error',
+      error: error instanceof Error ? error.message : 'unknown',
+    }));
   }
 };
 

@@ -11,7 +11,7 @@ export * from './playlist';
  */
 export interface Photo {
   id: string;
-  uri: string;
+  uri: string; // Blob URL (revocable) for memory efficiency
   filename: string;
   timestamp: number;
   selected: boolean;

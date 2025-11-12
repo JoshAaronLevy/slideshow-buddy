@@ -20,6 +20,7 @@ import SpotifySyncModal from './components/SpotifySyncModal';
 import { requestPhotoLibraryPermission } from './services/PhotoService';
 import { useSpotifyAuth } from './hooks/useSpotifyAuth';
 import TokenManager from './services/TokenManager';
+import { memoryMonitor } from './utils/memoryMonitor';
 // import Tab3 from './pages/Tab3'; // Commented out for redesign (Stage 5 will reintegrate)
 
 /* Core CSS required for Ionic components to work properly */
@@ -109,6 +110,17 @@ const App: React.FC = () => {
     };
 
     initTokenManager();
+  }, []);
+
+  // Stage 5: Start memory monitoring
+  useEffect(() => {
+    console.log('[App] Starting memory monitor...');
+    memoryMonitor.start();
+
+    return () => {
+      console.log('[App] Stopping memory monitor...');
+      memoryMonitor.stop();
+    };
   }, []);
 
   const handleSyncNow = async () => {

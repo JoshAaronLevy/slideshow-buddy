@@ -11,6 +11,10 @@ import { SpotifyTokens, SpotifyUser } from '../types';
 import { generateCodeVerifier, generateCodeChallenge, generateState } from '../utils/pkce';
 import TokenManager from './TokenManager';
 
+// Store the current auth listener to prevent accumulation
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let currentAuthListener: any = null;
+
 /**
  * Start the Spotify OAuth login flow
  * Opens browser for user authentication
@@ -378,6 +382,9 @@ export const logout = async (): Promise<void> => {
   
   // Clear user data
   await Preferences.remove({ key: STORAGE_KEYS.SPOTIFY_USER });
+  
+  // Remove auth listener on logout
+  removeAuthListener();
 };
 
 /**
@@ -400,14 +407,22 @@ export const checkAuthStatus = async (): Promise<boolean> => {
 /**
  * Setup app URL listener for OAuth callback
  * Should be called on app initialization
- * Stage 5: Now returns listener handle for cleanup
+ * Automatically removes previous listener to prevent accumulation
  */
-export const setupAuthListener = (
+export const setupAuthListener = async (
   onCallback: (code: string, state: string) => void
 ): Promise<{ remove: () => void }> => {
   console.log('[SpotifyAuth] Setting up app URL listener for OAuth callback');
   
-  return App.addListener('appUrlOpen', (data) => {
+  // Remove existing listener if present
+  if (currentAuthListener) {
+    console.log('[SpotifyAuth] Removing previous auth listener to prevent accumulation');
+    currentAuthListener.remove();
+    currentAuthListener = null;
+  }
+  
+  // Add new listener
+  const listener = await App.addListener('appUrlOpen', (data) => {
     console.log('[SpotifyAuth] App URL opened:', data.url);
     
     try {
@@ -449,4 +464,22 @@ export const setupAuthListener = (
       console.error('[SpotifyAuth] Error parsing app URL:', error);
     }
   });
+  
+  // Store listener reference for cleanup
+  currentAuthListener = listener;
+  console.log('[SpotifyAuth] Auth listener setup complete');
+  
+  return listener;
+};
+
+/**
+ * Remove the current auth listener
+ * Call this when you no longer need OAuth callback handling
+ */
+export const removeAuthListener = (): void => {
+  if (currentAuthListener) {
+    console.log('[SpotifyAuth] Removing auth listener');
+    currentAuthListener.remove();
+    currentAuthListener = null;
+  }
 };

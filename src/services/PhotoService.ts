@@ -8,6 +8,45 @@ import { Capacitor } from '@capacitor/core';
 import { Photo, PhotoAlbum } from '../types';
 
 /**
+ * Convert base64 string to Blob URL
+ * Blob URLs are revocable and use less memory than base64 strings
+ */
+const convertBase64ToBlob = (base64Data: string): Blob => {
+  // Remove data URI prefix if present
+  const base64 = base64Data.includes('base64,') 
+    ? base64Data.split('base64,')[1] 
+    : base64Data;
+  
+  // Convert base64 to binary
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  
+  return new Blob([byteArray], { type: 'image/jpeg' });
+};
+
+/**
+ * Create a blob URL from base64 data
+ */
+const createBlobUrl = (base64Data: string): string => {
+  const blob = convertBase64ToBlob(base64Data);
+  return URL.createObjectURL(blob);
+};
+
+/**
+ * Revoke a blob URL to free memory
+ */
+export const revokeBlobUrl = (blobUrl: string): void => {
+  if (blobUrl && blobUrl.startsWith('blob:')) {
+    console.log('[PhotoService] Revoking blob URL');
+    URL.revokeObjectURL(blobUrl);
+  }
+};
+
+/**
  * Request permission to access the photo library
  * @returns Promise<boolean> - true if permission granted, false otherwise
  */
@@ -61,18 +100,19 @@ export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
       // Convert MediaAsset to Photo
       // For iOS, we need to use the identifier and base64 data
       const photos: Photo[] = result.medias.map((media) => {
-        // Create data URI from base64
-        const dataUri = `data:image/jpeg;base64,${media.data}`;
+        // Create blob URL from base64 (more memory efficient)
+        const blobUrl = createBlobUrl(media.data);
         
         return {
           id: media.identifier,
-          uri: dataUri,
+          uri: blobUrl,
           filename: `photo_${media.creationDate}.jpg`,
           timestamp: new Date(media.creationDate).getTime(),
           selected: false,
         };
       });
 
+      console.log(`[PhotoService] Created ${photos.length} blob URLs for iOS photos`);
       return photos;
     } else if (platform === 'android') {
       // On Android, Media plugin's identifier IS the file path
@@ -90,17 +130,19 @@ export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
 
       const photos: Photo[] = result.medias.map((media) => {
         // On Android, identifier is the file path
-        const dataUri = `data:image/jpeg;base64,${media.data}`;
+        // Create blob URL from base64 (more memory efficient)
+        const blobUrl = createBlobUrl(media.data);
         
         return {
           id: media.identifier,
-          uri: dataUri,
+          uri: blobUrl,
           filename: media.identifier.split('/').pop() || `photo_${Date.now()}.jpg`,
           timestamp: new Date(media.creationDate).getTime(),
           selected: false,
         };
       });
 
+      console.log(`[PhotoService] Created ${photos.length} blob URLs for Android photos`);
       return photos;
     } else {
       // Web fallback - not fully functional but prevents errors
@@ -197,11 +239,12 @@ export const getPhotosFromAlbum = async (
 
       // Convert MediaAsset to Photo
       const photos: Photo[] = result.medias.map((media) => {
-        const dataUri = `data:image/jpeg;base64,${media.data}`;
+        // Create blob URL from base64 (more memory efficient)
+        const blobUrl = createBlobUrl(media.data);
         
         return {
           id: media.identifier,
-          uri: dataUri,
+          uri: blobUrl,
           filename: platform === 'android' 
             ? (media.identifier.split('/').pop() || `photo_${Date.now()}.jpg`)
             : `photo_${media.creationDate}.jpg`,
@@ -210,6 +253,7 @@ export const getPhotosFromAlbum = async (
         };
       });
 
+      console.log(`[PhotoService] Created ${photos.length} blob URLs from album`);
       return photos;
     } else {
       // Web fallback

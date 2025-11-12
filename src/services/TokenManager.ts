@@ -10,6 +10,7 @@
  */
 
 import { Preferences } from '@capacitor/preferences';
+import { App } from '@capacitor/app';
 
 interface TokenData {
   accessToken: string;
@@ -25,6 +26,10 @@ class TokenManager {
   
   // Auto-refresh timer
   private refreshTimer: NodeJS.Timeout | null = null;
+  
+  // App state listener
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private appStateListener: any = null;
   
   // Mutex for refresh operations
   private refreshPromise: Promise<string> | null = null;
@@ -219,6 +224,7 @@ class TokenManager {
   /**
    * Start auto-refresh timer
    * Checks every minute if token needs refresh
+   * Also sets up app state listener to pause when backgrounded
    */
   private startAutoRefresh(): void {
     // Clear existing timer
@@ -232,6 +238,9 @@ class TokenManager {
     this.refreshTimer = setInterval(() => {
       this.checkAndRefresh();
     }, this.CHECK_INTERVAL_MS);
+    
+    // Setup app state listener to pause/resume refresh
+    this.setupAppStateListener();
   }
   
   /**
@@ -243,6 +252,9 @@ class TokenManager {
       clearInterval(this.refreshTimer);
       this.refreshTimer = null;
     }
+    
+    // Remove app state listener
+    this.removeAppStateListener();
   }
   
   /**
@@ -270,6 +282,61 @@ class TokenManager {
         console.error('[TokenManager] Auto-refresh failed:', error);
       }
     }
+  }
+  
+  /**
+   * Setup app state listener to pause/resume refresh based on app state
+   */
+  private setupAppStateListener(): void {
+    // Remove existing listener if any
+    this.removeAppStateListener();
+    
+    console.log('[TokenManager] Setting up app state listener');
+    
+    this.appStateListener = App.addListener('appStateChange', ({ isActive }) => {
+      console.log('[TokenManager] App state changed:', isActive ? 'ACTIVE' : 'BACKGROUND');
+      
+      if (isActive) {
+        // Resume auto-refresh when app becomes active
+        console.log('[TokenManager] App foregrounded - resuming auto-refresh');
+        this.startAutoRefresh();
+      } else {
+        // Pause auto-refresh when backgrounded
+        console.log('[TokenManager] App backgrounded - pausing auto-refresh');
+        this.pauseAutoRefresh();
+      }
+    });
+  }
+  
+  /**
+   * Pause auto-refresh (called when app backgrounds)
+   */
+  private pauseAutoRefresh(): void {
+    console.log('[TokenManager] Pausing auto-refresh');
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+  }
+  
+  /**
+   * Remove app state listener
+   */
+  private removeAppStateListener(): void {
+    if (this.appStateListener) {
+      console.log('[TokenManager] Removing app state listener');
+      this.appStateListener.remove();
+      this.appStateListener = null;
+    }
+  }
+  
+  /**
+   * Cleanup method - stops timers and removes listeners
+   * Call this when app is shutting down or user logs out
+   */
+  public cleanup(): void {
+    console.log('[TokenManager] Cleanup called');
+    this.stopAutoRefresh();
   }
   
   /**

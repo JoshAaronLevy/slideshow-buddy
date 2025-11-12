@@ -14,6 +14,7 @@ import {
   createGesture,
   Gesture,
 } from '@ionic/react';
+import { App } from '@capacitor/app';
 import {
   playOutline,
   pauseOutline,
@@ -47,6 +48,7 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   // Local playback state
   const [isPlaying, setIsPlaying] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+  const [isAppActive, setIsAppActive] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [transitionTime, setTransitionTime] = useState(5);
@@ -239,23 +241,81 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     initMusic();
   }, [isOpen, slideshow, musicInitialized, customPlaylists, spotifyPlaylists, presentToast]);
 
+  // Listen for app state changes and pause timers when backgrounded
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let listenerHandle: any = null;
+    
+    const setupListener = async () => {
+      listenerHandle = await App.addListener('appStateChange', ({ isActive }) => {
+        console.log('[SlideshowPlayer] App state changed:', isActive ? 'ACTIVE' : 'BACKGROUND');
+        setIsAppActive(isActive);
+        
+        if (!isActive) {
+          // Pause all timers when app backgrounds
+          console.log('[SlideshowPlayer] Pausing timers - app backgrounded');
+          
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          
+          if (trackUpdateIntervalRef.current) {
+            clearInterval(trackUpdateIntervalRef.current);
+            trackUpdateIntervalRef.current = null;
+          }
+          
+          if (controlsTimeoutRef.current) {
+            clearTimeout(controlsTimeoutRef.current);
+            controlsTimeoutRef.current = null;
+          }
+        } else {
+          // Resume timers when app foregrounds (if playing)
+          console.log('[SlideshowPlayer] App foregrounded - isPlaying:', isPlaying);
+          
+          if (isPlaying && !isPaused) {
+            console.log('[SlideshowPlayer] Resuming timers');
+            // Slideshow timer will restart via the isPlaying useEffect
+            // Track update will restart via the isMusicPlaying useEffect
+          }
+        }
+      });
+    };
+    
+    setupListener();
+    
+    return () => {
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
+    };
+  }, [isPlaying, isPaused]);
+  
   // Update current track info periodically
   useEffect(() => {
-    if (isOpen && isMusicPlaying) {
+    if (isOpen && isMusicPlaying && isAppActive) {
+      console.log('[SlideshowPlayer] Starting track update interval');
       trackUpdateIntervalRef.current = setInterval(async () => {
         const trackInfo = await MusicPlayerService.getCurrentTrack();
         if (trackInfo) {
           setCurrentTrack(trackInfo);
         }
       }, 5000); // Update every 5 seconds
+    } else {
+      if (trackUpdateIntervalRef.current) {
+        console.log('[SlideshowPlayer] Stopping track update interval');
+        clearInterval(trackUpdateIntervalRef.current);
+        trackUpdateIntervalRef.current = null;
+      }
     }
 
     return () => {
       if (trackUpdateIntervalRef.current) {
         clearInterval(trackUpdateIntervalRef.current);
+        trackUpdateIntervalRef.current = null;
       }
     };
-  }, [isOpen, isMusicPlaying]);
+  }, [isOpen, isMusicPlaying, isAppActive]);
 
   // Auto-hide controls after 3 seconds
   const resetControlsTimeout = useCallback(() => {
@@ -411,9 +471,10 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     });
   };
 
-  // Timer for auto-advance
+  // Timer for auto-advance (only when app is active)
   useEffect(() => {
-    if (isPlaying && !isPaused) {
+    if (isPlaying && !isPaused && isAppActive) {
+      console.log('[SlideshowPlayer] Starting slideshow timer');
       timerRef.current = setInterval(() => {
         setTimeRemaining((prev) => {
           if (prev <= 1) {
@@ -426,16 +487,19 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       }, 1000);
     } else {
       if (timerRef.current) {
+        console.log('[SlideshowPlayer] Stopping slideshow timer');
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     }
 
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     };
-  }, [isPlaying, isPaused, transitionTime, handleNext]);
+  }, [isPlaying, isPaused, isAppActive, transitionTime, handleNext]);
 
   // Keep screen awake when playing
   useEffect(() => {
