@@ -14,11 +14,13 @@ import {
 import { IonReactRouter } from '@ionic/react-router';
 import { imagesOutline, musicalNotesOutline } from 'ionicons/icons';
 import { useState, useEffect } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import SlideshowsTab from './pages/SlideshowsTab';
 import Tab2 from './pages/Tab2';
 import SpotifySyncModal from './components/SpotifySyncModal';
 import { requestPhotoLibraryPermission } from './services/PhotoService';
 import { useSpotifyAuth } from './hooks/useSpotifyAuth';
+import * as SpotifyAuthService from './services/SpotifyAuthService';
 // import Tab3 from './pages/Tab3'; // Commented out for redesign (Stage 5 will reintegrate)
 
 /* Core CSS required for Ionic components to work properly */
@@ -92,6 +94,68 @@ const App: React.FC = () => {
 
     checkPermissions();
   }, [presentToast]);
+
+  // Stage 2: App lifecycle listener - refresh token when app resumes from background
+  useEffect(() => {
+    console.log('[App:Lifecycle]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'listener_setup',
+    }));
+
+    const stateChangeListener = CapacitorApp.addListener('appStateChange', async ({ isActive }) => {
+      console.log('[App:Lifecycle]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'state_change',
+        isActive,
+      }));
+
+      if (isActive) {
+        // App resumed from background - check if token needs refresh
+        try {
+          const expired = await SpotifyAuthService.isTokenExpired();
+          
+          if (expired) {
+            console.log('[App:Lifecycle]', JSON.stringify({
+              timestamp: Date.now(),
+              action: 'refreshing_token_on_resume',
+            }));
+
+            await SpotifyAuthService.refreshAccessToken();
+            
+            console.log('[App:Lifecycle]', JSON.stringify({
+              timestamp: Date.now(),
+              action: 'token_refreshed_on_resume',
+              result: 'success',
+            }));
+          } else {
+            console.log('[App:Lifecycle]', JSON.stringify({
+              timestamp: Date.now(),
+              action: 'token_check_on_resume',
+              result: 'token_still_valid',
+            }));
+          }
+        } catch (error) {
+          console.error('[App:Lifecycle] Failed to refresh token on resume:', error);
+          console.log('[App:Lifecycle]', JSON.stringify({
+            timestamp: Date.now(),
+            action: 'token_refresh_on_resume_failed',
+            error: error instanceof Error ? error.message : 'unknown',
+          }));
+        }
+      }
+    });
+
+    // Cleanup listener on unmount
+    return () => {
+      stateChangeListener.then(handle => {
+        handle.remove();
+        console.log('[App:Lifecycle]', JSON.stringify({
+          timestamp: Date.now(),
+          action: 'listener_cleanup',
+        }));
+      });
+    };
+  }, []);
 
   const handleSyncNow = async () => {
     setShowSpotifySync(false);

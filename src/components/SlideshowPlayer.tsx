@@ -109,8 +109,22 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       if (isOpen && slideshow && !musicInitialized) {
         const { musicSource } = slideshow;
         
+        console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+          timestamp: Date.now(),
+          action: 'music_init_start',
+          slideshowId: slideshow.id,
+          slideshowName: slideshow.name,
+          musicSourceType: musicSource.type,
+          musicSourceId: musicSource.type !== 'none' ? musicSource.playlistId : null,
+        }));
+        
         // If no music is selected, skip initialization and allow slideshow to play
         if (musicSource.type === 'none') {
+          console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+            timestamp: Date.now(),
+            action: 'music_init_skipped',
+            reason: 'no_music_source',
+          }));
           setMusicInitialized(true);
           return;
         }
@@ -149,22 +163,64 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
           if (musicSource.type === 'custom-playlist') {
             const playlist = customPlaylists.find(p => p.id === musicSource.playlistId);
             if (playlist && playlist.tracks.length > 0) {
+              console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+                timestamp: Date.now(),
+                action: 'starting_playback',
+                playlistType: 'custom',
+                playlistName: playlist.name,
+                trackCount: playlist.tracks.length,
+              }));
               // Play all tracks in the custom playlist
               const trackUris = playlist.tracks.map(track => track.uri);
               await MusicPlayerService.startPlayback(trackUris, false);
               setMusicPlaying(true);
+            } else {
+              console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+                timestamp: Date.now(),
+                action: 'playlist_not_found',
+                playlistType: 'custom',
+                playlistId: musicSource.playlistId,
+              }));
             }
           } else if (musicSource.type === 'spotify-playlist') {
             const playlist = spotifyPlaylists.find(p => p.id === musicSource.playlistId);
             if (playlist) {
+              console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+                timestamp: Date.now(),
+                action: 'starting_playback',
+                playlistType: 'spotify',
+                playlistName: playlist.name,
+                playlistUri: playlist.uri,
+              }));
               await MusicPlayerService.startPlayback(playlist.uri, true);
               setMusicPlaying(true);
+            } else {
+              console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+                timestamp: Date.now(),
+                action: 'playlist_not_found',
+                playlistType: 'spotify',
+                playlistId: musicSource.playlistId,
+              }));
             }
           }
+          
+          console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+            timestamp: Date.now(),
+            action: 'music_init_success',
+            slideshowId: slideshow.id,
+          }));
         } catch (error) {
           console.error('Failed to initialize music:', error);
           const errorMsg = error instanceof Error ? error.message : 'Failed to start music';
           setMusicError(errorMsg);
+          
+          console.log('[SlideshowPlayer:MusicInit]', JSON.stringify({
+            timestamp: Date.now(),
+            action: 'music_init_error',
+            error: errorMsg,
+            slideshowId: slideshow.id,
+            musicSourceType: musicSource.type,
+          }));
           
           // Show toast with specific music error message
           presentToast({

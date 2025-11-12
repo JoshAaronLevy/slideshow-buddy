@@ -3,7 +3,7 @@
  */
 
 import axios from 'axios';
-import { getAccessToken } from './SpotifyAuthService';
+import { getAccessToken, isTokenExpired, refreshAccessToken } from './SpotifyAuthService';
 import { SPOTIFY_CONFIG } from '../constants';
 
 // Ensure Spotify types are available
@@ -83,6 +83,15 @@ export const initializePlayer = async (
   onStateChange?: (state: any | null) => void, // Spotify.WebPlaybackState
   onError?: (error: string) => void
 ): Promise<string> => {
+  const startTime = Date.now();
+  
+  console.log('[MusicPlayer:Init]', JSON.stringify({
+    timestamp: startTime,
+    action: 'init_start',
+    hadExistingPlayer: player !== null,
+    hadExistingDeviceId: deviceId !== null,
+  }));
+  
   try {
     // Load SDK if not already loaded
     await loadSpotifySDK();
@@ -99,6 +108,11 @@ export const initializePlayer = async (
 
     // Disconnect existing player if any
     if (player) {
+      console.log('[MusicPlayer:Init]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'disconnecting_existing_player',
+        deviceId: deviceId,
+      }));
       player.disconnect();
       player = null;
       deviceId = null;
@@ -107,12 +121,54 @@ export const initializePlayer = async (
     // Create new player
     player = new window.Spotify.Player({
       name: 'Slideshow Buddy',
+      // Stage 4: Check token expiry and refresh if needed before returning to SDK
       getOAuthToken: (callback) => {
-        getAccessToken().then((token) => {
-          if (token) {
-            callback(token);
+        (async () => {
+          try {
+            // Check if token is expired
+            const expired = await isTokenExpired();
+            
+            if (expired) {
+              console.log('[MusicPlayer:TokenRefresh]', JSON.stringify({
+                timestamp: Date.now(),
+                action: 'token_expired_in_callback',
+                message: 'Refreshing token before returning to SDK',
+              }));
+              
+              try {
+                await refreshAccessToken();
+                console.log('[MusicPlayer:TokenRefresh]', JSON.stringify({
+                  timestamp: Date.now(),
+                  action: 'token_refreshed_in_callback',
+                  result: 'success',
+                }));
+              } catch (refreshError) {
+                console.error('[MusicPlayer:TokenRefresh] Failed to refresh token in callback:', refreshError);
+                console.log('[MusicPlayer:TokenRefresh]', JSON.stringify({
+                  timestamp: Date.now(),
+                  action: 'token_refresh_failed_in_callback',
+                  error: refreshError instanceof Error ? refreshError.message : 'unknown',
+                }));
+                // Continue with existing token - SDK will handle auth error if needed
+              }
+            }
+            
+            // Get the (possibly refreshed) token
+            const token = await getAccessToken();
+            if (token) {
+              callback(token);
+            } else {
+              console.error('[MusicPlayer:TokenRefresh] No token available for SDK callback');
+            }
+          } catch (error) {
+            console.error('[MusicPlayer:TokenRefresh] Error in getOAuthToken callback:', error);
+            // Attempt to get token anyway
+            const token = await getAccessToken();
+            if (token) {
+              callback(token);
+            }
           }
-        });
+        })();
       },
       volume: 0.8,
     });
@@ -120,11 +176,22 @@ export const initializePlayer = async (
     // Set up event listeners
     player.addListener('ready', ({ device_id }: { device_id: string }) => {
       console.log('Spotify player ready with device ID:', device_id);
+      console.log('[MusicPlayer:DeviceReady]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'device_ready',
+        deviceId: device_id,
+        elapsedMs: Date.now() - startTime,
+      }));
       deviceId = device_id;
     });
 
     player.addListener('not_ready', ({ device_id }: { device_id: string }) => {
       console.log('Spotify player not ready with device ID:', device_id);
+      console.log('[MusicPlayer:DeviceNotReady]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'device_not_ready',
+        deviceId: device_id,
+      }));
       deviceId = null;
     });
 
@@ -137,6 +204,13 @@ export const initializePlayer = async (
 
     player.addListener('initialization_error', ({ message }: { message: string }) => {
       console.error('Spotify initialization error:', message);
+      console.log('[MusicPlayer:Error]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'initialization_error',
+        errorType: 'initialization',
+        message,
+        deviceId,
+      }));
       if (onError) {
         onError(`Initialization error: ${message}`);
       }
@@ -144,6 +218,13 @@ export const initializePlayer = async (
 
     player.addListener('authentication_error', ({ message }: { message: string }) => {
       console.error('Spotify authentication error:', message);
+      console.log('[MusicPlayer:Error]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'authentication_error',
+        errorType: 'authentication',
+        message,
+        deviceId,
+      }));
       if (onError) {
         onError(`Authentication error: ${message}`);
       }
@@ -151,6 +232,13 @@ export const initializePlayer = async (
 
     player.addListener('account_error', ({ message }: { message: string }) => {
       console.error('Spotify account error:', message);
+      console.log('[MusicPlayer:Error]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'account_error',
+        errorType: 'account',
+        message,
+        deviceId,
+      }));
       if (onError) {
         onError(`Account error: ${message}. Spotify Premium is required.`);
       }
@@ -158,6 +246,13 @@ export const initializePlayer = async (
 
     player.addListener('playback_error', ({ message }: { message: string }) => {
       console.error('Spotify playback error:', message);
+      console.log('[MusicPlayer:Error]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'playback_error',
+        errorType: 'playback',
+        message,
+        deviceId,
+      }));
       if (onError) {
         onError(`Playback error: ${message}`);
       }
@@ -167,6 +262,12 @@ export const initializePlayer = async (
     const connected = await player.connect();
     
     if (!connected) {
+      console.log('[MusicPlayer:Init]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'init_error',
+        error: 'connect_failed',
+        elapsedMs: Date.now() - startTime,
+      }));
       throw new Error('Failed to connect Spotify player');
     }
 
@@ -178,12 +279,32 @@ export const initializePlayer = async (
     }
 
     if (!deviceId) {
+      console.log('[MusicPlayer:Init]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'init_error',
+        error: 'device_id_timeout',
+        attemptsWaited: attempts,
+        elapsedMs: Date.now() - startTime,
+      }));
       throw new Error('Failed to get device ID');
     }
+
+    console.log('[MusicPlayer:Init]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'init_success',
+      deviceId,
+      elapsedMs: Date.now() - startTime,
+    }));
 
     return deviceId;
   } catch (error) {
     console.error('Error initializing Spotify player:', error);
+    console.log('[MusicPlayer:Init]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'init_error',
+      error: error instanceof Error ? error.message : 'unknown',
+      elapsedMs: Date.now() - startTime,
+    }));
     if (onError) {
       onError(error instanceof Error ? error.message : 'Failed to initialize player');
     }
@@ -198,14 +319,77 @@ export const startPlayback = async (
   uriOrUris: string | string[],
   isPlaylist: boolean = true
 ): Promise<void> => {
+  const startTime = Date.now();
+  
+  console.log('[MusicPlayer:Playback]', JSON.stringify({
+    timestamp: startTime,
+    action: 'playback_start',
+    deviceId,
+    isPlaylist,
+    uriOrUris: isPlaylist ? uriOrUris : `[${Array.isArray(uriOrUris) ? uriOrUris.length : 1} tracks]`,
+  }));
+  
   try {
     if (!deviceId) {
+      console.log('[MusicPlayer:Playback]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'playback_error',
+        error: 'no_device_id',
+        deviceId: null,
+      }));
       throw new Error('No device ID available. Please initialize player first.');
     }
 
     const token = await getAccessToken();
     if (!token) {
+      console.log('[MusicPlayer:Playback]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'playback_error',
+        error: 'no_token',
+        deviceId,
+      }));
       throw new Error('No access token available');
+    }
+
+    // Stage 3: Transfer playback to this device (make it active) before playing
+    try {
+      console.log('[MusicPlayer:DeviceTransfer]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'transfer_start',
+        deviceId,
+      }));
+
+      await axios.put(
+        `${SPOTIFY_CONFIG.API_BASE_URL}/me/player`,
+        { device_ids: [deviceId], play: false },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      console.log('[MusicPlayer:DeviceTransfer]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'transfer_success',
+        deviceId,
+      }));
+
+      // Small delay to let Spotify backend register the device as active
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (transferError) {
+      // Log transfer failure but continue - device might already be active
+      console.log('[MusicPlayer:DeviceTransfer]', JSON.stringify({
+        timestamp: Date.now(),
+        action: 'transfer_failed',
+        deviceId,
+        error: transferError instanceof Error ? transferError.message : 'unknown',
+        httpStatus: axios.isAxiosError(transferError) ? transferError.response?.status : undefined,
+        httpResponseData: axios.isAxiosError(transferError) ? transferError.response?.data : undefined,
+        note: 'continuing_with_playback_attempt',
+      }));
+      // Don't throw - attempt playback anyway (device might already be active)
     }
 
     const body: {
@@ -215,8 +399,10 @@ export const startPlayback = async (
       ? { context_uri: uriOrUris as string }
       : { uris: Array.isArray(uriOrUris) ? uriOrUris : [uriOrUris] };
 
+    const requestUrl = `${SPOTIFY_CONFIG.API_BASE_URL}/me/player/play?device_id=${deviceId}`;
+
     await axios.put(
-      `${SPOTIFY_CONFIG.API_BASE_URL}/me/player/play?device_id=${deviceId}`,
+      requestUrl,
       body,
       {
         headers: {
@@ -227,8 +413,26 @@ export const startPlayback = async (
     );
 
     console.log('Playback started successfully');
+    console.log('[MusicPlayer:Playback]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'playback_success',
+      deviceId,
+      elapsedMs: Date.now() - startTime,
+    }));
   } catch (error) {
     console.error('Error starting playback:', error);
+    
+    console.log('[MusicPlayer:Playback]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'playback_error',
+      error: error instanceof Error ? error.message : 'unknown',
+      httpStatus: axios.isAxiosError(error) ? error.response?.status : undefined,
+      httpResponseData: axios.isAxiosError(error) ? error.response?.data : undefined,
+      requestUrl: axios.isAxiosError(error) ? error.config?.url : undefined,
+      deviceId,
+      elapsedMs: Date.now() - startTime,
+    }));
+    
     throw error;
   }
 };

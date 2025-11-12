@@ -494,8 +494,12 @@ const Tab2: React.FC = () => {
   }, [checkAuthStatus]);
 
   // Setup OAuth callback listener
+  // Stage 5: Now properly cleans up listener on unmount
   useEffect(() => {
     console.log('[Tab2] Setting up OAuth callback listener');
+    
+    let listenerHandle: { remove: () => void } | null = null;
+    
     setupAuthListener(async (code, state) => {
       console.log('[Tab2] OAuth callback received, handling authentication...');
       
@@ -513,7 +517,20 @@ const Tab2: React.FC = () => {
       } catch (error) {
         console.error('[Tab2] Error handling OAuth callback:', error);
       }
+    }).then((handle) => {
+      listenerHandle = handle;
+      console.log('[Tab2] Auth listener registered successfully');
+    }).catch((error) => {
+      console.error('[Tab2] Failed to setup auth listener:', error);
     });
+    
+    // Cleanup listener on unmount
+    return () => {
+      if (listenerHandle) {
+        console.log('[Tab2] Removing OAuth callback listener');
+        listenerHandle.remove();
+      }
+    };
   }, [handleCallback, checkAuthStatus]);
 
   // Show error toast

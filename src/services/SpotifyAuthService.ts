@@ -135,16 +135,31 @@ export const handleCallback = async (code: string, state: string): Promise<Spoti
  * Refresh the access token using refresh token
  */
 export const refreshAccessToken = async (): Promise<SpotifyTokens> => {
+  const startTime = Date.now();
+  
   try {
     const { value: refreshToken } = await Preferences.get({
       key: STORAGE_KEYS.SPOTIFY_REFRESH_TOKEN,
     });
 
     if (!refreshToken) {
+      console.log('[Auth:TokenRefresh]', JSON.stringify({
+        timestamp: startTime,
+        action: 'token_refresh',
+        result: 'error',
+        error: 'no_refresh_token',
+      }));
       throw new Error('No refresh token available');
     }
     
     console.log('[SpotifyAuth] Refreshing token via backend server...');
+    console.log('[Auth:TokenRefresh]', JSON.stringify({
+      timestamp: startTime,
+      action: 'token_refresh',
+      status: 'started',
+      refreshUrl: `${SPOTIFY_CONFIG.BACKEND_URL}${SPOTIFY_CONFIG.REFRESH_ENDPOINT}`,
+    }));
+    
     const refreshUrl = `${SPOTIFY_CONFIG.BACKEND_URL}${SPOTIFY_CONFIG.REFRESH_ENDPOINT}`;
     
     const response = await axios.post(
@@ -166,9 +181,30 @@ export const refreshAccessToken = async (): Promise<SpotifyTokens> => {
     };
 
     await storeTokens(tokens);
+    
+    console.log('[Auth:TokenRefresh]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'token_refresh',
+      result: 'success',
+      expiresAt: tokens.expires_at,
+      expiresInSeconds: response.data.expires_in,
+      elapsedMs: Date.now() - startTime,
+    }));
+    
     return tokens;
   } catch (error) {
     console.error('Error refreshing Spotify token:', error);
+    
+    console.log('[Auth:TokenRefresh]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'token_refresh',
+      result: 'error',
+      error: error instanceof Error ? error.message : 'unknown',
+      httpStatus: axios.isAxiosError(error) ? error.response?.status : undefined,
+      httpResponseData: axios.isAxiosError(error) ? error.response?.data : undefined,
+      elapsedMs: Date.now() - startTime,
+    }));
+    
     throw new Error('Failed to refresh Spotify token');
   }
 };
@@ -196,6 +232,31 @@ export const storeTokens = async (tokens: SpotifyTokens): Promise<void> => {
  */
 export const getAccessToken = async (): Promise<string | null> => {
   const { value } = await Preferences.get({ key: STORAGE_KEYS.SPOTIFY_ACCESS_TOKEN });
+  
+  // Stage 1: Log token read with expiry info
+  const { value: expiryValue } = await Preferences.get({ key: STORAGE_KEYS.SPOTIFY_TOKEN_EXPIRY });
+  if (value && expiryValue) {
+    const expiresAt = parseInt(expiryValue, 10);
+    const now = Date.now();
+    const timeUntilExpirySeconds = Math.floor((expiresAt - now) / 1000);
+    const isExpired = now >= expiresAt - 5 * 60 * 1000;
+    
+    console.log('[Auth:TokenRead]', JSON.stringify({
+      timestamp: now,
+      action: 'token_read',
+      hasToken: true,
+      expiresAt,
+      timeUntilExpirySeconds,
+      isExpired,
+    }));
+  } else if (!value) {
+    console.log('[Auth:TokenRead]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'token_read',
+      hasToken: false,
+    }));
+  }
+  
   return value;
 };
 
@@ -204,11 +265,32 @@ export const getAccessToken = async (): Promise<string | null> => {
  */
 export const isTokenExpired = async (): Promise<boolean> => {
   const { value } = await Preferences.get({ key: STORAGE_KEYS.SPOTIFY_TOKEN_EXPIRY });
-  if (!value) return true;
+  if (!value) {
+    console.log('[Auth:ExpiryCheck]', JSON.stringify({
+      timestamp: Date.now(),
+      action: 'expiry_check',
+      result: true,
+      reason: 'no_expiry_value',
+    }));
+    return true;
+  }
 
   const expiresAt = parseInt(value, 10);
+  const now = Date.now();
+  const timeUntilExpirySeconds = Math.floor((expiresAt - now) / 1000);
+  const isExpired = now >= expiresAt - 5 * 60 * 1000;
+  
   // Consider expired if less than 5 minutes remaining
-  return Date.now() >= expiresAt - 5 * 60 * 1000;
+  console.log('[Auth:ExpiryCheck]', JSON.stringify({
+    timestamp: now,
+    action: 'expiry_check',
+    result: isExpired,
+    expiresAt,
+    timeUntilExpirySeconds,
+    reason: isExpired ? 'expired_or_expiring_soon' : 'valid',
+  }));
+  
+  return isExpired;
 };
 
 /**
@@ -318,11 +400,14 @@ export const checkAuthStatus = async (): Promise<boolean> => {
 /**
  * Setup app URL listener for OAuth callback
  * Should be called on app initialization
+ * Stage 5: Now returns listener handle for cleanup
  */
-export const setupAuthListener = (onCallback: (code: string, state: string) => void): void => {
+export const setupAuthListener = (
+  onCallback: (code: string, state: string) => void
+): Promise<{ remove: () => void }> => {
   console.log('[SpotifyAuth] Setting up app URL listener for OAuth callback');
   
-  App.addListener('appUrlOpen', (data) => {
+  return App.addListener('appUrlOpen', (data) => {
     console.log('[SpotifyAuth] App URL opened:', data.url);
     
     try {
