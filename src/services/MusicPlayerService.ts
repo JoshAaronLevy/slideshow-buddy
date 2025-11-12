@@ -3,7 +3,8 @@
  */
 
 import axios from 'axios';
-import { getAccessToken, isTokenExpired, refreshAccessToken } from './SpotifyAuthService';
+import TokenManager from './TokenManager';
+import { isTokenExpired, refreshAccessToken } from './SpotifyAuthService';
 import { SPOTIFY_CONFIG } from '../constants';
 
 // Ensure Spotify types are available
@@ -100,12 +101,6 @@ export const initializePlayer = async (
       throw new Error('Spotify SDK not loaded');
     }
 
-    // Get access token
-    const token = await getAccessToken();
-    if (!token) {
-      throw new Error('No access token available');
-    }
-
     // Disconnect existing player if any
     if (player) {
       console.log('[MusicPlayer:Init]', JSON.stringify({
@@ -153,19 +148,21 @@ export const initializePlayer = async (
               }
             }
             
-            // Get the (possibly refreshed) token
-            const token = await getAccessToken();
-            if (token) {
+            // Get the (possibly refreshed) token (Stage 6: uses TokenManager)
+            try {
+              const token = await TokenManager.getInstance().getValidToken();
               callback(token);
-            } else {
-              console.error('[MusicPlayer:TokenRefresh] No token available for SDK callback');
+            } catch (error) {
+              console.error('[MusicPlayer:TokenRefresh] No token available for SDK callback:', error);
             }
           } catch (error) {
             console.error('[MusicPlayer:TokenRefresh] Error in getOAuthToken callback:', error);
-            // Attempt to get token anyway
-            const token = await getAccessToken();
-            if (token) {
+            // Attempt to get token anyway (Stage 6: uses TokenManager)
+            try {
+              const token = await TokenManager.getInstance().getValidToken();
               callback(token);
+            } catch (tokenError) {
+              console.error('[MusicPlayer:TokenRefresh] Failed to get token:', tokenError);
             }
           }
         })();
@@ -340,16 +337,8 @@ export const startPlayback = async (
       throw new Error('No device ID available. Please initialize player first.');
     }
 
-    const token = await getAccessToken();
-    if (!token) {
-      console.log('[MusicPlayer:Playback]', JSON.stringify({
-        timestamp: Date.now(),
-        action: 'playback_error',
-        error: 'no_token',
-        deviceId,
-      }));
-      throw new Error('No access token available');
-    }
+    // Stage 6: Get valid token from TokenManager
+    const token = await TokenManager.getInstance().getValidToken();
 
     // Stage 3: Transfer playback to this device (make it active) before playing
     try {

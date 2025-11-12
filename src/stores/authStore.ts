@@ -5,6 +5,7 @@
 import { create } from 'zustand';
 import { SpotifyUser } from '../types';
 import * as SpotifyAuthService from '../services/SpotifyAuthService';
+import TokenManager from '../services/TokenManager';
 
 interface AuthState {
   // State
@@ -150,7 +151,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (isAuthenticated) {
         const user = await SpotifyAuthService.getStoredUser();
-        const accessToken = await SpotifyAuthService.getAccessToken();
+        // Stage 6: Get token from TokenManager for guaranteed freshness
+        const accessToken = await TokenManager.getInstance().getValidToken();
 
         console.log('[AuthStore] User authenticated:', {
           hasUser: !!user,

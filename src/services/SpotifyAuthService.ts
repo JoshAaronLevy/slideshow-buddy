@@ -9,6 +9,7 @@ import axios from 'axios';
 import { SPOTIFY_CONFIG, STORAGE_KEYS } from '../constants';
 import { SpotifyTokens, SpotifyUser } from '../types';
 import { generateCodeVerifier, generateCodeChallenge, generateState } from '../utils/pkce';
+import TokenManager from './TokenManager';
 
 /**
  * Start the Spotify OAuth login flow
@@ -108,8 +109,13 @@ export const handleCallback = async (code: string, state: string): Promise<Spoti
       expiresIn: response.data.expires_in 
     });
 
-    // Store tokens securely
+    // Store tokens securely (Stage 6: also updates TokenManager)
     await storeTokens(tokens);
+    await TokenManager.getInstance().setTokens(
+      tokens.access_token,
+      tokens.refresh_token,
+      response.data.expires_in
+    );
     console.log('[SpotifyAuth] Tokens stored successfully');
 
     // Clean up temporary data
@@ -182,6 +188,13 @@ export const refreshAccessToken = async (): Promise<SpotifyTokens> => {
 
     await storeTokens(tokens);
     
+    // Stage 6: Also update TokenManager
+    await TokenManager.getInstance().setTokens(
+      tokens.access_token,
+      tokens.refresh_token,
+      response.data.expires_in
+    );
+    
     console.log('[Auth:TokenRefresh]', JSON.stringify({
       timestamp: Date.now(),
       action: 'token_refresh',
@@ -229,6 +242,8 @@ export const storeTokens = async (tokens: SpotifyTokens): Promise<void> => {
 
 /**
  * Get stored access token
+ * @deprecated Stage 6: Use TokenManager.getInstance().getValidToken() instead for guaranteed fresh tokens
+ * Kept for backward compatibility
  */
 export const getAccessToken = async (): Promise<string | null> => {
   const { value } = await Preferences.get({ key: STORAGE_KEYS.SPOTIFY_ACCESS_TOKEN });
@@ -295,15 +310,13 @@ export const isTokenExpired = async (): Promise<boolean> => {
 
 /**
  * Get current user profile from Spotify
+ * Stage 6: Uses TokenManager for guaranteed fresh token
  */
 export const getCurrentUser = async (): Promise<SpotifyUser> => {
   console.log('[SpotifyAuth] Fetching current user profile...');
   
   try {
-    const token = await getAccessToken();
-    if (!token) {
-      throw new Error('No access token available');
-    }
+    const token = await TokenManager.getInstance().getValidToken();
     console.log('[SpotifyAuth] Access token retrieved for user profile request');
 
     const response = await axios.get(`${SPOTIFY_CONFIG.API_BASE_URL}/me`, {
@@ -357,44 +370,31 @@ export const getStoredUser = async (): Promise<SpotifyUser | null> => {
 
 /**
  * Logout - clear all stored tokens and user data
+ * Stage 6: Also clears TokenManager
  */
 export const logout = async (): Promise<void> => {
-  await Preferences.remove({ key: STORAGE_KEYS.SPOTIFY_ACCESS_TOKEN });
-  await Preferences.remove({ key: STORAGE_KEYS.SPOTIFY_REFRESH_TOKEN });
-  await Preferences.remove({ key: STORAGE_KEYS.SPOTIFY_TOKEN_EXPIRY });
+  // Clear TokenManager (also clears Preferences and stops auto-refresh)
+  await TokenManager.getInstance().clearTokens();
+  
+  // Clear user data
   await Preferences.remove({ key: STORAGE_KEYS.SPOTIFY_USER });
 };
 
 /**
  * Check authentication status on app launch
+ * Stage 6: Uses TokenManager to check for valid token
  */
 export const checkAuthStatus = async (): Promise<boolean> => {
   console.log('[SpotifyAuth] Checking authentication status...');
   
-  const token = await getAccessToken();
-  if (!token) {
-    console.log('[SpotifyAuth] No access token found');
+  try {
+    await TokenManager.getInstance().getValidToken();
+    console.log('[SpotifyAuth] Valid access token found');
+    return true;
+  } catch {
+    console.log('[SpotifyAuth] No valid access token found');
     return false;
   }
-  console.log('[SpotifyAuth] Access token found');
-
-  const expired = await isTokenExpired();
-  console.log('[SpotifyAuth] Token expired:', expired);
-  
-  if (expired) {
-    try {
-      console.log('[SpotifyAuth] Attempting to refresh token...');
-      await refreshAccessToken();
-      console.log('[SpotifyAuth] Token refreshed successfully');
-      return true;
-    } catch (error) {
-      console.error('[SpotifyAuth] Token refresh failed:', error);
-      return false;
-    }
-  }
-
-  console.log('[SpotifyAuth] Authentication status: valid');
-  return true;
 };
 
 /**

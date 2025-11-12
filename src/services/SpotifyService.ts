@@ -12,16 +12,14 @@ import {
   SpotifyApiArtist,
   SpotifyApiTrackSearchItem,
 } from '../types/spotify-api';
-import { getAccessToken } from './SpotifyAuthService';
+import TokenManager from './TokenManager';
 
 /**
  * Get authorization headers for Spotify API requests
+ * Stage 6: Uses TokenManager for guaranteed fresh tokens
  */
 const getAuthHeaders = async () => {
-  const token = await getAccessToken();
-  if (!token) {
-    throw new Error('No access token available');
-  }
+  const token = await TokenManager.getInstance().getValidToken();
   return {
     Authorization: `Bearer ${token}`,
   };
