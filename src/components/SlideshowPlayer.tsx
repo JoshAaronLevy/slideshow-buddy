@@ -23,6 +23,8 @@ import {
   chevronForwardOutline,
   musicalNotesOutline,
   exitOutline,
+  playSkipBackOutline,
+  playSkipForwardOutline,
 } from 'ionicons/icons';
 import { SavedSlideshow } from '../types/slideshow';
 import { Photo } from '../types';
@@ -380,6 +382,42 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     resetControlsTimeout();
   };
 
+  // Handle skip to next track
+  const handleNextTrack = async () => {
+    await HapticService.impactLight();
+    try {
+      await MusicPlayerService.nextTrack();
+      // Track info will be updated by the periodic interval
+    } catch (error) {
+      console.error('Failed to skip to next track:', error);
+      presentToast({
+        message: 'Failed to skip track',
+        duration: 2000,
+        color: 'danger',
+        position: 'top',
+      });
+    }
+    resetControlsTimeout();
+  };
+
+  // Handle skip to previous track
+  const handlePreviousTrack = async () => {
+    await HapticService.impactLight();
+    try {
+      await MusicPlayerService.previousTrack();
+      // Track info will be updated by the periodic interval
+    } catch (error) {
+      console.error('Failed to skip to previous track:', error);
+      presentToast({
+        message: 'Failed to skip track',
+        duration: 2000,
+        color: 'danger',
+        position: 'top',
+      });
+    }
+    resetControlsTimeout();
+  };
+
   // Handle stop/exit
   const handleStop = async () => {
     await HapticService.impactLight();
@@ -623,6 +661,24 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
                 <IonText color="medium">
                   <p className="now-playing-artist">{currentTrack.artists.join(', ')}</p>
                 </IonText>
+              </div>
+              <div className="now-playing-controls">
+                <IonButton
+                  fill="clear"
+                  onClick={handlePreviousTrack}
+                  className="skip-button"
+                  aria-label="Previous track"
+                >
+                  <IonIcon icon={playSkipBackOutline} />
+                </IonButton>
+                <IonButton
+                  fill="clear"
+                  onClick={handleNextTrack}
+                  className="skip-button"
+                  aria-label="Next track"
+                >
+                  <IonIcon icon={playSkipForwardOutline} />
+                </IonButton>
               </div>
             </div>
           )}

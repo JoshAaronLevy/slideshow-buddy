@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2025-11-14
+
+### Added
+- Music skip buttons (Previous/Next track) in slideshow controls "Now Playing" section
+- Haptic feedback when skipping tracks during slideshow playback
+- Error toast notifications when track skip operations fail
+
+### Changed
+- "Now Playing" card now includes dedicated skip buttons for easier music control without interrupting slideshow flow
+
 ## [0.4.2] - 2025-11-14
 
 ### Added

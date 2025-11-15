@@ -121,6 +121,33 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+.now-playing-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.skip-button {
+  --background: transparent;
+  --background-hover: rgba(255, 255, 255, 0.1);
+  --background-activated: rgba(255, 255, 255, 0.2);
+  --color: white;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  margin: 0;
+}
+
+.skip-button ion-icon {
+  font-size: 24px;
+}
+
 /* Music Loading Overlay */
 .music-loading-overlay {
   position: absolute;
@@ -356,6 +383,17 @@
 
   .now-playing-artist {
     font-size: 12px;
+  }
+
+  .skip-button {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .skip-button ion-icon {
+    font-size: 20px;
   }
 
   .music-error {
