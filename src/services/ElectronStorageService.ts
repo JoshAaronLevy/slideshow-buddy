@@ -1,21 +1,9 @@
 /**
  * ElectronStorageService - Electron-specific storage using electron-store
  * Provides same API as Capacitor Preferences for compatibility
+ *
+ * Note: Window.electron types are now defined in vite-env.d.ts
  */
-
-// Extend window interface for ElectronStorageService
-declare global {
-  interface Window {
-    electron?: {
-      storage?: {
-        get: (key: string) => Promise<any>;
-        set: (key: string, value: any) => Promise<void>;
-        remove: (key: string) => Promise<void>;
-        clear: () => Promise<void>;
-      };
-    };
-  }
-}
 
 class ElectronStorageService {
   /**

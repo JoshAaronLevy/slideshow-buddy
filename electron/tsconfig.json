@@ -8,6 +8,8 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "typeRoots": ["./node_modules/@types"],
     "allowJs": true,
     "rootDir": "."

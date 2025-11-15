@@ -80,6 +80,49 @@ interface SlideshowAPI {
   keepAwakeStop(): Promise<SlideshowKeepAwakeResult>;
 }
 
+// Spotify OAuth API types
+interface SpotifyOAuthAPI {
+  onOAuthCallback(callback: (url: string) => void): () => void;
+}
+
+// Window Management API types
+interface WindowResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+interface WindowAPI {
+  setTitle(title: string): Promise<WindowResult>;
+}
+
+// System API types
+interface SystemThemeResult {
+  success: boolean;
+  theme?: string;
+  error?: string;
+}
+
+interface SystemAPI {
+  getTheme(): Promise<SystemThemeResult>;
+  onThemeChange(callback: (theme: string) => void): () => void;
+}
+
+// Storage API types
+interface StorageAPI {
+  get: (key: string) => Promise<any>;
+  set: (key: string, value: any) => Promise<void>;
+  remove: (key: string) => Promise<void>;
+  clear: () => Promise<void>;
+}
+
+// Keychain API types
+interface KeychainAPI {
+  getPassword: (account: string) => Promise<string | null>;
+  setPassword: (account: string, password: string) => Promise<boolean>;
+  deletePassword: (account: string) => Promise<boolean>;
+}
+
 // Extend global Window interface
 declare global {
   interface Window {
@@ -87,6 +130,11 @@ declare global {
       photos: PhotosAPI;
       menu: MenuAPI;
       slideshow: SlideshowAPI;
+      spotify: SpotifyOAuthAPI;
+      window: WindowAPI;
+      system: SystemAPI;
+      storage: StorageAPI;
+      keychain: KeychainAPI;
     };
   }
 }

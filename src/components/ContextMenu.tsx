@@ -1,12 +1,23 @@
 import { useEffect, useState, CSSProperties } from 'react';
 import './ContextMenu.css';
 
-interface MenuItem {
+interface MenuItemBase {
+  destructive?: boolean;
+}
+
+interface RegularMenuItem extends MenuItemBase {
   label: string;
   action: () => void;
-  destructive?: boolean;
-  separator?: boolean;
+  separator?: false;
 }
+
+interface SeparatorMenuItem extends MenuItemBase {
+  separator: true;
+  label?: never;
+  action?: never;
+}
+
+type MenuItem = RegularMenuItem | SeparatorMenuItem;
 
 interface ContextMenuProps {
   items: MenuItem[];

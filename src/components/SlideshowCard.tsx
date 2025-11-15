@@ -110,7 +110,7 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
       id: Math.random().toString(36).substr(2, 9),
       name: `${slideshow.name} Copy`,
       createdAt: Date.now(),
-      lastPlayedAt: null,
+      lastPlayedAt: undefined,
       playCount: 0,
     };
     onEdit(duplicatedSlideshow);
@@ -127,7 +127,7 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
   const menuItems = [
     { label: 'Edit', action: () => onEdit(slideshow) },
     { label: 'Duplicate', action: handleDuplicate },
-    { separator: true },
+    { separator: true as const },
     { label: 'Delete', action: () => onDelete(slideshow), destructive: true }
   ];
 

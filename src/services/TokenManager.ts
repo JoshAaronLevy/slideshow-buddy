@@ -16,6 +16,25 @@ import lifecycleService from './LifecycleService';
 import { isMacOS } from '../utils/platform';
 import ElectronStorageService from './ElectronStorageService';
 
+// Extend Window interface for electron APIs (temporary fix)
+declare global {
+  interface Window {
+    electron?: {
+      storage: {
+        get: (key: string) => Promise<string>;
+        set: (key: string, value: string) => Promise<void>;
+        remove: (key: string) => Promise<void>;
+        clear: () => Promise<void>;
+      };
+      keychain: {
+        getPassword: (account: string) => Promise<string | null>;
+        setPassword: (account: string, password: string) => Promise<boolean>;
+        deletePassword: (account: string) => Promise<boolean>;
+      };
+    };
+  }
+}
+
 interface TokenData {
   accessToken: string;
   refreshToken: string;
@@ -39,7 +58,7 @@ class TokenManager {
   private refreshPromise: Promise<string> | null = null;
   
   // Storage service for non-keychain data
-  private storage = new ElectronStorageService();
+  private storage = ElectronStorageService;
   
   // Storage keys
   private readonly STORAGE_KEYS = {
