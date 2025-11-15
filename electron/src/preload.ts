@@ -108,6 +108,21 @@ interface MenuAPI {
   updateState(state: { hasSlideshow?: boolean; isPlaying?: boolean; canExport?: boolean }): Promise<MenuStateUpdateResult>;
 }
 
+// Storage API Interface
+interface StorageAPI {
+  get: (key: string) => Promise<any>;
+  set: (key: string, value: any) => Promise<void>;
+  remove: (key: string) => Promise<void>;
+  clear: () => Promise<void>;
+}
+
+// Keychain API Interface
+interface KeychainAPI {
+  getPassword: (account: string) => Promise<string | null>;
+  setPassword: (account: string, password: string) => Promise<boolean>;
+  deletePassword: (account: string) => Promise<boolean>;
+}
+
 // Common helper function to create menu event listeners
 const createMenuEventListener = (eventName: string) => {
   return (callback: () => void): (() => void) => {
@@ -186,6 +201,19 @@ contextBridge.exposeInMainWorld('electron', {
     }
   } as SystemAPI,
   
+  storage: {
+    get: (key: string) => ipcRenderer.invoke('storage:get', key),
+    set: (key: string, value: any) => ipcRenderer.invoke('storage:set', key, value),
+    remove: (key: string) => ipcRenderer.invoke('storage:remove', key),
+    clear: () => ipcRenderer.invoke('storage:clear')
+  } as StorageAPI,
+  
+  keychain: {
+    getPassword: (account: string) => ipcRenderer.invoke('keychain:getPassword', account),
+    setPassword: (account: string, password: string) => ipcRenderer.invoke('keychain:setPassword', account, password),
+    deletePassword: (account: string) => ipcRenderer.invoke('keychain:deletePassword', account)
+  } as KeychainAPI,
+  
   menu: {
     // Menu event listeners
     onNewSlideshow: createMenuEventListener('menu:new-slideshow'),
@@ -221,6 +249,8 @@ declare global {
       spotify: SpotifyOAuthAPI;
       window: WindowAPI;
       system: SystemAPI;
+      storage: StorageAPI;
+      keychain: KeychainAPI;
       menu: MenuAPI;
     };
   }

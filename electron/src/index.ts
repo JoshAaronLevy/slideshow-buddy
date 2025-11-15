@@ -5,6 +5,8 @@ import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme } from 'electron'
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
 import { autoUpdater } from 'electron-updater';
+import Store from 'electron-store';
+import * as keytar from 'keytar';
 
 import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
 import { photosLibraryFFI } from './native/PhotosLibraryFFI';
@@ -405,5 +407,143 @@ ipcMain.handle('menu:update-state', async (event, state: { hasSlideshow?: boolea
       success: false,
       error: error.message || 'Failed to update menu state'
     };
+  }
+});
+
+// Storage Management using electron-store
+// Initialize electron-store with encryption for security
+const store = new Store({
+  name: 'slideshow-buddy-data',
+  encryptionKey: 'slideshow-buddy-secure-key-2024', // Optional encryption for sensitive data
+  cwd: electronIsDev ? undefined : app.getPath('userData') // Use app data directory in production
+});
+
+// Storage IPC Handlers
+// These handlers bridge the renderer process to electron-store for persistent storage
+
+/**
+ * Get a value from storage
+ * Params: key (string)
+ * Returns: any (the stored value or undefined if not found)
+ */
+ipcMain.handle('storage:get', async (event, key: string) => {
+  try {
+    const value = (store as any).get(key);
+    console.log(`[Storage] Get ${key}:`, value !== undefined ? 'found' : 'not found');
+    return value;
+  } catch (error) {
+    console.error(`[Storage] Error getting ${key}:`, error);
+    return undefined;
+  }
+});
+
+/**
+ * Set a value in storage
+ * Params: key (string), value (any)
+ * Returns: void
+ */
+ipcMain.handle('storage:set', async (event, key: string, value: any) => {
+  try {
+    (store as any).set(key, value);
+    console.log(`[Storage] Set ${key}: success`);
+  } catch (error) {
+    console.error(`[Storage] Error setting ${key}:`, error);
+    throw error;
+  }
+});
+
+/**
+ * Remove a value from storage
+ * Params: key (string)
+ * Returns: void
+ */
+ipcMain.handle('storage:remove', async (event, key: string) => {
+  try {
+    (store as any).delete(key);
+    console.log(`[Storage] Removed ${key}: success`);
+  } catch (error) {
+    console.error(`[Storage] Error removing ${key}:`, error);
+    throw error;
+  }
+});
+
+/**
+ * Clear all storage
+ * Returns: void
+ */
+ipcMain.handle('storage:clear', async () => {
+  try {
+    (store as any).clear();
+    console.log('[Storage] Clear: success');
+  } catch (error) {
+    console.error('[Storage] Error clearing storage:', error);
+    throw error;
+  }
+});
+
+// Keychain Management using keytar for secure token storage on macOS
+// Service name for all keychain entries
+const SERVICE_NAME = 'Slideshow Buddy';
+
+/**
+ * Get a password from macOS Keychain
+ * Params: account (string) - the account identifier for the password
+ * Returns: string | null (the password or null if not found)
+ */
+ipcMain.handle('keychain:getPassword', async (event, account: string) => {
+  try {
+    if (process.platform !== 'darwin') {
+      console.log('[Keychain] Not on macOS, keychain not available');
+      return null;
+    }
+    
+    const password = await keytar.getPassword(SERVICE_NAME, account);
+    console.log(`[Keychain] Get ${account}:`, password !== null ? 'found' : 'not found');
+    return password;
+  } catch (error) {
+    console.error(`[Keychain] Error getting password for ${account}:`, error);
+    return null;
+  }
+});
+
+/**
+ * Set a password in macOS Keychain
+ * Params: account (string), password (string)
+ * Returns: boolean (success status)
+ */
+ipcMain.handle('keychain:setPassword', async (event, account: string, password: string) => {
+  try {
+    if (process.platform !== 'darwin') {
+      console.log('[Keychain] Not on macOS, keychain not available');
+      return false;
+    }
+    
+    await keytar.setPassword(SERVICE_NAME, account, password);
+    console.log(`[Keychain] Set ${account}: success`);
+    return true;
+  } catch (error) {
+    console.error(`[Keychain] Error setting password for ${account}:`, error);
+    return false;
+  }
+});
+
+/**
+ * Delete a password from macOS Keychain
+ * Params: account (string)
+ * Returns: boolean (success status)
+ */
+ipcMain.handle('keychain:deletePassword', async (event, account: string) => {
+  try {
+    if (process.platform !== 'darwin') {
+      console.log('[Keychain] Not on macOS, keychain not available');
+      return false;
+    }
+    
+    const deleted = await keytar.deletePassword(SERVICE_NAME, account);
+    console.log(`[Keychain] Delete ${account}:`, deleted ? 'success' : 'not found');
+    return deleted;
+  } catch (error) {
+    console.error(`[Keychain] Error deleting password for ${account}:`, error);
+    return false;
   }
 });
