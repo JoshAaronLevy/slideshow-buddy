@@ -1,5 +1,8 @@
 {
-  "appId": "com.yourdoamnin.yourapp",
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.slideshowbuddy.app",
+  "productName": "Slideshow Buddy",
+  "copyright": "Copyright © 2024 Slideshow Buddy",
   "directories": {
     "buildResources": "resources"
   },
@@ -29,9 +32,63 @@
     "icon": "assets/appIcon.ico"
   },
   "mac": {
-    "category": "your.app.category.type",
-    "target": "dmg",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
+    ],
+    "category": "public.app-category.photography",
+    "icon": "assets/appIcon.icns",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
     "entitlements": "resources/entitlements.mac.plist",
-    "entitlementsInherit": "resources/entitlements.mac.plist"
+    "entitlementsInherit": "resources/entitlements.mac.plist",
+    "identity": null,
+    "type": "distribution",
+    "minimumSystemVersion": "11.0",
+    
+    "_comment_code_signing": "CODE SIGNING CONFIGURATION - Requires Apple Developer Account ($99/year)",
+    "_comment_when_ready": "Uncomment and configure the following when code signing credentials are available:",
+    "_comment_identity": "identity: 'Developer ID Application: YOUR NAME (TEAM_ID)',",
+    "_comment_environment_vars": "Environment variables for CI/CD: CSC_LINK (cert path or base64), CSC_KEY_PASSWORD, APPLE_ID, APPLE_ID_PASSWORD",
+    "_comment_notarize_example": "For notarization: notarize: { teamId: 'YOUR_TEAM_ID' }",
+    
+    "extendInfo": {
+      "CFBundleURLTypes": [
+        {
+          "CFBundleURLSchemes": ["com.slideshowbuddy"],
+          "CFBundleURLName": "Slideshow Buddy OAuth Callback"
+        }
+      ],
+      "NSPhotoLibraryUsageDescription": "Access your photo library to create beautiful slideshows",
+      "NSMicrophoneUsageDescription": "Not used by this application"
+    }
+  },
+  "dmg": {
+    "background": "assets/dmg-background.png",
+    "icon": "assets/appIcon.icns",
+    "iconSize": 100,
+    "contents": [
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      },
+      {
+        "x": 130,
+        "y": 220,
+        "type": "file"
+      }
+    ],
+    "window": {
+      "width": 540,
+      "height": 380
+    },
+    "title": "Install Slideshow Buddy"
   }
 }
