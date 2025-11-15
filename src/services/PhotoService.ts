@@ -74,13 +74,13 @@ export const requestPhotoLibraryPermission = async (): Promise<boolean> => {
  */
 const requestPhotosPermissionElectron = async (): Promise<boolean> => {
   try {
-    if (!window.electron?.photos) {
+    if (!(window as any).electron?.photos) {
       console.error('[PhotoService] Electron Photos API not available');
       return false;
     }
 
     // Check current permission status
-    const checkResult = await window.electron.photos.checkPermission();
+    const checkResult = await (window as any).electron.photos.checkPermission();
     if (!checkResult.success) {
       console.error('[PhotoService] Failed to check permission:', checkResult.error);
       return false;
@@ -92,7 +92,7 @@ const requestPhotosPermissionElectron = async (): Promise<boolean> => {
     }
 
     // Request permission if not granted
-    const requestResult = await window.electron.photos.requestPermission();
+    const requestResult = await (window as any).electron.photos.requestPermission();
     if (!requestResult.success) {
       console.error('[PhotoService] Failed to request permission:', requestResult.error);
       return false;
@@ -112,7 +112,7 @@ const requestPhotosPermissionElectron = async (): Promise<boolean> => {
  */
 const importPhotosElectron = async (quantity: number): Promise<Photo[]> => {
   try {
-    if (!window.electron?.photos) {
+    if (!(window as any).electron?.photos) {
       throw new Error('Electron Photos API not available');
     }
 
@@ -123,7 +123,7 @@ const importPhotosElectron = async (quantity: number): Promise<Photo[]> => {
     }
 
     // Fetch photos from all albums (undefined albumId = all photos)
-    const photosResult = await window.electron.photos.getPhotos(undefined, quantity);
+    const photosResult = await (window as any).electron.photos.getPhotos(undefined, quantity);
     
     if (!photosResult.success) {
       throw new Error(photosResult.error || 'Failed to fetch photos from macOS Photos library');
@@ -135,7 +135,7 @@ const importPhotosElectron = async (quantity: number): Promise<Photo[]> => {
     }
 
     // Transform Electron Photo objects to app Photo interface
-    const photos: Photo[] = photosResult.photos.map((electronPhoto) => {
+    const photos: Photo[] = photosResult.photos.map((electronPhoto: any) => {
       // Map the identifier field to id
       const id = electronPhoto.identifier;
       
@@ -241,7 +241,7 @@ export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
 
       console.log(`[PhotoService] Created ${photos.length} blob URLs for Android photos`);
       return photos;
-    } else if (isMacOS() && window.electron?.photos) {
+    } else if (isMacOS() && (window as any).electron?.photos) {
       // macOS Electron implementation
       console.log('[PhotoService] Using Electron Photos API for macOS');
       return await importPhotosElectron(quantity);
@@ -288,7 +288,7 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
       }));
 
       return albums;
-    } else if (isMacOS() && window.electron?.photos) {
+    } else if (isMacOS() && (window as any).electron?.photos) {
       // macOS Electron implementation
       console.log('[PhotoService] Fetching albums using Electron Photos API for macOS');
       
@@ -298,7 +298,7 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
         throw new Error('Photos permission denied');
       }
 
-      const albumsResult = await window.electron.photos.getAlbums();
+      const albumsResult = await (window as any).electron.photos.getAlbums();
       
       if (!albumsResult.success) {
         throw new Error(albumsResult.error || 'Failed to fetch albums from macOS Photos library');
@@ -310,7 +310,7 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
       }
 
       // Transform Electron PhotoAlbum objects to app PhotoAlbum interface
-      const albums: PhotoAlbum[] = albumsResult.albums.map((electronAlbum) => ({
+      const albums: PhotoAlbum[] = albumsResult.albums.map((electronAlbum: any) => ({
         identifier: electronAlbum.identifier,
         name: electronAlbum.name,
         type: electronAlbum.type || 'album',
@@ -389,7 +389,7 @@ export const getPhotosFromAlbum = async (
 
       console.log(`[PhotoService] Created ${photos.length} blob URLs from album`);
       return photos;
-    } else if (isMacOS() && window.electron?.photos) {
+    } else if (isMacOS() && (window as any).electron?.photos) {
       // macOS Electron implementation
       console.log('[PhotoService] Loading photos from album using Electron Photos API for macOS');
       
@@ -399,7 +399,7 @@ export const getPhotosFromAlbum = async (
         throw new Error('Photos permission denied');
       }
 
-      const photosResult = await window.electron.photos.getPhotos(albumIdentifier, quantity);
+      const photosResult = await (window as any).electron.photos.getPhotos(albumIdentifier, quantity);
       
       if (!photosResult.success) {
         throw new Error(photosResult.error || 'Failed to fetch photos from album in macOS Photos library');
@@ -411,7 +411,7 @@ export const getPhotosFromAlbum = async (
       }
 
       // Transform Electron Photo objects to app Photo interface
-      const photos: Photo[] = photosResult.photos.map((electronPhoto) => {
+      const photos: Photo[] = photosResult.photos.map((electronPhoto: any) => {
         // Map the identifier field to id
         const id = electronPhoto.identifier;
         

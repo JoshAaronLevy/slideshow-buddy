@@ -33,7 +33,12 @@ interface PhotosAPI {
   getPhotos(albumId?: string, quantity?: number): Promise<PhotosResult>;
 }
 
-// Expose Photos API to renderer process
+// Spotify OAuth API Interface
+interface SpotifyOAuthAPI {
+  onOAuthCallback(callback: (url: string) => void): () => void;
+}
+
+// Expose Photos API and Spotify OAuth API to renderer process
 contextBridge.exposeInMainWorld('electron', {
   photos: {
     requestPermission: (): Promise<PhotosPermissionResult> =>
@@ -47,7 +52,22 @@ contextBridge.exposeInMainWorld('electron', {
     
     getPhotos: (albumId?: string, quantity?: number): Promise<PhotosResult> =>
       ipcRenderer.invoke('photos:getPhotos', { albumId, quantity })
-  } as PhotosAPI
+  } as PhotosAPI,
+  
+  spotify: {
+    onOAuthCallback: (callback: (url: string) => void): (() => void) => {
+      const removeListener = () => {
+        ipcRenderer.removeListener('spotify:oauth-callback', callback);
+      };
+      
+      ipcRenderer.on('spotify:oauth-callback', (event, url: string) => {
+        console.log('OAuth callback received in preload:', url);
+        callback(url);
+      });
+      
+      return removeListener;
+    }
+  } as SpotifyOAuthAPI
 });
 
 // Type declarations for global window object
@@ -55,6 +75,7 @@ declare global {
   interface Window {
     electron: {
       photos: PhotosAPI;
+      spotify: SpotifyOAuthAPI;
     };
   }
 }

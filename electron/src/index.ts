@@ -12,6 +12,16 @@ import { photosLibraryFFI } from './native/PhotosLibraryFFI';
 // Graceful handling of unhandled errors.
 unhandled();
 
+// Register custom protocol for OAuth callbacks
+// This must be done before app.whenReady() to ensure proper registration
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('com.slideshowbuddy', process.execPath, [process.argv[1]]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('com.slideshowbuddy');
+}
+
 // Define our menu templates (these are optional)
 const trayMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [new MenuItem({ label: 'Quit App', role: 'quit' })];
 const appMenuBarMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
@@ -69,6 +79,59 @@ app.on('activate', async function () {
 });
 
 // Place all ipc or other electron api calls and custom functionality under this line
+
+// Spotify OAuth Callback Handling
+// Store pending OAuth callback URL in case window isn't ready yet
+let pendingOAuthCallback: string | null = null;
+
+/**
+ * Handle OAuth callback URLs from com.slideshowbuddy://callback
+ * This is triggered when user completes OAuth flow in browser
+ */
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  console.log('OAuth callback received:', url);
+  
+  // Check if this is a Spotify OAuth callback
+  if (url.startsWith('com.slideshowbuddy://callback')) {
+    const mainWindow = myCapacitorApp.getMainWindow();
+    
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      // Send callback immediately if window is ready
+      mainWindow.webContents.send('spotify:oauth-callback', url);
+      mainWindow.show();
+      mainWindow.focus();
+      console.log('OAuth callback sent to renderer:', url);
+    } else {
+      // Store callback for when window becomes ready
+      pendingOAuthCallback = url;
+      console.log('OAuth callback queued - window not ready yet');
+    }
+  }
+});
+
+/**
+ * Send pending OAuth callback when app initializes
+ * This handles the case where OAuth callback arrives before window is ready
+ */
+const originalInit = myCapacitorApp.init;
+myCapacitorApp.init = async function(...args) {
+  const result = await originalInit.apply(this, args);
+  
+  // Send any pending OAuth callback after window is ready
+  if (pendingOAuthCallback) {
+    const mainWindow = myCapacitorApp.getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send('spotify:oauth-callback', pendingOAuthCallback);
+      mainWindow.show();
+      mainWindow.focus();
+      console.log('Pending OAuth callback sent to renderer:', pendingOAuthCallback);
+    }
+    pendingOAuthCallback = null;
+  }
+  
+  return result;
+};
 
 // Photos Library IPC Handlers
 // These handlers bridge the renderer process to the native Swift Photos library via FFI
