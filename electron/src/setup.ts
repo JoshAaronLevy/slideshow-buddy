@@ -219,14 +219,36 @@ export class ElectronCapacitorApp {
 // Set a CSP up for our application based on the custom scheme
 export function setupContentSecurityPolicy(customScheme: string): void {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    // Build CSP directives for Spotify integration
+    const scriptSrc = electronIsDev
+      ? `script-src 'self' ${customScheme}://* 'unsafe-inline' https://sdk.scdn.co devtools://* 'unsafe-eval'`
+      : `script-src 'self' ${customScheme}://* 'unsafe-inline' https://sdk.scdn.co`;
+    
+    const connectSrc = `connect-src 'self' ${customScheme}://* https://api.spotify.com https://accounts.spotify.com`;
+    const mediaSrc = `media-src 'self' ${customScheme}://* https: data:`;
+    const imgSrc = `img-src 'self' ${customScheme}://* https: data:`;
+    const styleSrc = `style-src 'self' ${customScheme}://* 'unsafe-inline'`;
+    const fontSrc = `font-src 'self' ${customScheme}://* https: data:`;
+    
+    // Default fallback for other resources
+    const defaultSrc = electronIsDev
+      ? `default-src 'self' ${customScheme}://* devtools://*`
+      : `default-src 'self' ${customScheme}://*`;
+
+    const cspValue = [
+      defaultSrc,
+      scriptSrc,
+      connectSrc,
+      mediaSrc,
+      imgSrc,
+      styleSrc,
+      fontSrc
+    ].join('; ');
+
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [
-          electronIsDev
-            ? `default-src ${customScheme}://* 'unsafe-inline' devtools://* 'unsafe-eval' data:`
-            : `default-src ${customScheme}://* 'unsafe-inline' data:`,
-        ],
+        'Content-Security-Policy': [cspValue],
       },
     });
   });
