@@ -1,0 +1,10 @@
+/* SettingsTab styles */
+
+ion-list {
+  padding-top: 20px;
+}
+
+ion-item {
+  --padding-start: 20px;
+  --padding-end: 20px;
+}

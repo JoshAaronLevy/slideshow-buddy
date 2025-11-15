@@ -16,6 +16,7 @@ import {
   IonFooter,
   IonBadge,
   IonSpinner,
+  IonAlert,
 } from '@ionic/react';
 import { close, checkmarkCircle, chevronForward, chevronBack, imagesOutline, alertCircle } from 'ionicons/icons';
 import { useEffect, useState } from 'react';
@@ -52,7 +53,10 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 50;
+  const [showPerformanceWarning, setShowPerformanceWarning] = useState(false);
+  const [hasShownWarning, setHasShownWarning] = useState(false);
+  const PAGE_SIZE = 100;
+  const PERFORMANCE_WARNING_THRESHOLD = 400;
 
   // Load albums when modal opens
   useEffect(() => {
@@ -68,6 +72,8 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
       setError(null);
       setHasMore(true);
       setCurrentPage(1);
+      setHasShownWarning(false);
+      setShowPerformanceWarning(false);
     }
   }, [isOpen]);
 
@@ -194,6 +200,12 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
         next.delete(photo.id);
       } else {
         next.set(photo.id, photo);
+        
+        // Show performance warning if threshold crossed and not shown yet
+        if (!hasShownWarning && next.size >= PERFORMANCE_WARNING_THRESHOLD) {
+          setShowPerformanceWarning(true);
+          setHasShownWarning(true);
+        }
       }
       return next;
     });
@@ -203,6 +215,13 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     HapticService.impactMedium();
     const newSelected = new Map<string, Photo>();
     photos.forEach(photo => newSelected.set(photo.id, photo));
+    
+    // Show performance warning if threshold crossed and not shown yet
+    if (!hasShownWarning && newSelected.size >= PERFORMANCE_WARNING_THRESHOLD) {
+      setShowPerformanceWarning(true);
+      setHasShownWarning(true);
+    }
+    
     setSelectedPhotos(newSelected);
   };
 
@@ -241,18 +260,20 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
             </IonButton>
           </IonButtons>
         </IonToolbar>
-        {view === 'photos' && selectedCount > 0 && (
+        {view === 'photos' && (
           <IonToolbar>
             <div className="photo-picker-actions">
               <IonButton size="small" fill="clear" onClick={handleSelectAll}>
-                Select All
+                Select All ({photos.length})
               </IonButton>
               <IonBadge color="primary" className="selection-badge">
-                {selectedCount} selected
+                {photos.length} loaded{selectedCount > 0 ? ` • ${selectedCount} selected` : ''}
               </IonBadge>
-              <IonButton size="small" fill="clear" onClick={handleDeselectAll}>
-                Deselect All
-              </IonButton>
+              {selectedCount > 0 && (
+                <IonButton size="small" fill="clear" onClick={handleDeselectAll}>
+                  Deselect All
+                </IonButton>
+              )}
             </div>
           </IonToolbar>
         )}
@@ -386,6 +407,15 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           </IonToolbar>
         </IonFooter>
       )}
+
+      {/* Performance Warning Alert */}
+      <IonAlert
+        isOpen={showPerformanceWarning}
+        onDidDismiss={() => setShowPerformanceWarning(false)}
+        header="Large Slideshow"
+        message={`You've selected ${selectedCount} photos. Slideshows with over ${PERFORMANCE_WARNING_THRESHOLD} photos may experience slower performance on some devices. Consider creating multiple smaller slideshows for the best experience.`}
+        buttons={['Got It']}
+      />
     </IonModal>
   );
 };

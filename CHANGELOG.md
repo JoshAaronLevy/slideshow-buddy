@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2025-11-14
+
+### Added
+- Settings tab with dynamic version number display pulled from package.json
+- Photo count display in photo picker showing number of loaded photos
+- "Select All" button now shows count of photos that will be selected
+- Performance warning alert when selecting 400+ photos in a slideshow (one-time notification per session)
+
+### Changed
+- Photo picker batch size increased from 50 to 100 photos per load for faster browsing
+- "Select All" button now always visible in photo picker (previously only shown after selecting a photo)
+- "Deselect All" button now only visible when at least one photo is selected
+- Photo picker header displays loaded photo count and selection count together
+
 ## [0.4.1] - 2025-11-11
 
 ### Fixed

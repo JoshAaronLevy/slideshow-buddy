@@ -12,10 +12,11 @@ import {
   useIonToast,
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { imagesOutline, musicalNotesOutline } from 'ionicons/icons';
+import { imagesOutline, musicalNotesOutline, settingsOutline } from 'ionicons/icons';
 import { useState, useEffect } from 'react';
 import SlideshowsTab from './pages/SlideshowsTab';
 import Tab2 from './pages/Tab2';
+import SettingsTab from './pages/SettingsTab';
 import SpotifySyncModal from './components/SpotifySyncModal';
 import { requestPhotoLibraryPermission } from './services/PhotoService';
 import { useSpotifyAuth } from './hooks/useSpotifyAuth';
@@ -155,6 +156,9 @@ const App: React.FC = () => {
             <Route exact path="/music">
               <Tab2 />
             </Route>
+            <Route exact path="/settings">
+              <SettingsTab />
+            </Route>
             {/* <Route exact path="/play">
               <Tab3 />
             </Route> */}
@@ -170,6 +174,10 @@ const App: React.FC = () => {
             <IonTabButton tab="music" href="/music">
               <IonIcon aria-hidden="true" icon={musicalNotesOutline} />
               <IonLabel>Music</IonLabel>
+            </IonTabButton>
+            <IonTabButton tab="settings" href="/settings">
+              <IonIcon aria-hidden="true" icon={settingsOutline} />
+              <IonLabel>Settings</IonLabel>
             </IonTabButton>
             {/* <IonTabButton tab="play" href="/play">
               <IonIcon aria-hidden="true" icon={playCircle} />
