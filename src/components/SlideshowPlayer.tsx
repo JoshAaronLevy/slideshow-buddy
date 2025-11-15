@@ -14,7 +14,7 @@ import {
   createGesture,
   Gesture,
 } from '@ionic/react';
-import { App } from '@capacitor/app';
+import lifecycleService from '../services/LifecycleService';
 import {
   playOutline,
   pauseOutline,
@@ -249,51 +249,46 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
 
   // Listen for app state changes and pause timers when backgrounded
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let listenerHandle: any = null;
-    
-    const setupListener = async () => {
-      listenerHandle = await App.addListener('appStateChange', ({ isActive }) => {
-        console.log('[SlideshowPlayer] App state changed:', isActive ? 'ACTIVE' : 'BACKGROUND');
-        setIsAppActive(isActive);
-        
-        if (!isActive) {
-          // Pause all timers when app backgrounds
-          console.log('[SlideshowPlayer] Pausing timers - app backgrounded');
-          
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-          
-          if (trackUpdateIntervalRef.current) {
-            clearInterval(trackUpdateIntervalRef.current);
-            trackUpdateIntervalRef.current = null;
-          }
-          
-          if (controlsTimeoutRef.current) {
-            clearTimeout(controlsTimeoutRef.current);
-            controlsTimeoutRef.current = null;
-          }
-        } else {
-          // Resume timers when app foregrounds (if playing)
-          console.log('[SlideshowPlayer] App foregrounded - isPlaying:', isPlaying);
-          
-          if (isPlaying && !isPaused) {
-            console.log('[SlideshowPlayer] Resuming timers');
-            // Slideshow timer will restart via the isPlaying useEffect
-            // Track update will restart via the isMusicPlaying useEffect
-          }
-        }
-      });
+    const handleBackground = () => {
+      console.log('[SlideshowPlayer] App backgrounded');
+      setIsAppActive(false);
+      
+      // Pause all timers when app backgrounds
+      console.log('[SlideshowPlayer] Pausing timers - app backgrounded');
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      if (trackUpdateIntervalRef.current) {
+        clearInterval(trackUpdateIntervalRef.current);
+        trackUpdateIntervalRef.current = null;
+      }
+      
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
+      }
     };
     
-    setupListener();
+    const handleForeground = () => {
+      console.log('[SlideshowPlayer] App foregrounded - isPlaying:', isPlaying);
+      setIsAppActive(true);
+      
+      if (isPlaying && !isPaused) {
+        console.log('[SlideshowPlayer] Resuming timers');
+        // Slideshow timer will restart via the isPlaying useEffect
+        // Track update will restart via the isMusicPlaying useEffect
+      }
+    };
+
+    lifecycleService.on('background', handleBackground);
+    lifecycleService.on('foreground', handleForeground);
     
     return () => {
-      if (listenerHandle) {
-        listenerHandle.remove();
-      }
+      lifecycleService.off('background', handleBackground);
+      lifecycleService.off('foreground', handleForeground);
     };
   }, [isPlaying, isPaused]);
   

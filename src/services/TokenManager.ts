@@ -10,7 +10,7 @@
  */
 
 import { Preferences } from '@capacitor/preferences';
-import { App } from '@capacitor/app';
+import lifecycleService from './LifecycleService';
 
 interface TokenData {
   accessToken: string;
@@ -27,9 +27,9 @@ class TokenManager {
   // Auto-refresh timer
   private refreshTimer: NodeJS.Timeout | null = null;
   
-  // App state listener
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private appStateListener: any = null;
+  // Lifecycle event handlers
+  private backgroundHandler: (() => void) | null = null;
+  private foregroundHandler: (() => void) | null = null;
   
   // Mutex for refresh operations
   private refreshPromise: Promise<string> | null = null;
@@ -285,27 +285,26 @@ class TokenManager {
   }
   
   /**
-   * Setup app state listener to pause/resume refresh based on app state
+   * Setup lifecycle listeners to pause/resume refresh based on app state
    */
   private setupAppStateListener(): void {
-    // Remove existing listener if any
+    // Remove existing listeners if any
     this.removeAppStateListener();
     
-    console.log('[TokenManager] Setting up app state listener');
+    console.log('[TokenManager] Setting up lifecycle listeners');
     
-    this.appStateListener = App.addListener('appStateChange', ({ isActive }) => {
-      console.log('[TokenManager] App state changed:', isActive ? 'ACTIVE' : 'BACKGROUND');
-      
-      if (isActive) {
-        // Resume auto-refresh when app becomes active
-        console.log('[TokenManager] App foregrounded - resuming auto-refresh');
-        this.startAutoRefresh();
-      } else {
-        // Pause auto-refresh when backgrounded
-        console.log('[TokenManager] App backgrounded - pausing auto-refresh');
-        this.pauseAutoRefresh();
-      }
-    });
+    this.backgroundHandler = () => {
+      console.log('[TokenManager] App backgrounded - pausing auto-refresh');
+      this.pauseAutoRefresh();
+    };
+    
+    this.foregroundHandler = () => {
+      console.log('[TokenManager] App foregrounded - resuming auto-refresh');
+      this.startAutoRefresh();
+    };
+    
+    lifecycleService.on('background', this.backgroundHandler);
+    lifecycleService.on('foreground', this.foregroundHandler);
   }
   
   /**
@@ -320,13 +319,18 @@ class TokenManager {
   }
   
   /**
-   * Remove app state listener
+   * Remove lifecycle listeners
    */
   private removeAppStateListener(): void {
-    if (this.appStateListener) {
-      console.log('[TokenManager] Removing app state listener');
-      this.appStateListener.remove();
-      this.appStateListener = null;
+    if (this.backgroundHandler) {
+      console.log('[TokenManager] Removing lifecycle listeners');
+      lifecycleService.off('background', this.backgroundHandler);
+      this.backgroundHandler = null;
+    }
+    
+    if (this.foregroundHandler) {
+      lifecycleService.off('foreground', this.foregroundHandler);
+      this.foregroundHandler = null;
     }
   }
   
