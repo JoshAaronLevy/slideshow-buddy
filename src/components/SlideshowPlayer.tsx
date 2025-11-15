@@ -34,6 +34,7 @@ import { useMusicStore } from '../stores/musicStore';
 import { keepAwake, allowSleep, preloadNextImages } from '../services/SlideshowService';
 import * as MusicPlayerService from '../services/MusicPlayerService';
 import * as HapticService from '../services/HapticService';
+import { isMacOS } from '../utils/platform';
 import './SlideshowPlayer.css';
 
 interface SlideshowPlayerProps {
@@ -67,6 +68,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   const [timeRemaining, setTimeRemaining] = useState(5);
   const [musicInitialized, setMusicInitialized] = useState(false);
   const [presentToast] = useIonToast();
+
+  // Desktop-specific state
+  const hideControlsTimeoutRef = useRef<NodeJS.Timeout>();
 
   // Initialize slideshow from SavedSlideshow
   useEffect(() => {
@@ -319,7 +323,81 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     };
   }, [isOpen, isMusicPlaying, isAppActive]);
 
-  // Auto-hide controls after 3 seconds
+  // Desktop keyboard controls
+  useEffect(() => {
+    if (!isMacOS() || !isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          setIsPlaying(prev => !prev);
+          if (!isPlaying) {
+            setIsPaused(false);
+            // Resume music
+            try {
+              MusicPlayerService.resumePlayback();
+              setMusicPlaying(true);
+            } catch (error) {
+              console.error('Failed to resume music:', error);
+            }
+          } else {
+            setIsPaused(true);
+            // Pause music
+            try {
+              MusicPlayerService.pausePlayback();
+              setMusicPlaying(false);
+            } catch (error) {
+              console.error('Failed to pause music:', error);
+            }
+          }
+          resetControlsTimeout();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handlePrevious();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          handleNext(true);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          handleStop();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isPlaying, handleNext, handlePrevious, handleStop]);
+
+  // Desktop mouse hover controls
+  useEffect(() => {
+    if (!isMacOS() || !isOpen) return;
+
+    const handleMouseMove = () => {
+      setShowControls(true);
+      
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+      }
+      
+      hideControlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+      }
+    };
+  }, [isOpen]);
+
+  // Auto-hide controls after 3 seconds (mobile behavior)
   const resetControlsTimeout = useCallback(() => {
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
@@ -334,15 +412,33 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     }, 3000);
   }, [isPlaying]);
 
-  // Toggle controls on tap
-  const handleTap = () => {
-    if (showControls) {
-      setShowControls(false);
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
+  // Toggle controls on tap (mobile) or handle desktop click navigation
+  const handleTap = (e?: React.MouseEvent) => {
+    // Desktop click navigation
+    if (isMacOS() && e) {
+      const clickX = e.clientX;
+      const screenWidth = window.innerWidth;
+      
+      if (clickX < screenWidth * 0.2) {
+        handlePrevious();
+        return;
+      } else if (clickX > screenWidth * 0.8) {
+        handleNext(true);
+        return;
       }
-    } else {
-      resetControlsTimeout();
+      // Center area falls through to mobile behavior
+    }
+
+    // Mobile tap behavior
+    if (!isMacOS()) {
+      if (showControls) {
+        setShowControls(false);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
+      } else {
+        resetControlsTimeout();
+      }
     }
   };
 
@@ -562,9 +658,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     }
   }, [currentIndex, photos]);
 
-  // Setup swipe gestures
+  // Setup swipe gestures (mobile only)
   useEffect(() => {
-    if (!imageContainerRef.current) return;
+    if (!imageContainerRef.current || isMacOS()) return;
 
     const gesture = createGesture({
       el: imageContainerRef.current,
@@ -599,6 +695,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+      }
     }
   }, [isPaused]);
 
@@ -610,6 +709,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       }
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
+      }
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
       }
     };
   }, []);

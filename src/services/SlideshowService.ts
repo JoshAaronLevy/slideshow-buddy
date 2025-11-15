@@ -3,30 +3,87 @@
  */
 
 import { KeepAwake } from '@capacitor-community/keep-awake';
+import { isMacOS } from '../utils/platform';
 
 /**
+ * Activate keep-awake functionality during slideshow playback
+ * Uses Electron powerSaveBlocker on macOS, Capacitor KeepAwake on mobile
+ */
+export const activateKeepAwake = async (): Promise<void> => {
+  try {
+    if (isMacOS() && window.electron?.slideshow) {
+      // Use Electron powerSaveBlocker on macOS
+      const result = await window.electron.slideshow.keepAwakeStart();
+      if (result.success) {
+        console.log('PowerSave blocker activated:', result.message);
+      } else {
+        console.error('Failed to activate power save blocker:', result.error);
+        // Fallback to KeepAwake if available
+        await KeepAwake.keepAwake();
+      }
+    } else {
+      // Use Capacitor KeepAwake on mobile platforms
+      await KeepAwake.keepAwake();
+      console.log('Screen will stay awake');
+    }
+  } catch (error) {
+    console.error('Error activating keep-awake:', error);
+    // Try fallback if not already attempted
+    if (isMacOS()) {
+      try {
+        await KeepAwake.keepAwake();
+      } catch (fallbackError) {
+        console.error('Fallback keep-awake also failed:', fallbackError);
+      }
+    }
+  }
+};
+
+/**
+ * Deactivate keep-awake functionality after slideshow
+ * Cleans up Electron powerSaveBlocker on macOS, Capacitor KeepAwake on mobile
+ */
+export const deactivateKeepAwake = async (): Promise<void> => {
+  try {
+    if (isMacOS() && window.electron?.slideshow) {
+      // Clean up Electron powerSaveBlocker on macOS
+      const result = await window.electron.slideshow.keepAwakeStop();
+      if (result.success) {
+        console.log('PowerSave blocker deactivated:', result.message);
+      } else {
+        console.error('Failed to deactivate power save blocker:', result.error);
+        // Fallback to KeepAwake cleanup if available
+        await KeepAwake.allowSleep();
+      }
+    } else {
+      // Use Capacitor KeepAwake on mobile platforms
+      await KeepAwake.allowSleep();
+      console.log('Screen can sleep again');
+    }
+  } catch (error) {
+    console.error('Error deactivating keep-awake:', error);
+    // Try fallback cleanup if not already attempted
+    if (isMacOS()) {
+      try {
+        await KeepAwake.allowSleep();
+      } catch (fallbackError) {
+        console.error('Fallback keep-awake cleanup also failed:', fallbackError);
+      }
+    }
+  }
+};
+
+/**
+ * @deprecated Use activateKeepAwake() instead
  * Keep the screen awake during slideshow playback
  */
-export const keepAwake = async (): Promise<void> => {
-  try {
-    await KeepAwake.keepAwake();
-    console.log('Screen will stay awake');
-  } catch (error) {
-    console.error('Error keeping screen awake:', error);
-  }
-};
+export const keepAwake = activateKeepAwake;
 
 /**
+ * @deprecated Use deactivateKeepAwake() instead
  * Allow the screen to sleep again
  */
-export const allowSleep = async (): Promise<void> => {
-  try {
-    await KeepAwake.allowSleep();
-    console.log('Screen can sleep again');
-  } catch (error) {
-    console.error('Error allowing screen sleep:', error);
-  }
-};
+export const allowSleep = deactivateKeepAwake;
 
 /**
  * Preload an image to ensure smooth transitions

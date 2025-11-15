@@ -1,7 +1,7 @@
 import type { CapacitorElectronConfig } from '@capacitor-community/electron';
 import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor-community/electron';
 import type { MenuItemConstructorOptions } from 'electron';
-import { app, MenuItem, ipcMain } from 'electron';
+import { app, MenuItem, ipcMain, powerSaveBlocker } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
 import { autoUpdater } from 'electron-updater';
@@ -79,6 +79,9 @@ app.on('activate', async function () {
 });
 
 // Place all ipc or other electron api calls and custom functionality under this line
+
+// PowerSave Blocker for slideshow keep-awake functionality
+let powerSaveBlockerId: number | null = null;
 
 // Spotify OAuth Callback Handling
 // Store pending OAuth callback URL in case window isn't ready yet
@@ -208,6 +211,85 @@ ipcMain.handle('photos:getAlbums', async () => {
       success: false,
       error: error.message || 'Failed to retrieve photo albums'
     };
+  }
+});
+
+// Slideshow Keep-Awake IPC Handlers
+// These handlers manage the powerSaveBlocker to prevent display sleep during slideshows
+
+/**
+ * Start power save blocker to prevent display sleep during slideshow
+ * Returns: { success: boolean, blockerId?: number, message?: string, error?: string }
+ */
+ipcMain.handle('slideshow:keep-awake-start', async () => {
+  try {
+    if (powerSaveBlockerId !== null) {
+      return {
+        success: true,
+        blockerId: powerSaveBlockerId,
+        message: 'Power save blocker already active'
+      };
+    }
+    
+    powerSaveBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+    console.log('PowerSave blocker started with ID:', powerSaveBlockerId);
+    
+    return {
+      success: true,
+      blockerId: powerSaveBlockerId,
+      message: 'Display sleep prevented successfully'
+    };
+  } catch (error) {
+    console.error('Failed to start power save blocker:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to prevent display sleep'
+    };
+  }
+});
+
+/**
+ * Stop power save blocker to allow display sleep after slideshow
+ * Returns: { success: boolean, message?: string, error?: string }
+ */
+ipcMain.handle('slideshow:keep-awake-stop', async () => {
+  try {
+    if (powerSaveBlockerId !== null) {
+      powerSaveBlocker.stop(powerSaveBlockerId);
+      console.log('PowerSave blocker stopped for ID:', powerSaveBlockerId);
+      powerSaveBlockerId = null;
+      
+      return {
+        success: true,
+        message: 'Display sleep allowed successfully'
+      };
+    }
+    
+    return {
+      success: true,
+      message: 'Power save blocker was not active'
+    };
+  } catch (error) {
+    console.error('Failed to stop power save blocker:', error);
+    // Still set to null to avoid zombie blockers
+    powerSaveBlockerId = null;
+    return {
+      success: false,
+      error: error.message || 'Failed to allow display sleep'
+    };
+  }
+});
+
+// Cleanup powerSaveBlocker when app is quitting
+app.on('before-quit', () => {
+  if (powerSaveBlockerId !== null) {
+    try {
+      powerSaveBlocker.stop(powerSaveBlockerId);
+      console.log('PowerSave blocker cleaned up on app quit');
+      powerSaveBlockerId = null;
+    } catch (error) {
+      console.error('Failed to cleanup power save blocker on quit:', error);
+    }
   }
 });
 

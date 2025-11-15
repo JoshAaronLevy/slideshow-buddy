@@ -33,12 +33,26 @@ interface PhotosAPI {
   getPhotos(albumId?: string, quantity?: number): Promise<PhotosResult>;
 }
 
+// Slideshow Keep-Awake API Response Types
+interface SlideshowKeepAwakeResult {
+  success: boolean;
+  blockerId?: number;
+  message?: string;
+  error?: string;
+}
+
+// Slideshow API Interface
+interface SlideshowAPI {
+  keepAwakeStart(): Promise<SlideshowKeepAwakeResult>;
+  keepAwakeStop(): Promise<SlideshowKeepAwakeResult>;
+}
+
 // Spotify OAuth API Interface
 interface SpotifyOAuthAPI {
   onOAuthCallback(callback: (url: string) => void): () => void;
 }
 
-// Expose Photos API and Spotify OAuth API to renderer process
+// Expose Photos API, Slideshow API, and Spotify OAuth API to renderer process
 contextBridge.exposeInMainWorld('electron', {
   photos: {
     requestPermission: (): Promise<PhotosPermissionResult> =>
@@ -53,6 +67,14 @@ contextBridge.exposeInMainWorld('electron', {
     getPhotos: (albumId?: string, quantity?: number): Promise<PhotosResult> =>
       ipcRenderer.invoke('photos:getPhotos', { albumId, quantity })
   } as PhotosAPI,
+  
+  slideshow: {
+    keepAwakeStart: (): Promise<SlideshowKeepAwakeResult> =>
+      ipcRenderer.invoke('slideshow:keep-awake-start'),
+      
+    keepAwakeStop: (): Promise<SlideshowKeepAwakeResult> =>
+      ipcRenderer.invoke('slideshow:keep-awake-stop')
+  } as SlideshowAPI,
   
   spotify: {
     onOAuthCallback: (callback: (url: string) => void): (() => void) => {
@@ -75,6 +97,7 @@ declare global {
   interface Window {
     electron: {
       photos: PhotosAPI;
+      slideshow: SlideshowAPI;
       spotify: SpotifyOAuthAPI;
     };
   }
