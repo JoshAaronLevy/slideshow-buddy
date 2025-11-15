@@ -156,7 +156,7 @@
 .photo-picker-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  gap: 8px;
   padding: 8px 4px;
 }
 
@@ -168,6 +168,7 @@
   overflow: hidden;
   border-radius: 4px;
   background-color: var(--ion-color-light);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .photo-picker-item img {
@@ -182,6 +183,19 @@
 
 .photo-picker-item:active img {
   transform: scale(0.95);
+}
+
+/* Desktop hover effects */
+@media (hover: hover) and (pointer: fine) {
+  .photo-picker-item:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+  }
+  
+  .photo-picker-item:hover img {
+    transform: scale(1.05);
+  }
 }
 
 /* Selected State */
@@ -227,18 +241,68 @@ ion-infinite-scroll-content::part(spinner) {
 }
 
 /* Responsive adjustments */
+/* Tablet */
 @media (min-width: 768px) {
   .photo-picker-grid {
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    padding: 16px 8px;
+    gap: 12px;
+    padding: 16px 12px;
   }
 }
 
+/* Desktop */
 @media (min-width: 1024px) {
   .photo-picker-grid {
     grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    padding: 20px 16px;
   }
+}
+
+/* Large Desktop */
+@media (min-width: 1440px) {
+  .photo-picker-grid {
+    grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+    padding: 24px 20px;
+  }
+}
+
+/* Drag and drop styling */
+.photo-picker-content {
+  position: relative;
+}
+
+.photo-picker-content.drag-over {
+  opacity: 0.8;
+}
+
+.drop-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(var(--ion-color-primary-rgb), 0.1);
+  border: 3px dashed var(--ion-color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+}
+
+.drop-overlay p {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ion-color-primary);
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+  background: rgba(var(--ion-color-primary-contrast-rgb), 0.9);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* Dark mode adjustments */
@@ -253,5 +317,10 @@ ion-infinite-scroll-content::part(spinner) {
   
   .photo-picker-album-item:active {
     background-color: var(--ion-color-dark-tint);
+  }
+
+  .drop-overlay p {
+    background: rgba(var(--ion-color-dark-rgb), 0.95);
+    color: var(--ion-color-primary);
   }
 }

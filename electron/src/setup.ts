@@ -114,6 +114,12 @@ export class ElectronCapacitorApp {
       y: this.mainWindowState.y,
       width: this.mainWindowState.width,
       height: this.mainWindowState.height,
+      // macOS-specific window chrome configuration
+      titleBarStyle: process.platform === 'darwin' ? 'default' : undefined,
+      frame: true,
+      title: 'Slideshow Buddy',
+      // Window appearance
+      backgroundColor: '#ffffff',
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: true,

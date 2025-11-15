@@ -70,7 +70,7 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   const [presentToast] = useIonToast();
 
   // Desktop-specific state
-  const hideControlsTimeoutRef = useRef<NodeJS.Timeout>();
+  const hideControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize slideshow from SavedSlideshow
   useEffect(() => {
@@ -365,7 +365,7 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isPlaying, handleNext, handlePrevious, handleStop]);
+  }, [isOpen, isPlaying]);
 
   // Desktop mouse hover controls
   useEffect(() => {

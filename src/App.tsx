@@ -18,10 +18,13 @@ import SlideshowsTab from './pages/SlideshowsTab';
 import Tab2 from './pages/Tab2';
 import SettingsTab from './pages/SettingsTab';
 import SpotifySyncModal from './components/SpotifySyncModal';
+import PreferencesModal from './components/PreferencesModal';
+import DesktopSidebar from './components/DesktopSidebar';
 import { requestPhotoLibraryPermission } from './services/PhotoService';
 import { useSpotifyAuth } from './hooks/useSpotifyAuth';
 import TokenManager from './services/TokenManager';
 import { memoryMonitor } from './utils/memoryMonitor';
+import { isMacOS } from './utils/platform';
 // import Tab3 from './pages/Tab3'; // Commented out for redesign (Stage 5 will reintegrate)
 
 /* Core CSS required for Ionic components to work properly */
@@ -59,6 +62,7 @@ setupIonicReact();
 const App: React.FC = () => {
   const [showSpotifySync, setShowSpotifySync] = useState(false);
   const [showPermissionAlert, setShowPermissionAlert] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const { loginWithSpotify } = useSpotifyAuth();
   const [presentToast] = useIonToast();
 
@@ -124,6 +128,18 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Stage 8: Listen for menu preferences event (macOS Cmd+,)
+  useEffect(() => {
+    const electron = (window as any).electron;
+    if (electron?.menu) {
+      const removeListener = electron.menu.onPreferences(() => {
+        console.log('[App] Preferences menu triggered');
+        setPreferencesOpen(true);
+      });
+      return removeListener;
+    }
+  }, []);
+
   const handleSyncNow = async () => {
     setShowSpotifySync(false);
     try {
@@ -145,46 +161,75 @@ const App: React.FC = () => {
     await Preferences.set({ key: 'spotify_sync_dismissed', value: 'true' });
   };
 
+  const isDesktop = isMacOS();
+
   return (
     <IonApp>
       <IonReactRouter>
-        <IonTabs>
-          <IonRouterOutlet>
-            <Route exact path="/slideshows">
-              <SlideshowsTab />
-            </Route>
-            <Route exact path="/music">
-              <Tab2 />
-            </Route>
-            <Route exact path="/settings">
-              <SettingsTab />
-            </Route>
-            {/* <Route exact path="/play">
-              <Tab3 />
-            </Route> */}
-            <Route exact path="/">
-              <Redirect to="/slideshows" />
-            </Route>
-          </IonRouterOutlet>
-          <IonTabBar slot="bottom">
-            <IonTabButton tab="slideshows" href="/slideshows">
-              <IonIcon aria-hidden="true" icon={imagesOutline} />
-              <IonLabel>Slideshows</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="music" href="/music">
-              <IonIcon aria-hidden="true" icon={musicalNotesOutline} />
-              <IonLabel>Music</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="settings" href="/settings">
-              <IonIcon aria-hidden="true" icon={settingsOutline} />
-              <IonLabel>Settings</IonLabel>
-            </IonTabButton>
-            {/* <IonTabButton tab="play" href="/play">
-              <IonIcon aria-hidden="true" icon={playCircle} />
-              <IonLabel>Play</IonLabel>
-            </IonTabButton> */}
-          </IonTabBar>
-        </IonTabs>
+        {isDesktop ? (
+          // Desktop layout with sidebar
+          <div style={{ display: 'flex', height: '100vh' }}>
+            <DesktopSidebar />
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <IonRouterOutlet>
+                <Route exact path="/slideshows">
+                  <SlideshowsTab />
+                </Route>
+                <Route exact path="/music">
+                  <Tab2 />
+                </Route>
+                <Route exact path="/settings">
+                  <SettingsTab />
+                </Route>
+                {/* <Route exact path="/play">
+                  <Tab3 />
+                </Route> */}
+                <Route exact path="/">
+                  <Redirect to="/slideshows" />
+                </Route>
+              </IonRouterOutlet>
+            </div>
+          </div>
+        ) : (
+          // Mobile layout with tabs
+          <IonTabs>
+            <IonRouterOutlet>
+              <Route exact path="/slideshows">
+                <SlideshowsTab />
+              </Route>
+              <Route exact path="/music">
+                <Tab2 />
+              </Route>
+              <Route exact path="/settings">
+                <SettingsTab />
+              </Route>
+              {/* <Route exact path="/play">
+                <Tab3 />
+              </Route> */}
+              <Route exact path="/">
+                <Redirect to="/slideshows" />
+              </Route>
+            </IonRouterOutlet>
+            <IonTabBar slot="bottom">
+              <IonTabButton tab="slideshows" href="/slideshows">
+                <IonIcon aria-hidden="true" icon={imagesOutline} />
+                <IonLabel>Slideshows</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="music" href="/music">
+                <IonIcon aria-hidden="true" icon={musicalNotesOutline} />
+                <IonLabel>Music</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="settings" href="/settings">
+                <IonIcon aria-hidden="true" icon={settingsOutline} />
+                <IonLabel>Settings</IonLabel>
+              </IonTabButton>
+              {/* <IonTabButton tab="play" href="/play">
+                <IonIcon aria-hidden="true" icon={playCircle} />
+                <IonLabel>Play</IonLabel>
+              </IonTabButton> */}
+            </IonTabBar>
+          </IonTabs>
+        )}
       </IonReactRouter>
 
       <IonAlert
@@ -200,6 +245,11 @@ const App: React.FC = () => {
         onDismiss={handleSyncLater}
         onSyncNow={handleSyncNow}
         onSyncLater={handleSyncLater}
+      />
+
+      <PreferencesModal
+        isOpen={preferencesOpen}
+        onClose={() => setPreferencesOpen(false)}
       />
     </IonApp>
   );

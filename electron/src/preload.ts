@@ -52,7 +52,79 @@ interface SpotifyOAuthAPI {
   onOAuthCallback(callback: (url: string) => void): () => void;
 }
 
-// Expose Photos API, Slideshow API, and Spotify OAuth API to renderer process
+// Window Management API Response Types
+interface WindowResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+interface SystemThemeResult {
+  success: boolean;
+  theme?: string;
+  error?: string;
+}
+
+// Window API Interface
+interface WindowAPI {
+  setTitle(title: string): Promise<WindowResult>;
+}
+
+// System API Interface
+interface SystemAPI {
+  getTheme(): Promise<SystemThemeResult>;
+  onThemeChange(callback: (theme: string) => void): () => void;
+}
+
+// Menu API Response Types
+interface MenuStateUpdateResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+// Menu API Interface
+interface MenuAPI {
+  // Menu event listeners
+  onNewSlideshow(callback: () => void): () => void;
+  onPreferences(callback: () => void): () => void;
+  onImportPhotos(callback: () => void): () => void;
+  onImportMusic(callback: () => void): () => void;
+  onExportSlideshow(callback: () => void): () => void;
+  onSlideshowSettings(callback: () => void): () => void;
+  onShowSlideshows(callback: () => void): () => void;
+  onShowMusic(callback: () => void): () => void;
+  onShowSettings(callback: () => void): () => void;
+  onPlaySlideshow(callback: () => void): () => void;
+  onPauseSlideshow(callback: () => void): () => void;
+  onStopSlideshow(callback: () => void): () => void;
+  onNextPhoto(callback: () => void): () => void;
+  onPreviousPhoto(callback: () => void): () => void;
+  onShowHelp(callback: () => void): () => void;
+  onShowShortcuts(callback: () => void): () => void;
+  onClearRecent(callback: () => void): () => void;
+  
+  // Menu state management
+  updateState(state: { hasSlideshow?: boolean; isPlaying?: boolean; canExport?: boolean }): Promise<MenuStateUpdateResult>;
+}
+
+// Common helper function to create menu event listeners
+const createMenuEventListener = (eventName: string) => {
+  return (callback: () => void): (() => void) => {
+    const removeListener = () => {
+      ipcRenderer.removeListener(eventName, callback);
+    };
+    
+    ipcRenderer.on(eventName, () => {
+      console.log(`Menu event received: ${eventName}`);
+      callback();
+    });
+    
+    return removeListener;
+  };
+};
+
+// Expose Photos API, Slideshow API, Spotify OAuth API, Window API, System API, and Menu API to renderer process
 contextBridge.exposeInMainWorld('electron', {
   photos: {
     requestPermission: (): Promise<PhotosPermissionResult> =>
@@ -89,7 +161,55 @@ contextBridge.exposeInMainWorld('electron', {
       
       return removeListener;
     }
-  } as SpotifyOAuthAPI
+  } as SpotifyOAuthAPI,
+  
+  window: {
+    setTitle: (title: string): Promise<WindowResult> =>
+      ipcRenderer.invoke('window:set-title', title)
+  } as WindowAPI,
+  
+  system: {
+    getTheme: (): Promise<SystemThemeResult> =>
+      ipcRenderer.invoke('system:get-theme'),
+    
+    onThemeChange: (callback: (theme: string) => void): (() => void) => {
+      const removeListener = () => {
+        ipcRenderer.removeListener('theme-changed', callback);
+      };
+      
+      ipcRenderer.on('theme-changed', (event, theme: string) => {
+        console.log('Theme changed in preload:', theme);
+        callback(theme);
+      });
+      
+      return removeListener;
+    }
+  } as SystemAPI,
+  
+  menu: {
+    // Menu event listeners
+    onNewSlideshow: createMenuEventListener('menu:new-slideshow'),
+    onPreferences: createMenuEventListener('menu:preferences'),
+    onImportPhotos: createMenuEventListener('menu:import-photos'),
+    onImportMusic: createMenuEventListener('menu:import-music'),
+    onExportSlideshow: createMenuEventListener('menu:export-slideshow'),
+    onSlideshowSettings: createMenuEventListener('menu:slideshow-settings'),
+    onShowSlideshows: createMenuEventListener('menu:show-slideshows'),
+    onShowMusic: createMenuEventListener('menu:show-music'),
+    onShowSettings: createMenuEventListener('menu:show-settings'),
+    onPlaySlideshow: createMenuEventListener('menu:play-slideshow'),
+    onPauseSlideshow: createMenuEventListener('menu:pause-slideshow'),
+    onStopSlideshow: createMenuEventListener('menu:stop-slideshow'),
+    onNextPhoto: createMenuEventListener('menu:next-photo'),
+    onPreviousPhoto: createMenuEventListener('menu:previous-photo'),
+    onShowHelp: createMenuEventListener('menu:show-help'),
+    onShowShortcuts: createMenuEventListener('menu:show-shortcuts'),
+    onClearRecent: createMenuEventListener('menu:clear-recent'),
+    
+    // Menu state management
+    updateState: (state: { hasSlideshow?: boolean; isPlaying?: boolean; canExport?: boolean }): Promise<MenuStateUpdateResult> =>
+      ipcRenderer.invoke('menu:update-state', state)
+  } as MenuAPI
 });
 
 // Type declarations for global window object
@@ -99,6 +219,9 @@ declare global {
       photos: PhotosAPI;
       slideshow: SlideshowAPI;
       spotify: SpotifyOAuthAPI;
+      window: WindowAPI;
+      system: SystemAPI;
+      menu: MenuAPI;
     };
   }
 }

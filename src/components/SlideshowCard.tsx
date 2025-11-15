@@ -26,6 +26,8 @@ import {
 import { useState } from 'react';
 import { SavedSlideshow } from '../types/slideshow';
 import * as HapticService from '../services/HapticService';
+import { isMacOS } from '../utils/platform';
+import ContextMenu from './ContextMenu';
 import './SlideshowCard.css';
 
 interface SlideshowCardProps {
@@ -78,6 +80,7 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
   onDelete,
 }) => {
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const handleCardClick = async () => {
     await HapticService.impactLight();
@@ -99,9 +102,38 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
     onDelete(slideshow);
   };
 
+  const handleDuplicate = async () => {
+    await HapticService.impactLight();
+    // Create a copy of the slideshow with a new name and timestamp
+    const duplicatedSlideshow: SavedSlideshow = {
+      ...slideshow,
+      id: Math.random().toString(36).substr(2, 9),
+      name: `${slideshow.name} Copy`,
+      createdAt: Date.now(),
+      lastPlayedAt: null,
+      playCount: 0,
+    };
+    onEdit(duplicatedSlideshow);
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (!isMacOS()) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const menuItems = [
+    { label: 'Edit', action: () => onEdit(slideshow) },
+    { label: 'Duplicate', action: handleDuplicate },
+    { separator: true },
+    { label: 'Delete', action: () => onDelete(slideshow), destructive: true }
+  ];
+
   return (
     <>
-      <IonCard className="slideshow-card">
+      <IonCard className="slideshow-card" onContextMenu={handleContextMenu}>
         <div className="slideshow-card-thumbnail" onClick={handleCardClick}>
           {slideshow.thumbnailUri ? (
             <img src={slideshow.thumbnailUri} alt={slideshow.name} />
@@ -203,6 +235,15 @@ const SlideshowCard: React.FC<SlideshowCardProps> = ({
           },
         ]}
       />
+      
+      {contextMenu && (
+        <ContextMenu
+          items={menuItems}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </>
   );
 };

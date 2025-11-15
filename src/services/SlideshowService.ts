@@ -11,9 +11,10 @@ import { isMacOS } from '../utils/platform';
  */
 export const activateKeepAwake = async (): Promise<void> => {
   try {
-    if (isMacOS() && window.electron?.slideshow) {
+    const electron = (window as any).electron;
+    if (isMacOS() && electron?.slideshow) {
       // Use Electron powerSaveBlocker on macOS
-      const result = await window.electron.slideshow.keepAwakeStart();
+      const result = await electron.slideshow.keepAwakeStart();
       if (result.success) {
         console.log('PowerSave blocker activated:', result.message);
       } else {
@@ -45,9 +46,10 @@ export const activateKeepAwake = async (): Promise<void> => {
  */
 export const deactivateKeepAwake = async (): Promise<void> => {
   try {
-    if (isMacOS() && window.electron?.slideshow) {
+    const electron = (window as any).electron;
+    if (isMacOS() && electron?.slideshow) {
       // Clean up Electron powerSaveBlocker on macOS
-      const result = await window.electron.slideshow.keepAwakeStop();
+      const result = await electron.slideshow.keepAwakeStop();
       if (result.success) {
         console.log('PowerSave blocker deactivated:', result.message);
       } else {

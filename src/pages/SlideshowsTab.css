@@ -27,16 +27,46 @@
   padding: 0 12px;
 }
 
-/* Responsive grid for larger screens */
+/* Tablet - 2-3 columns for slideshow cards */
 @media (min-width: 768px) {
   .slideshows-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
     padding: 0 16px;
+    max-width: 1000px;
+    margin: 0 auto;
   }
   
   .section-heading {
     padding: 0 16px;
+  }
+}
+
+/* Desktop - 3-4 columns for slideshow cards */
+@media (min-width: 1024px) {
+  .slideshows-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 0 20px;
+    max-width: 1200px;
+  }
+  
+  .section-heading {
+    padding: 0 20px;
+  }
+}
+
+/* Large Desktop - optimized for wide screens */
+@media (min-width: 1440px) {
+  .slideshows-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+    padding: 0 24px;
+    max-width: 1400px;
+  }
+  
+  .section-heading {
+    padding: 0 24px;
   }
 }
 

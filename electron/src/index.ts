@@ -1,13 +1,14 @@
 import type { CapacitorElectronConfig } from '@capacitor-community/electron';
 import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor-community/electron';
 import type { MenuItemConstructorOptions } from 'electron';
-import { app, MenuItem, ipcMain, powerSaveBlocker } from 'electron';
+import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
 import { autoUpdater } from 'electron-updater';
 
 import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
 import { photosLibraryFFI } from './native/PhotosLibraryFFI';
+import { createMenu, updateMenuState } from './menu';
 
 // Graceful handling of unhandled errors.
 unhandled();
@@ -24,17 +25,12 @@ if (process.defaultApp) {
 
 // Define our menu templates (these are optional)
 const trayMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [new MenuItem({ label: 'Quit App', role: 'quit' })];
-const appMenuBarMenuTemplate: (MenuItemConstructorOptions | MenuItem)[] = [
-  { role: process.platform === 'darwin' ? 'appMenu' : 'fileMenu' },
-  { role: 'viewMenu' },
-];
 
 // Get Config options from capacitor.config
 const capacitorFileConfig: CapacitorElectronConfig = getCapacitorElectronConfig();
 
-// Initialize our app. You can pass menu templates into the app here.
-// const myCapacitorApp = new ElectronCapacitorApp(capacitorFileConfig);
-const myCapacitorApp = new ElectronCapacitorApp(capacitorFileConfig, trayMenuTemplate, appMenuBarMenuTemplate);
+// Initialize our app. We'll set up the custom menu after app initialization.
+const myCapacitorApp = new ElectronCapacitorApp(capacitorFileConfig, trayMenuTemplate);
 
 // If deeplinking is enabled then we will set it up here.
 if (capacitorFileConfig.electron?.deepLinkingEnabled) {
@@ -80,6 +76,57 @@ app.on('activate', async function () {
 
 // Place all ipc or other electron api calls and custom functionality under this line
 
+// System Theme Integration
+function updateTheme() {
+  const mainWindow = myCapacitorApp.getMainWindow();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const isDark = nativeTheme.shouldUseDarkColors;
+    mainWindow.webContents.send('theme-changed', isDark ? 'dark' : 'light');
+    
+    // Update window background color based on theme
+    if (process.platform === 'darwin') {
+      mainWindow.setBackgroundColor(isDark ? '#1c1c1e' : '#ffffff');
+    }
+  }
+}
+
+// Listen for system theme changes
+nativeTheme.on('updated', updateTheme);
+
+// macOS-specific window configuration after initialization
+const originalInit = myCapacitorApp.init;
+myCapacitorApp.init = async function(...args) {
+  const result = await originalInit.apply(this, args);
+  
+  // Set up macOS-specific window features
+  if (process.platform === 'darwin') {
+    const mainWindow = myCapacitorApp.getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Create macOS menu bar
+      createMenu(mainWindow);
+      
+      // Enable traffic light buttons
+      mainWindow.setWindowButtonVisibility(true);
+      // Set initial theme
+      updateTheme();
+    }
+  }
+  
+  // Send any pending OAuth callback after window is ready
+  if (pendingOAuthCallback) {
+    const mainWindow = myCapacitorApp.getMainWindow();
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send('spotify:oauth-callback', pendingOAuthCallback);
+      mainWindow.show();
+      mainWindow.focus();
+      console.log('Pending OAuth callback sent to renderer:', pendingOAuthCallback);
+    }
+    pendingOAuthCallback = null;
+  }
+  
+  return result;
+};
+
 // PowerSave Blocker for slideshow keep-awake functionality
 let powerSaveBlockerId: number | null = null;
 
@@ -113,28 +160,45 @@ app.on('open-url', (event, url) => {
   }
 });
 
+// Window Management IPC Handlers
+
 /**
- * Send pending OAuth callback when app initializes
- * This handles the case where OAuth callback arrives before window is ready
+ * Set window title dynamically
+ * Returns: { success: boolean, message?: string, error?: string }
  */
-const originalInit = myCapacitorApp.init;
-myCapacitorApp.init = async function(...args) {
-  const result = await originalInit.apply(this, args);
-  
-  // Send any pending OAuth callback after window is ready
-  if (pendingOAuthCallback) {
+ipcMain.handle('window:set-title', async (event, title: string) => {
+  try {
     const mainWindow = myCapacitorApp.getMainWindow();
-    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-      mainWindow.webContents.send('spotify:oauth-callback', pendingOAuthCallback);
-      mainWindow.show();
-      mainWindow.focus();
-      console.log('Pending OAuth callback sent to renderer:', pendingOAuthCallback);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setTitle(title || 'Slideshow Buddy');
+      return { success: true, message: 'Window title updated successfully' };
     }
-    pendingOAuthCallback = null;
+    return { success: false, error: 'Main window not available' };
+  } catch (error) {
+    console.error('Failed to set window title:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to set window title'
+    };
   }
-  
-  return result;
-};
+});
+
+/**
+ * Get current system theme
+ * Returns: { success: boolean, theme?: string, error?: string }
+ */
+ipcMain.handle('system:get-theme', async () => {
+  try {
+    const isDark = nativeTheme.shouldUseDarkColors;
+    return { success: true, theme: isDark ? 'dark' : 'light' };
+  } catch (error) {
+    console.error('Failed to get system theme:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to get system theme'
+    };
+  }
+});
 
 // Photos Library IPC Handlers
 // These handlers bridge the renderer process to the native Swift Photos library via FFI
@@ -316,6 +380,30 @@ ipcMain.handle('photos:getPhotos', async (event, params: { albumId?: string; qua
     return {
       success: false,
       error: error.message || 'Failed to retrieve photos'
+    };
+  }
+});
+
+// Menu State Management IPC Handlers
+// These handlers allow the renderer to update menu item states based on application context
+
+/**
+ * Update menu item states based on current application state
+ * Params: { hasSlideshow?: boolean, isPlaying?: boolean, canExport?: boolean }
+ * Returns: { success: boolean, message?: string, error?: string }
+ */
+ipcMain.handle('menu:update-state', async (event, state: { hasSlideshow?: boolean; isPlaying?: boolean; canExport?: boolean }) => {
+  try {
+    if (process.platform === 'darwin') {
+      updateMenuState(state);
+      return { success: true, message: 'Menu state updated successfully' };
+    }
+    return { success: true, message: 'Menu not available on this platform' };
+  } catch (error) {
+    console.error('Failed to update menu state:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to update menu state'
     };
   }
 });
