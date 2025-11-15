@@ -6,6 +6,7 @@ import { Camera } from '@capacitor/camera';
 import { Media } from '@capacitor-community/media';
 import { Capacitor } from '@capacitor/core';
 import { Photo, PhotoAlbum } from '../types';
+import { isMacOS } from '../utils/platform';
 
 /**
  * Convert base64 string to Blob URL
@@ -64,6 +65,102 @@ export const requestPhotoLibraryPermission = async (): Promise<boolean> => {
   } catch (error) {
     console.error('Error requesting photo library permission:', error);
     return false;
+  }
+};
+
+/**
+ * Request permission for Electron Photos API
+ * @returns Promise<boolean> - true if permission granted, false otherwise
+ */
+const requestPhotosPermissionElectron = async (): Promise<boolean> => {
+  try {
+    if (!window.electron?.photos) {
+      console.error('[PhotoService] Electron Photos API not available');
+      return false;
+    }
+
+    // Check current permission status
+    const checkResult = await window.electron.photos.checkPermission();
+    if (!checkResult.success) {
+      console.error('[PhotoService] Failed to check permission:', checkResult.error);
+      return false;
+    }
+
+    // If already has permission, return true
+    if (checkResult.hasPermission) {
+      return true;
+    }
+
+    // Request permission if not granted
+    const requestResult = await window.electron.photos.requestPermission();
+    if (!requestResult.success) {
+      console.error('[PhotoService] Failed to request permission:', requestResult.error);
+      return false;
+    }
+
+    return requestResult.hasPermission || false;
+  } catch (error) {
+    console.error('[PhotoService] Error requesting Electron photos permission:', error);
+    return false;
+  }
+};
+
+/**
+ * Import photos using Electron Photos API
+ * @param quantity - Maximum number of photos to fetch
+ * @returns Promise<Photo[]> - Array of imported photos
+ */
+const importPhotosElectron = async (quantity: number): Promise<Photo[]> => {
+  try {
+    if (!window.electron?.photos) {
+      throw new Error('Electron Photos API not available');
+    }
+
+    // Ensure we have permission
+    const hasPermission = await requestPhotosPermissionElectron();
+    if (!hasPermission) {
+      throw new Error('Photos permission denied');
+    }
+
+    // Fetch photos from all albums (undefined albumId = all photos)
+    const photosResult = await window.electron.photos.getPhotos(undefined, quantity);
+    
+    if (!photosResult.success) {
+      throw new Error(photosResult.error || 'Failed to fetch photos from macOS Photos library');
+    }
+
+    if (!photosResult.photos || photosResult.photos.length === 0) {
+      console.log('[PhotoService] No photos returned from Electron');
+      return [];
+    }
+
+    // Transform Electron Photo objects to app Photo interface
+    const photos: Photo[] = photosResult.photos.map((electronPhoto) => {
+      // Map the identifier field to id
+      const id = electronPhoto.identifier;
+      
+      // Handle timestamp conversion from creationDate string
+      const timestamp = new Date(electronPhoto.creationDate).getTime();
+      
+      // Create blob URL from thumbnailData for memory efficiency (like iOS/Android)
+      const blobUrl = electronPhoto.thumbnailData
+        ? createBlobUrl(electronPhoto.thumbnailData)
+        : `data:image/jpeg;base64,${electronPhoto.thumbnailData || ''}`;
+
+      return {
+        id,
+        uri: blobUrl,
+        filename: electronPhoto.filename || `photo_${timestamp}.jpg`,
+        timestamp,
+        selected: false, // Always start unselected
+      };
+    });
+
+    console.log(`[PhotoService] Successfully imported ${photos.length} photos from Electron`);
+    return photos;
+  } catch (error) {
+    console.error('[PhotoService] Error importing photos from Electron:', error);
+    throw error;
   }
 };
 
@@ -144,10 +241,15 @@ export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
 
       console.log(`[PhotoService] Created ${photos.length} blob URLs for Android photos`);
       return photos;
+    } else if (isMacOS() && window.electron?.photos) {
+      // macOS Electron implementation
+      console.log('[PhotoService] Using Electron Photos API for macOS');
+      return await importPhotosElectron(quantity);
     } else {
       // Web fallback - not fully functional but prevents errors
-      console.warn('Photo import not supported on web platform');
-      throw new Error('Photo import only available on iOS and Android');
+      const platform = Capacitor.getPlatform();
+      console.warn(`Photo import not supported on ${platform} platform`);
+      throw new Error(`Photo import only available on iOS, Android, and macOS (${platform} detected)`);
     }
   } catch (error) {
     console.error('Error importing photos:', error);
@@ -186,10 +288,42 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
       }));
 
       return albums;
+    } else if (isMacOS() && window.electron?.photos) {
+      // macOS Electron implementation
+      console.log('[PhotoService] Fetching albums using Electron Photos API for macOS');
+      
+      // Ensure we have permission
+      const hasPermission = await requestPhotosPermissionElectron();
+      if (!hasPermission) {
+        throw new Error('Photos permission denied');
+      }
+
+      const albumsResult = await window.electron.photos.getAlbums();
+      
+      if (!albumsResult.success) {
+        throw new Error(albumsResult.error || 'Failed to fetch albums from macOS Photos library');
+      }
+
+      if (!albumsResult.albums || albumsResult.albums.length === 0) {
+        console.log('[PhotoService] No albums returned from Electron');
+        return [];
+      }
+
+      // Transform Electron PhotoAlbum objects to app PhotoAlbum interface
+      const albums: PhotoAlbum[] = albumsResult.albums.map((electronAlbum) => ({
+        identifier: electronAlbum.identifier,
+        name: electronAlbum.name,
+        type: electronAlbum.type || 'album',
+        count: electronAlbum.count || 0,
+      }));
+
+      console.log(`[PhotoService] Successfully fetched ${albums.length} albums from Electron`);
+      return albums;
     } else {
       // Web fallback
-      console.warn('Photo albums not supported on web platform');
-      throw new Error('Photo albums only available on iOS and Android');
+      const platform = Capacitor.getPlatform();
+      console.warn(`Photo albums not supported on ${platform} platform`);
+      throw new Error(`Photo albums only available on iOS, Android, and macOS (${platform} detected)`);
     }
   } catch (error) {
     console.error('Error fetching photo albums:', error);
@@ -255,10 +389,56 @@ export const getPhotosFromAlbum = async (
 
       console.log(`[PhotoService] Created ${photos.length} blob URLs from album`);
       return photos;
+    } else if (isMacOS() && window.electron?.photos) {
+      // macOS Electron implementation
+      console.log('[PhotoService] Loading photos from album using Electron Photos API for macOS');
+      
+      // Ensure we have permission
+      const hasPermission = await requestPhotosPermissionElectron();
+      if (!hasPermission) {
+        throw new Error('Photos permission denied');
+      }
+
+      const photosResult = await window.electron.photos.getPhotos(albumIdentifier, quantity);
+      
+      if (!photosResult.success) {
+        throw new Error(photosResult.error || 'Failed to fetch photos from album in macOS Photos library');
+      }
+
+      if (!photosResult.photos || photosResult.photos.length === 0) {
+        console.log('[PhotoService] No photos returned from album in Electron');
+        return [];
+      }
+
+      // Transform Electron Photo objects to app Photo interface
+      const photos: Photo[] = photosResult.photos.map((electronPhoto) => {
+        // Map the identifier field to id
+        const id = electronPhoto.identifier;
+        
+        // Handle timestamp conversion from creationDate string
+        const timestamp = new Date(electronPhoto.creationDate).getTime();
+        
+        // Create blob URL from thumbnailData for memory efficiency (like iOS/Android)
+        const blobUrl = electronPhoto.thumbnailData
+          ? createBlobUrl(electronPhoto.thumbnailData)
+          : `data:image/jpeg;base64,${electronPhoto.thumbnailData || ''}`;
+
+        return {
+          id,
+          uri: blobUrl,
+          filename: electronPhoto.filename || `photo_${timestamp}.jpg`,
+          timestamp,
+          selected: false, // Always start unselected
+        };
+      });
+
+      console.log(`[PhotoService] Successfully loaded ${photos.length} photos from album in Electron`);
+      return photos;
     } else {
       // Web fallback
-      console.warn('Photo loading not supported on web platform');
-      throw new Error('Photo loading only available on iOS and Android');
+      const platform = Capacitor.getPlatform();
+      console.warn(`Photo loading not supported on ${platform} platform`);
+      throw new Error(`Photo loading only available on iOS, Android, and macOS (${platform} detected)`);
     }
   } catch (error) {
     console.error('Error loading photos from album:', error);

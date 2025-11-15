@@ -9,6 +9,13 @@
     "capacitor.config.*",
     "app/**/*"
   ],
+  "extraResources": [
+    {
+      "from": "assets/libPhotosLibraryBridge.dylib",
+      "to": "libPhotosLibraryBridge.dylib",
+      "filter": ["**/*"]
+    }
+  ],
   "publish": {
     "provider": "github"
   },
@@ -23,6 +30,8 @@
   },
   "mac": {
     "category": "your.app.category.type",
-    "target": "dmg"
+    "target": "dmg",
+    "entitlements": "resources/entitlements.mac.plist",
+    "entitlementsInherit": "resources/entitlements.mac.plist"
   }
 }

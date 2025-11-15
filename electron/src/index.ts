@@ -1,12 +1,13 @@
 import type { CapacitorElectronConfig } from '@capacitor-community/electron';
 import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor-community/electron';
 import type { MenuItemConstructorOptions } from 'electron';
-import { app, MenuItem } from 'electron';
+import { app, MenuItem, ipcMain } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
 import { autoUpdater } from 'electron-updater';
 
 import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
+import { photosLibraryFFI } from './native/PhotosLibraryFFI';
 
 // Graceful handling of unhandled errors.
 unhandled();
@@ -68,3 +69,108 @@ app.on('activate', async function () {
 });
 
 // Place all ipc or other electron api calls and custom functionality under this line
+
+// Photos Library IPC Handlers
+// These handlers bridge the renderer process to the native Swift Photos library via FFI
+
+/**
+ * Request permission to access the Photos library
+ * Returns: { success: boolean, hasPermission?: boolean, error?: string }
+ */
+ipcMain.handle('photos:requestPermission', async () => {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'Photos library only available on macOS' };
+  }
+
+  try {
+    if (!photosLibraryFFI.isReady()) {
+      return { success: false, error: 'Photos library FFI not initialized' };
+    }
+    
+    const hasPermission = await photosLibraryFFI.requestPermission();
+    return { success: true, hasPermission };
+  } catch (error) {
+    console.error('Photos permission request failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to request Photos library permission'
+    };
+  }
+});
+
+/**
+ * Check current Photos library permission status
+ * Returns: { success: boolean, hasPermission?: boolean, error?: string }
+ */
+ipcMain.handle('photos:checkPermission', async () => {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'Photos library only available on macOS' };
+  }
+
+  try {
+    if (!photosLibraryFFI.isReady()) {
+      return { success: false, error: 'Photos library FFI not initialized' };
+    }
+    
+    const hasPermission = photosLibraryFFI.checkPermission();
+    return { success: true, hasPermission };
+  } catch (error) {
+    console.error('Photos permission check failed:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to check Photos library permission'
+    };
+  }
+});
+
+/**
+ * Get list of photo albums from the library
+ * Returns: { success: boolean, albums?: PhotoAlbum[], error?: string }
+ */
+ipcMain.handle('photos:getAlbums', async () => {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'Photos library only available on macOS' };
+  }
+
+  try {
+    if (!photosLibraryFFI.isReady()) {
+      return { success: false, error: 'Photos library FFI not initialized' };
+    }
+    
+    const albums = await photosLibraryFFI.getAlbums();
+    return { success: true, albums };
+  } catch (error) {
+    console.error('Failed to get photo albums:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to retrieve photo albums'
+    };
+  }
+});
+
+/**
+ * Get photos from a specific album or all photos
+ * Params: { albumId?: string, quantity?: number }
+ * Returns: { success: boolean, photos?: Photo[], error?: string }
+ */
+ipcMain.handle('photos:getPhotos', async (event, params: { albumId?: string; quantity?: number } = {}) => {
+  if (process.platform !== 'darwin') {
+    return { success: false, error: 'Photos library only available on macOS' };
+  }
+
+  try {
+    if (!photosLibraryFFI.isReady()) {
+      return { success: false, error: 'Photos library FFI not initialized' };
+    }
+    
+    const { albumId, quantity = 50 } = params;
+    const photos = await photosLibraryFFI.getPhotos(albumId, quantity);
+    return { success: true, photos };
+  } catch (error) {
+    console.error('Failed to get photos:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to retrieve photos'
+    };
+  }
+});

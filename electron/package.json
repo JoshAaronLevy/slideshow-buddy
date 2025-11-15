@@ -13,7 +13,9 @@
   "license": "MIT",
   "main": "build/src/index.js",
   "scripts": {
-    "build": "tsc && electron-rebuild",
+    "build:swift": "./scripts/build-swift.sh",
+    "build:ts": "tsc && electron-rebuild",
+    "build": "npm run build:swift && npm run build:ts",
     "electron:start-live": "node ./live-runner.js",
     "electron:start": "npm run build && electron --inspect=5858 ./",
     "electron:pack": "npm run build && electron-builder build --dir -c ./electron-builder.config.json",
@@ -26,7 +28,8 @@
     "electron-serve": "~1.1.0",
     "electron-unhandled": "~4.0.1",
     "electron-updater": "^5.3.0",
-    "electron-window-state": "^5.0.3"
+    "electron-window-state": "^5.0.3",
+    "koffi": "^2.8.0"
   },
   "devDependencies": {
     "electron": "^26.2.2",
