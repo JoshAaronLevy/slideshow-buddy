@@ -1,12 +1,14 @@
 import type { CapacitorElectronConfig } from '@capacitor-community/electron';
 import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor-community/electron';
 import type { MenuItemConstructorOptions } from 'electron';
-import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme } from 'electron';
+import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme, dialog } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
 import { autoUpdater } from 'electron-updater';
 // electron-store will be dynamically imported to handle ESM compatibility
 import * as keytar from 'keytar';
+import * as fs from 'fs';
+import * as path from 'path';
 
 import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
 import { photosLibraryFFI } from './native/PhotosLibraryFFI';
@@ -580,5 +582,51 @@ ipcMain.handle('keychain:deletePassword', async (event, account: string) => {
   } catch (error) {
     console.error(`[Keychain] Error deleting password for ${account}:`, error);
     return false;
+  }
+});
+
+// File Dialog IPC Handlers
+// These handlers provide file system access for photo selection on macOS
+
+/**
+ * Open file dialog for image selection
+ * Returns: { canceled: boolean, files: SelectedImageFile[] }
+ */
+ipcMain.handle('dialog:selectImages', async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'heic', 'heif', 'webp'] }
+      ],
+      title: 'Select Photos for Slideshow'
+    });
+
+    if (result.canceled) {
+      return { canceled: true, filePaths: [] };
+    }
+
+    // Read files and convert to base64 data URIs
+    const files = await Promise.all(
+      result.filePaths.map(async (filePath) => {
+        const data = await fs.promises.readFile(filePath);
+        const ext = path.extname(filePath).slice(1).toLowerCase();
+        const mimeType = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
+        const base64 = data.toString('base64');
+        const dataUri = `data:${mimeType};base64,${base64}`;
+        
+        return {
+          id: path.basename(filePath, path.extname(filePath)) + '_' + Date.now(),
+          uri: dataUri,
+          filename: path.basename(filePath),
+          path: filePath
+        };
+      })
+    );
+
+    return { canceled: false, files };
+  } catch (error) {
+    console.error('[IPC Main] Error in dialog:selectImages:', error);
+    throw error;
   }
 });

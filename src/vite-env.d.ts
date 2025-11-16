@@ -123,6 +123,23 @@ interface KeychainAPI {
   deletePassword: (account: string) => Promise<boolean>;
 }
 
+// Dialog API types
+interface SelectedImageFile {
+  id: string;
+  uri: string;
+  filename: string;
+  path: string;
+}
+
+interface FileSelectionResult {
+  canceled: boolean;
+  files: SelectedImageFile[];
+}
+
+interface DialogAPI {
+  selectImages: () => Promise<FileSelectionResult>;
+}
+
 // Extend global Window interface
 declare global {
   interface Window {
@@ -135,6 +152,7 @@ declare global {
       system: SystemAPI;
       storage: StorageAPI;
       keychain: KeychainAPI;
+      dialog: DialogAPI;
     };
   }
 }

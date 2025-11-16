@@ -1,6 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { Photo, PhotoAlbum } from './native/types';
 
+// Local type definitions for file dialog (to avoid cross-directory imports)
+interface SelectedImageFile {
+  id: string;
+  uri: string;
+  filename: string;
+  path: string;
+}
+
+interface FileSelectionResult {
+  canceled: boolean;
+  files: SelectedImageFile[];
+}
+
 require('./rt/electron-rt');
 //////////////////////////////
 // User Defined Preload scripts below
@@ -123,6 +136,11 @@ interface KeychainAPI {
   deletePassword: (account: string) => Promise<boolean>;
 }
 
+// Dialog API Interface
+interface DialogAPI {
+  selectImages: () => Promise<FileSelectionResult>;
+}
+
 // Common helper function to create menu event listeners
 const createMenuEventListener = (eventName: string) => {
   return (callback: () => void): (() => void) => {
@@ -139,7 +157,7 @@ const createMenuEventListener = (eventName: string) => {
   };
 };
 
-// Expose Photos API, Slideshow API, Spotify OAuth API, Window API, System API, and Menu API to renderer process
+// Expose Photos API, Slideshow API, Spotify OAuth API, Window API, System API, Menu API, and Dialog API to renderer process
 contextBridge.exposeInMainWorld('electron', {
   photos: {
     requestPermission: (): Promise<PhotosPermissionResult> =>
@@ -154,6 +172,11 @@ contextBridge.exposeInMainWorld('electron', {
     getPhotos: (albumId?: string, quantity?: number): Promise<PhotosResult> =>
       ipcRenderer.invoke('photos:getPhotos', { albumId, quantity })
   } as PhotosAPI,
+  
+  dialog: {
+    selectImages: (): Promise<FileSelectionResult> =>
+      ipcRenderer.invoke('dialog:selectImages')
+  } as DialogAPI,
   
   slideshow: {
     keepAwakeStart: (): Promise<SlideshowKeepAwakeResult> =>
@@ -252,6 +275,7 @@ declare global {
       storage: StorageAPI;
       keychain: KeychainAPI;
       menu: MenuAPI;
+      dialog: DialogAPI;
     };
   }
 }

@@ -5,8 +5,8 @@
 import { Camera } from '@capacitor/camera';
 import { Media } from '@capacitor-community/media';
 import { Capacitor } from '@capacitor/core';
-import { Photo, PhotoAlbum } from '../types';
-import { isMacOS } from '../utils/platform';
+import { Photo, PhotoAlbum, FileSelectionResult } from '../types';
+import { isMacOS, isIOS } from '../utils/platform';
 
 /**
  * Convert base64 string to Blob URL
@@ -277,17 +277,28 @@ export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
  */
 export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
   console.log('[PhotoService] Starting getPhotoAlbums...');
-  try {
-    // Check/request permissions first
-    const hasPermission = await requestPhotoLibraryPermission();
-    if (!hasPermission) {
-      throw new Error('Photo library permission denied');
-    }
+  console.log('[PhotoService] Platform detected:', Capacitor.getPlatform());
+  
+  if (isMacOS()) {
+    console.log('[PhotoService] Platform is macOS, using file browser instead of Photos library');
+    // Return a "virtual" album that triggers file browser
+    return [{
+      identifier: 'file-browser',
+      name: 'Select from Files',
+      type: 'user' as const,
+      count: 0
+    }];
+  }
+  
+  // iOS continues with existing Photos library code
+  if (isIOS() || Capacitor.getPlatform() === 'android') {
+    try {
+      // Check/request permissions first
+      const hasPermission = await requestPhotoLibraryPermission();
+      if (!hasPermission) {
+        throw new Error('Photo library permission denied');
+      }
 
-    const platform = Capacitor.getPlatform();
-    console.log('[PhotoService] Platform detected:', platform);
-
-    if (platform === 'ios' || platform === 'android') {
       console.log('[PhotoService] Using Capacitor Media plugin for mobile platforms');
       const result = await Media.getAlbums();
       
@@ -305,52 +316,16 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
 
       console.log(`[PhotoService] Successfully fetched ${albums.length} albums from Media plugin`);
       return albums;
-    } else if (isMacOS() && (window as any).electron?.photos) {
-      // macOS Electron implementation
-      console.log('[PhotoService] Platform is macOS, using Electron Photos API');
-      
-      // Ensure we have permission
-      console.log('[PhotoService] Checking/requesting permission via Electron...');
-      const hasPermission = await requestPhotosPermissionElectron();
-      if (!hasPermission) {
-        console.error('[PhotoService] Permission denied for Electron photos access');
-        throw new Error('Photos permission denied');
-      }
-
-      console.log('[PhotoService] Permission granted, calling Electron IPC for albums...');
-      const albumsResult = await (window as any).electron.photos.getAlbums();
-      console.log('[PhotoService] IPC getAlbums result:', albumsResult);
-      
-      if (!albumsResult.success) {
-        console.error('[PhotoService] getAlbums failed:', albumsResult.error);
-        throw new Error(albumsResult.error || 'Failed to fetch albums from macOS Photos library');
-      }
-
-      if (!albumsResult.albums || albumsResult.albums.length === 0) {
-        console.log('[PhotoService] No albums returned from Electron');
-        return [];
-      }
-
-      // Transform Electron PhotoAlbum objects to app PhotoAlbum interface
-      const albums: PhotoAlbum[] = albumsResult.albums.map((electronAlbum: any) => ({
-        identifier: electronAlbum.identifier,
-        name: electronAlbum.name,
-        type: electronAlbum.type || 'album',
-        count: electronAlbum.count || 0,
-      }));
-
-      console.log(`[PhotoService] Successfully fetched ${albums.length} albums from Electron`);
-      return albums;
-    } else {
-      // Web fallback
-      const platform = Capacitor.getPlatform();
-      console.warn(`Photo albums not supported on ${platform} platform`);
-      throw new Error(`Photo albums only available on iOS, Android, and macOS (${platform} detected)`);
+    } catch (error) {
+      console.error('[PhotoService] Error fetching photo albums:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('[PhotoService] Error fetching photo albums:', error);
-    throw error;
   }
+  
+  // Web fallback
+  const platform = Capacitor.getPlatform();
+  console.warn(`Photo albums not supported on ${platform} platform`);
+  throw new Error(`Photo albums only available on iOS, Android, and macOS (${platform} detected)`);
 };
 
 /**
@@ -363,16 +338,22 @@ export const getPhotosFromAlbum = async (
   albumIdentifier?: string,
   quantity: number = 50
 ): Promise<Photo[]> => {
-  try {
-    // Check/request permissions first
-    const hasPermission = await requestPhotoLibraryPermission();
-    if (!hasPermission) {
-      throw new Error('Photo library permission denied');
-    }
+  console.log('[PhotoService] Getting photos from album:', albumIdentifier);
+  
+  if (isMacOS() && albumIdentifier === 'file-browser') {
+    console.log('[PhotoService] Triggering file browser for macOS...');
+    return selectPhotosFromFiles();
+  }
+  
+  // iOS continues with existing logic
+  if (isIOS() || Capacitor.getPlatform() === 'android') {
+    try {
+      // Check/request permissions first
+      const hasPermission = await requestPhotoLibraryPermission();
+      if (!hasPermission) {
+        throw new Error('Photo library permission denied');
+      }
 
-    const platform = Capacitor.getPlatform();
-
-    if (platform === 'ios' || platform === 'android') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const options: any = {
         quantity,
@@ -401,7 +382,7 @@ export const getPhotosFromAlbum = async (
         return {
           id: media.identifier,
           uri: blobUrl,
-          filename: platform === 'android' 
+          filename: Capacitor.getPlatform() === 'android'
             ? (media.identifier.split('/').pop() || `photo_${Date.now()}.jpg`)
             : `photo_${media.creationDate}.jpg`,
           timestamp: new Date(media.creationDate).getTime(),
@@ -411,61 +392,16 @@ export const getPhotosFromAlbum = async (
 
       console.log(`[PhotoService] Created ${photos.length} blob URLs from album`);
       return photos;
-    } else if (isMacOS() && (window as any).electron?.photos) {
-      // macOS Electron implementation
-      console.log('[PhotoService] Loading photos from album using Electron Photos API for macOS');
-      
-      // Ensure we have permission
-      const hasPermission = await requestPhotosPermissionElectron();
-      if (!hasPermission) {
-        throw new Error('Photos permission denied');
-      }
-
-      const photosResult = await (window as any).electron.photos.getPhotos(albumIdentifier, quantity);
-      
-      if (!photosResult.success) {
-        throw new Error(photosResult.error || 'Failed to fetch photos from album in macOS Photos library');
-      }
-
-      if (!photosResult.photos || photosResult.photos.length === 0) {
-        console.log('[PhotoService] No photos returned from album in Electron');
-        return [];
-      }
-
-      // Transform Electron Photo objects to app Photo interface
-      const photos: Photo[] = photosResult.photos.map((electronPhoto: any) => {
-        // Map the identifier field to id
-        const id = electronPhoto.identifier;
-        
-        // Handle timestamp conversion from creationDate string
-        const timestamp = new Date(electronPhoto.creationDate).getTime();
-        
-        // Create blob URL from thumbnailData for memory efficiency (like iOS/Android)
-        const blobUrl = electronPhoto.thumbnailData
-          ? createBlobUrl(electronPhoto.thumbnailData)
-          : `data:image/jpeg;base64,${electronPhoto.thumbnailData || ''}`;
-
-        return {
-          id,
-          uri: blobUrl,
-          filename: electronPhoto.filename || `photo_${timestamp}.jpg`,
-          timestamp,
-          selected: false, // Always start unselected
-        };
-      });
-
-      console.log(`[PhotoService] Successfully loaded ${photos.length} photos from album in Electron`);
-      return photos;
-    } else {
-      // Web fallback
-      const platform = Capacitor.getPlatform();
-      console.warn(`Photo loading not supported on ${platform} platform`);
-      throw new Error(`Photo loading only available on iOS, Android, and macOS (${platform} detected)`);
+    } catch (error) {
+      console.error('Error loading photos from album:', error);
+      throw error;
     }
-  } catch (error) {
-    console.error('Error loading photos from album:', error);
-    throw error;
   }
+  
+  // Web fallback
+  const platform = Capacitor.getPlatform();
+  console.warn(`Photo loading not supported on ${platform} platform`);
+  throw new Error(`Photo loading only available on iOS, Android, and macOS (${platform} detected)`);
 };
 
 /**
@@ -503,4 +439,36 @@ export const getPermissionStatusMessage = async (): Promise<string> => {
   } catch {
     return 'Error checking permission status';
   }
+};
+
+/**
+ * Select photos from file system using macOS file browser
+ * @returns Promise<Photo[]> - Array of selected photos
+ */
+export const selectPhotosFromFiles = async (): Promise<Photo[]> => {
+  console.log('[PhotoService] Opening file browser for photo selection...');
+  
+  const electron = window.electron as any;
+  if (!electron?.dialog) {
+    throw new Error('File dialog not available');
+  }
+
+  const result: FileSelectionResult = await electron.dialog.selectImages();
+  console.log('[PhotoService] File selection result:', result.canceled ? 'Canceled' : `${result.files.length} files selected`);
+
+  if (result.canceled) {
+    return [];
+  }
+
+  // Convert to Photo format
+  const photos: Photo[] = result.files.map(file => ({
+    id: file.id,
+    uri: file.uri,
+    filename: file.filename,
+    timestamp: Date.now(),
+    selected: false,
+  }));
+
+  console.log('[PhotoService] Converted to photos:', photos.length);
+  return photos;
 };
