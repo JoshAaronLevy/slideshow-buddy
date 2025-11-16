@@ -5,7 +5,7 @@ import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme } from 'electron'
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
 import { autoUpdater } from 'electron-updater';
-import Store from 'electron-store';
+// electron-store will be dynamically imported to handle ESM compatibility
 import * as keytar from 'keytar';
 
 import { ElectronCapacitorApp, setupContentSecurityPolicy, setupReloadWatcher } from './setup';
@@ -411,12 +411,33 @@ ipcMain.handle('menu:update-state', async (event, state: { hasSlideshow?: boolea
 });
 
 // Storage Management using electron-store
-// Initialize electron-store with encryption for security
-const store = new Store({
-  name: 'slideshow-buddy-data',
-  encryptionKey: 'slideshow-buddy-secure-key-2024', // Optional encryption for sensitive data
-  cwd: electronIsDev ? undefined : app.getPath('userData') // Use app data directory in production
-});
+// Dynamic import and initialization for ESM compatibility
+let store: any = null;
+
+/**
+ * Initialize electron-store using dynamic import to handle ESM compatibility
+ * Returns: Promise<void>
+ */
+async function initializeStore(): Promise<void> {
+  if (store) return; // Already initialized
+  
+  try {
+    console.log('[Storage] Initializing electron-store...');
+    // Use Function constructor to prevent TypeScript from transpiling dynamic import to require()
+    const dynamicImport = new Function('specifier', 'return import(specifier)');
+    const Store = (await dynamicImport('electron-store')).default;
+    store = new Store({
+      projectName: 'slideshow-buddy',
+      name: 'slideshow-buddy-data',
+      encryptionKey: 'slideshow-buddy-secure-key-2024', // Optional encryption for sensitive data
+      cwd: electronIsDev ? undefined : app.getPath('userData') // Use app data directory in production
+    });
+    console.log('[Storage] electron-store initialized successfully');
+  } catch (error) {
+    console.error('[Storage] Failed to initialize electron-store:', error);
+    throw error;
+  }
+}
 
 // Storage IPC Handlers
 // These handlers bridge the renderer process to electron-store for persistent storage
@@ -428,7 +449,8 @@ const store = new Store({
  */
 ipcMain.handle('storage:get', async (event, key: string) => {
   try {
-    const value = (store as any).get(key);
+    if (!store) await initializeStore();
+    const value = store.get(key);
     console.log(`[Storage] Get ${key}:`, value !== undefined ? 'found' : 'not found');
     return value;
   } catch (error) {
@@ -444,7 +466,8 @@ ipcMain.handle('storage:get', async (event, key: string) => {
  */
 ipcMain.handle('storage:set', async (event, key: string, value: any) => {
   try {
-    (store as any).set(key, value);
+    if (!store) await initializeStore();
+    store.set(key, value);
     console.log(`[Storage] Set ${key}: success`);
   } catch (error) {
     console.error(`[Storage] Error setting ${key}:`, error);
@@ -459,7 +482,8 @@ ipcMain.handle('storage:set', async (event, key: string, value: any) => {
  */
 ipcMain.handle('storage:remove', async (event, key: string) => {
   try {
-    (store as any).delete(key);
+    if (!store) await initializeStore();
+    store.delete(key);
     console.log(`[Storage] Removed ${key}: success`);
   } catch (error) {
     console.error(`[Storage] Error removing ${key}:`, error);
@@ -473,7 +497,8 @@ ipcMain.handle('storage:remove', async (event, key: string) => {
  */
 ipcMain.handle('storage:clear', async () => {
   try {
-    (store as any).clear();
+    if (!store) await initializeStore();
+    store.clear();
     console.log('[Storage] Clear: success');
   } catch (error) {
     console.error('[Storage] Error clearing storage:', error);
