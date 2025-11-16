@@ -20,6 +20,7 @@ import SettingsTab from './pages/SettingsTab';
 import SpotifySyncModal from './components/SpotifySyncModal';
 import PreferencesModal from './components/PreferencesModal';
 import DesktopSidebar from './components/DesktopSidebar';
+import MacOSHeader from './components/MacOSHeader';
 import { requestPhotoLibraryPermission } from './services/PhotoService';
 import { useSpotifyAuth } from './hooks/useSpotifyAuth';
 import TokenManager from './services/TokenManager';
@@ -167,27 +168,30 @@ const App: React.FC = () => {
     <IonApp>
       <IonReactRouter>
         {isDesktop ? (
-          // Desktop layout with sidebar
+          // Desktop layout with sidebar and header
           <div style={{ display: 'flex', height: '100vh' }}>
             <DesktopSidebar />
-            <div style={{ flex: 1, overflow: 'auto' }}>
-              <IonRouterOutlet>
-                <Route exact path="/slideshows">
-                  <SlideshowsTab />
-                </Route>
-                <Route exact path="/music">
-                  <Tab2 />
-                </Route>
-                <Route exact path="/settings">
-                  <SettingsTab />
-                </Route>
-                {/* <Route exact path="/play">
-                  <Tab3 />
-                </Route> */}
-                <Route exact path="/">
-                  <Redirect to="/slideshows" />
-                </Route>
-              </IonRouterOutlet>
+            <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <MacOSHeader />
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                <IonRouterOutlet>
+                  <Route exact path="/slideshows">
+                    <SlideshowsTab />
+                  </Route>
+                  <Route exact path="/music">
+                    <Tab2 />
+                  </Route>
+                  <Route exact path="/settings">
+                    <SettingsTab />
+                  </Route>
+                  {/* <Route exact path="/play">
+                    <Tab3 />
+                  </Route> */}
+                  <Route exact path="/">
+                    <Redirect to="/slideshows" />
+                  </Route>
+                </IonRouterOutlet>
+              </div>
             </div>
           </div>
         ) : (

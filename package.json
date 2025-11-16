@@ -27,7 +27,8 @@
     "electron:sync": "npm run build && npm run cap:sync:electron",
     "electron:open": "npx cap open electron",
     "electron:build:mac": "npm run build && npx cap sync electron && cd electron && npm run electron:pack",
-    "clean": "rm -rf dist && rm -rf node_modules/.vite"
+    "clean": "rm -rf dist && rm -rf node_modules/.vite",
+    "electron:relaunch": "pkill -f electron || true && rm -rf dist && npm run build && npx cap sync electron && cd electron && rm -rf build && npm run build && npm run electron:start"
   },
   "dependencies": {
     "@capacitor-community/electron": "^5.0.1",
