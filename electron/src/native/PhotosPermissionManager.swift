@@ -33,28 +33,48 @@ import Photos
         return await withCheckedContinuation { continuation in
             let currentStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
             
+            // Enhanced diagnostic logging
+            NSLog("[PhotosPermissionManager] requestPermission() called")
+            NSLog("[PhotosPermissionManager] Current authorization status: %@", authorizationStatusToString(currentStatus))
+            NSLog("[PhotosPermissionManager] Thread: %@", Thread.current.description)
+            NSLog("[PhotosPermissionManager] Main thread: %@", Thread.isMainThread ? "YES" : "NO")
+            
             switch currentStatus {
             case .authorized:
                 // Already authorized
+                NSLog("[PhotosPermissionManager] Already authorized, returning true")
                 continuation.resume(returning: true)
                 
             case .limited:
                 // Limited access is considered authorized for our purposes
+                NSLog("[PhotosPermissionManager] Limited access granted, returning true")
                 continuation.resume(returning: true)
                 
             case .denied, .restricted:
                 // Previously denied or restricted - cannot request again
+                NSLog("[PhotosPermissionManager] Permission denied/restricted, cannot request again")
                 continuation.resume(returning: false)
                 
             case .notDetermined:
-                // Need to request permission
-                PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
-                    let granted = (status == .authorized || status == .limited)
-                    continuation.resume(returning: granted)
+                // Need to request permission - dispatch to main queue for UI
+                NSLog("[PhotosPermissionManager] Status is notDetermined, requesting permission...")
+                NSLog("[PhotosPermissionManager] About to call PHPhotoLibrary.requestAuthorization(for: .readWrite)")
+                
+                // Ensure we're on main queue for UI operations
+                DispatchQueue.main.async {
+                    NSLog("[PhotosPermissionManager] Now on main queue, calling PHPhotoLibrary.requestAuthorization")
+                    PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+                        NSLog("[PhotosPermissionManager] Permission request returned with status: %@", self.authorizationStatusToString(status))
+                        NSLog("[PhotosPermissionManager] Completion handler thread: %@", Thread.current.description)
+                        let granted = (status == .authorized || status == .limited)
+                        NSLog("[PhotosPermissionManager] Final result: %@", granted ? "GRANTED" : "DENIED")
+                        continuation.resume(returning: granted)
+                    }
                 }
                 
             @unknown default:
                 // Unknown status - assume denied for safety
+                NSLog("[PhotosPermissionManager] Unknown status, returning false")
                 continuation.resume(returning: false)
             }
         }

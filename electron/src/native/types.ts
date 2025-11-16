@@ -4,12 +4,13 @@
  */
 
 // Raw FFI function signatures (what koffi sees)
+// Note: Modern koffi auto-converts char* returns to JavaScript strings
 export interface SwiftPhotosLibraryFFI {
   // Permission functions
   photos_request_permission: () => string;
   photos_check_permission: () => string;
   
-  // Data retrieval functions  
+  // Data retrieval functions
   photos_get_albums: () => string;
   photos_get_photos: (albumId: string | null, quantity: number) => string;
 }

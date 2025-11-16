@@ -69,18 +69,18 @@ class PhotosLibraryFFI {
       this.lib = koffi.load(libraryPath);
 
       // Define FFI function signatures
-      // Note: Swift @_cdecl functions return char* (C strings) that need to be freed
+      // Note: Modern koffi auto-converts char* returns to JavaScript strings
       
       this.ffiInterface = {
         // Permission functions
-        photos_request_permission: this.lib.func('photos_request_permission', 'char*', []),
-        photos_check_permission: this.lib.func('photos_check_permission', 'char*', []),
+        photos_request_permission: this.lib.func('photos_request_permission', 'string', []),
+        photos_check_permission: this.lib.func('photos_check_permission', 'string', []),
         
         // Data retrieval functions
-        photos_get_albums: this.lib.func('photos_get_albums', 'char*', []),
-        photos_get_photos: this.lib.func('photos_get_photos', 'char*', [
-          'char*', // albumId (nullable)
-          'int32'  // quantity
+        photos_get_albums: this.lib.func('photos_get_albums', 'string', []),
+        photos_get_photos: this.lib.func('photos_get_photos', 'string', [
+          'string', // albumId (nullable, koffi handles null conversion)
+          'int32'   // quantity
         ])
       };
 
@@ -97,27 +97,41 @@ class PhotosLibraryFFI {
   }
 
   /**
-   * Call FFI function and handle C string memory management
-   * Swift allocates strings with strdup() that need to be freed
+   * Call FFI function that returns a string (modern koffi auto-converts)
    */
   private callStringFunction(fn: () => any): string {
+    console.log('[FFI] callStringFunction() invoked');
+    
     if (!this.isInitialized || !this.ffiInterface) {
+      console.error('[FFI] callStringFunction: FFI not initialized');
       throw new PhotosLibraryError('FFI not initialized', 'NOT_INITIALIZED');
     }
 
-    const stringPtr = fn();
-    if (!stringPtr) {
+    const result = fn();
+    console.log('[FFI] callStringFunction raw result:', result, 'Type:', typeof result);
+    
+    if (!result) {
+      console.error('[FFI] callStringFunction: Native function returned null/undefined');
       throw new PhotosLibraryError('Native function returned null', 'NULL_RESULT');
     }
 
-    // Read the C string - koffi automatically handles CString conversion
-    const result = koffi.decode(stringPtr, 'char*');
+    // Modern koffi auto-converts char* to string
+    if (typeof result === 'string') {
+      console.log('[FFI] callStringFunction: Result is already a string, returning directly');
+      return result;
+    }
     
-    // Free the memory allocated by Swift (strdup)
-    // Note: We need to use C's free() function for strings created with strdup()
-    koffi.free(stringPtr);
-    
-    return result;
+    console.warn('[FFI] callStringFunction: Result is not a string (unexpected), attempting fallback decode');
+    // Fallback for older koffi versions
+    try {
+      const decoded = koffi.decode(result, 'char*');
+      koffi.free(result);
+      console.log('[FFI] callStringFunction: Fallback decode successful');
+      return decoded;
+    } catch (error) {
+      console.error('[FFI] callStringFunction: Fallback decode failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -149,14 +163,42 @@ class PhotosLibraryFFI {
    */
   public async requestPermission(): Promise<boolean> {
     try {
-      const jsonResult = this.callStringFunction(() => 
-        this.ffiInterface!.photos_request_permission()
-      );
+      console.log('='.repeat(60));
+      console.log('[FFI-DIAGNOSTIC] REQUEST PERMISSION START');
+      console.log('[FFI-DIAGNOSTIC] Process platform:', process.platform);
+      console.log('[FFI-DIAGNOSTIC] FFI initialized:', this.isInitialized);
+      console.log('[FFI-DIAGNOSTIC] FFI ready:', this.isReady());
+      console.log('[FFI-DIAGNOSTIC] Library path exists:', this.lib !== null);
+      console.log('[FFI-DIAGNOSTIC] Interface exists:', this.ffiInterface !== null);
+      
+      if (!this.isInitialized || !this.ffiInterface) {
+        console.error('[FFI-DIAGNOSTIC] FFI not properly initialized!');
+        throw new Error('FFI not initialized');
+      }
+      
+      console.log('[FFI-DIAGNOSTIC] About to call Swift photos_request_permission...');
+      const startTime = Date.now();
+      
+      const jsonResult = this.callStringFunction(() => {
+        console.log('[FFI-DIAGNOSTIC] Inside callStringFunction, calling native function...');
+        return this.ffiInterface!.photos_request_permission();
+      });
+      
+      const duration = Date.now() - startTime;
+      console.log('[FFI-DIAGNOSTIC] Native call completed in', duration, 'ms');
+      console.log('[FFI-DIAGNOSTIC] Raw result from Swift:', jsonResult, '(type:', typeof jsonResult, ')');
       
       // Swift returns "true" or "false" as string for this function
-      return jsonResult === 'true';
+      const hasPermission = jsonResult === 'true';
+      console.log('[FFI-DIAGNOSTIC] Parsed permission result:', hasPermission);
+      console.log('[FFI-DIAGNOSTIC] REQUEST PERMISSION END');
+      console.log('='.repeat(60));
+      
+      return hasPermission;
     } catch (error) {
-      console.error('Error requesting photos permission:', error);
+      console.error('[FFI-DIAGNOSTIC] ERROR in requestPermission:', error);
+      console.error('[FFI-DIAGNOSTIC] Error stack:', error.stack);
+      console.log('='.repeat(60));
       throw error;
     }
   }
@@ -165,15 +207,20 @@ class PhotosLibraryFFI {
    * Check current permission status
    */
   public checkPermission(): boolean {
+    console.log('[FFI] checkPermission() called');
     try {
-      const jsonResult = this.callStringFunction(() => 
-        this.ffiInterface!.photos_check_permission()
-      );
+      const jsonResult = this.callStringFunction(() => {
+        console.log('[FFI] Calling photos_check_permission via koffi...');
+        return this.ffiInterface!.photos_check_permission();
+      });
+      console.log('[FFI] photos_check_permission raw result:', jsonResult, 'Type:', typeof jsonResult);
       
       // Swift returns "true" or "false" as string for this function
-      return jsonResult === 'true';
+      const hasPermission = jsonResult === 'true';
+      console.log('[FFI] checkPermission final result:', hasPermission);
+      return hasPermission;
     } catch (error) {
-      console.error('Error checking photos permission:', error);
+      console.error('[FFI] Exception in checkPermission:', error);
       throw error;
     }
   }
@@ -182,15 +229,26 @@ class PhotosLibraryFFI {
    * Get photo albums from the library
    */
   public async getAlbums(): Promise<PhotoAlbum[]> {
+    console.log('[FFI] getAlbums() called');
     try {
-      const jsonResult = this.callStringFunction(() => 
-        this.ffiInterface!.photos_get_albums()
-      );
+      const jsonResult = this.callStringFunction(() => {
+        console.log('[FFI] Calling photos_get_albums via koffi...');
+        return this.ffiInterface!.photos_get_albums();
+      });
+      console.log('[FFI] photos_get_albums raw result:', jsonResult, 'Type:', typeof jsonResult);
       
       const response = this.parseJsonResponse<PhotoAlbumsResponse>(jsonResult);
+      console.log('[FFI] Parsed albums result:', response);
+      
+      if (response.error) {
+        console.error('[FFI] getAlbums returned error:', response.error);
+        throw new PhotosLibraryError(response.error, 'FETCH_ERROR');
+      }
+      
+      console.log('[FFI] getAlbums returning', response.albums?.length || 0, 'albums');
       return response.albums || [];
     } catch (error) {
-      console.error('Error getting photo albums:', error);
+      console.error('[FFI] Exception in getAlbums:', error);
       throw error;
     }
   }
@@ -200,14 +258,21 @@ class PhotosLibraryFFI {
    */
   public async getPhotos(albumId?: string, quantity: number = 50): Promise<Photo[]> {
     try {
+      console.log('[Photos Debug] Getting photos - albumId:', albumId, 'quantity:', quantity);
+      console.log('[Photos Debug] Parameter types - albumId:', typeof albumId, 'quantity:', typeof quantity);
+      
+      // Pass albumId directly - koffi handles null/undefined conversion to NULL pointer
+      const albumParam = albumId || null;
+      console.log('[Photos Debug] Processed albumParam:', albumParam, 'type:', typeof albumParam);
+      
       const jsonResult = this.callStringFunction(() =>
-        this.ffiInterface!.photos_get_photos(albumId || null, quantity)
+        this.ffiInterface!.photos_get_photos(albumParam, quantity)
       );
       
       const response = this.parseJsonResponse<PhotosResponse>(jsonResult);
       return response.photos || [];
     } catch (error) {
-      console.error('Error getting photos:', error);
+      console.error('[Photos Debug] Error getting photos:', error);
       throw error;
     }
   }

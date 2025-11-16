@@ -73,14 +73,19 @@ export const requestPhotoLibraryPermission = async (): Promise<boolean> => {
  * @returns Promise<boolean> - true if permission granted, false otherwise
  */
 const requestPhotosPermissionElectron = async (): Promise<boolean> => {
+  console.log('[PhotoService] Starting Electron photos permission check/request...');
   try {
     if (!(window as any).electron?.photos) {
       console.error('[PhotoService] Electron Photos API not available');
       return false;
     }
 
+    console.log('[PhotoService] Electron Photos API is available, checking current permission...');
+
     // Check current permission status
     const checkResult = await (window as any).electron.photos.checkPermission();
+    console.log('[PhotoService] Permission check result:', checkResult);
+    
     if (!checkResult.success) {
       console.error('[PhotoService] Failed to check permission:', checkResult.error);
       return false;
@@ -88,17 +93,24 @@ const requestPhotosPermissionElectron = async (): Promise<boolean> => {
 
     // If already has permission, return true
     if (checkResult.hasPermission) {
+      console.log('[PhotoService] Permission already granted');
       return true;
     }
 
+    console.log('[PhotoService] Permission not granted, requesting permission...');
+
     // Request permission if not granted
     const requestResult = await (window as any).electron.photos.requestPermission();
+    console.log('[PhotoService] Permission request result:', requestResult);
+    
     if (!requestResult.success) {
       console.error('[PhotoService] Failed to request permission:', requestResult.error);
       return false;
     }
 
-    return requestResult.hasPermission || false;
+    const hasPermission = requestResult.hasPermission || false;
+    console.log('[PhotoService] Final permission status:', hasPermission);
+    return hasPermission;
   } catch (error) {
     console.error('[PhotoService] Error requesting Electron photos permission:', error);
     return false;
@@ -264,6 +276,7 @@ export const importPhotos = async (quantity: number = 50): Promise<Photo[]> => {
  * @returns Promise<PhotoAlbum[]> - Array of photo albums
  */
 export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
+  console.log('[PhotoService] Starting getPhotoAlbums...');
   try {
     // Check/request permissions first
     const hasPermission = await requestPhotoLibraryPermission();
@@ -272,11 +285,14 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
     }
 
     const platform = Capacitor.getPlatform();
+    console.log('[PhotoService] Platform detected:', platform);
 
     if (platform === 'ios' || platform === 'android') {
+      console.log('[PhotoService] Using Capacitor Media plugin for mobile platforms');
       const result = await Media.getAlbums();
       
       if (!result.albums || result.albums.length === 0) {
+        console.log('[PhotoService] No albums returned from Media plugin');
         return [];
       }
 
@@ -287,20 +303,26 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
         count: 0, // Count not provided by Media plugin
       }));
 
+      console.log(`[PhotoService] Successfully fetched ${albums.length} albums from Media plugin`);
       return albums;
     } else if (isMacOS() && (window as any).electron?.photos) {
       // macOS Electron implementation
-      console.log('[PhotoService] Fetching albums using Electron Photos API for macOS');
+      console.log('[PhotoService] Platform is macOS, using Electron Photos API');
       
       // Ensure we have permission
+      console.log('[PhotoService] Checking/requesting permission via Electron...');
       const hasPermission = await requestPhotosPermissionElectron();
       if (!hasPermission) {
+        console.error('[PhotoService] Permission denied for Electron photos access');
         throw new Error('Photos permission denied');
       }
 
+      console.log('[PhotoService] Permission granted, calling Electron IPC for albums...');
       const albumsResult = await (window as any).electron.photos.getAlbums();
+      console.log('[PhotoService] IPC getAlbums result:', albumsResult);
       
       if (!albumsResult.success) {
+        console.error('[PhotoService] getAlbums failed:', albumsResult.error);
         throw new Error(albumsResult.error || 'Failed to fetch albums from macOS Photos library');
       }
 
@@ -326,7 +348,7 @@ export const getPhotoAlbums = async (): Promise<PhotoAlbum[]> => {
       throw new Error(`Photo albums only available on iOS, Android, and macOS (${platform} detected)`);
     }
   } catch (error) {
-    console.error('Error fetching photo albums:', error);
+    console.error('[PhotoService] Error fetching photo albums:', error);
     throw error;
   }
 };

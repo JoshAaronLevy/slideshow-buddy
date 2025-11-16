@@ -235,19 +235,24 @@ ipcMain.handle('photos:requestPermission', async () => {
  * Returns: { success: boolean, hasPermission?: boolean, error?: string }
  */
 ipcMain.handle('photos:checkPermission', async () => {
+  console.log('[IPC Main] photos:checkPermission called');
   if (process.platform !== 'darwin') {
+    console.log('[IPC Main] Not on macOS, returning error');
     return { success: false, error: 'Photos library only available on macOS' };
   }
 
   try {
     if (!photosLibraryFFI.isReady()) {
+      console.error('[IPC Main] PhotosLibraryFFI not ready');
       return { success: false, error: 'Photos library FFI not initialized' };
     }
     
+    console.log('[IPC Main] Calling PhotosLibraryFFI.checkPermission()...');
     const hasPermission = photosLibraryFFI.checkPermission();
+    console.log('[IPC Main] PhotosLibraryFFI.checkPermission result:', hasPermission);
     return { success: true, hasPermission };
   } catch (error) {
-    console.error('Photos permission check failed:', error);
+    console.error('[IPC Main] Error in photos:checkPermission:', error);
     return {
       success: false,
       error: error.message || 'Failed to check Photos library permission'
@@ -260,19 +265,24 @@ ipcMain.handle('photos:checkPermission', async () => {
  * Returns: { success: boolean, albums?: PhotoAlbum[], error?: string }
  */
 ipcMain.handle('photos:getAlbums', async () => {
+  console.log('[IPC Main] photos:getAlbums called');
   if (process.platform !== 'darwin') {
+    console.log('[IPC Main] Not on macOS, returning error');
     return { success: false, error: 'Photos library only available on macOS' };
   }
 
   try {
     if (!photosLibraryFFI.isReady()) {
+      console.error('[IPC Main] PhotosLibraryFFI not ready');
       return { success: false, error: 'Photos library FFI not initialized' };
     }
     
+    console.log('[IPC Main] Calling PhotosLibraryFFI.getAlbums()...');
     const albums = await photosLibraryFFI.getAlbums();
+    console.log('[IPC Main] PhotosLibraryFFI.getAlbums result:', albums ? `${albums.length} albums` : 'null/undefined');
     return { success: true, albums };
   } catch (error) {
-    console.error('Failed to get photo albums:', error);
+    console.error('[IPC Main] Error in photos:getAlbums:', error);
     return {
       success: false,
       error: error.message || 'Failed to retrieve photo albums'
