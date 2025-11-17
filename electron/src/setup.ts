@@ -230,7 +230,7 @@ export function setupContentSecurityPolicy(customScheme: string): void {
       ? `script-src 'self' ${customScheme}://* 'unsafe-inline' https://sdk.scdn.co devtools://* 'unsafe-eval'`
       : `script-src 'self' ${customScheme}://* 'unsafe-inline' https://sdk.scdn.co`;
     
-    const connectSrc = `connect-src 'self' ${customScheme}://* https://api.spotify.com https://accounts.spotify.com`;
+    const connectSrc = `connect-src 'self' ${customScheme}://* https://api.spotify.com https://accounts.spotify.com https://slideshow-buddy-server.onrender.com`;
     const mediaSrc = `media-src 'self' ${customScheme}://* https: data:`;
     const imgSrc = `img-src 'self' ${customScheme}://* https: data:`;
     const styleSrc = `style-src 'self' ${customScheme}://* 'unsafe-inline'`;
