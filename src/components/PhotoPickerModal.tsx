@@ -480,7 +480,7 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const selectedCount = selectedPhotos.size;
 
   return (
-    <IonModal isOpen={isOpen} onDidDismiss={handleDismiss}>
+    <IonModal isOpen={isOpen} onDidDismiss={handleDismiss} className="photo-picker-modal">
       <IonHeader>
         <IonToolbar>
           {view === 'photos' && (

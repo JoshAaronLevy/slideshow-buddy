@@ -8,6 +8,21 @@
   margin: 0 auto;
 }
 
+/* Desktop: Expand to use available space */
+@media (min-width: 1024px) {
+  .music-container {
+    max-width: var(--desktop-content-max-width);
+    padding: 24px 32px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .music-container {
+    max-width: var(--large-desktop-content-max-width);
+    padding: 32px 48px;
+  }
+}
+
 /* Connection Card */
 .connection-card {
   text-align: center;
@@ -61,11 +76,29 @@
   margin-bottom: 16px;
 }
 
+@media (min-width: 1024px) {
+  .profile-card {
+    margin-bottom: 24px;
+  }
+  
+  .profile-card ion-card-content {
+    padding: 24px;
+  }
+}
+
 .profile-header {
   display: flex;
   align-items: center;
   gap: 16px;
   margin-bottom: 20px;
+}
+
+/* Desktop: Larger profile elements */
+@media (min-width: 1024px) {
+  .profile-header {
+    gap: 24px;
+    margin-bottom: 24px;
+  }
 }
 
 .profile-avatar {
@@ -152,6 +185,12 @@
   z-index: 10;
 }
 
+@media (min-width: 1024px) {
+  .music-search {
+    padding: 0 24px 12px 24px;
+  }
+}
+
 .music-loading {
   display: flex;
   justify-content: center;
@@ -170,6 +209,20 @@
   justify-content: center;
   padding: 60px 20px;
   text-align: center;
+}
+
+@media (min-width: 1024px) {
+  .music-container > ion-card {
+    margin-bottom: 24px;
+  }
+  
+  .music-container > ion-card ion-card-content {
+    padding: 20px;
+  }
+  
+  .music-container > ion-card ion-card-header {
+    padding: 20px 20px 16px;
+  }
 }
 
 .empty-state-icon {
@@ -225,6 +278,28 @@
   transition: background 0.2s;
 }
 
+/* Desktop: Grid layout for playlists */
+@media (min-width: 1024px) {
+  .music-card-content ion-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .playlist-item {
+    margin: 0;
+  }
+}
+
+@media (min-width: 1440px) {
+  .music-card-content ion-list {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
+}
+
 .playlist-item.selected {
   --background: var(--ion-color-primary-tint);
 }
@@ -236,6 +311,29 @@
   border-radius: 4px;
   overflow: hidden;
   --border-radius: 4px;
+}
+
+@media (min-width: 1024px) {
+  .playlist-thumbnail {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .playlist-item h3 {
+    font-size: 17px;
+  }
+  
+  .playlist-item p {
+    font-size: 15px;
+  }
+  
+  .track-item h3 {
+    font-size: 17px;
+  }
+  
+  .track-item p {
+    font-size: 15px;
+  }
 }
 
 .playlist-thumbnail img {
@@ -283,6 +381,12 @@
   align-items: center;
 }
 
+@media (min-width: 1024px) {
+  .section-header {
+    padding: 4px 0;
+  }
+}
+
 .section-header ion-button {
   margin: 0;
 }
@@ -293,6 +397,22 @@
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
   padding: 16px 0;
+}
+
+/* Desktop: Better utilize horizontal space */
+@media (min-width: 1024px) {
+  .custom-playlists-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 20px 0;
+  }
+}
+
+@media (min-width: 1440px) {
+  .custom-playlists-grid {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
 }
 
 /* Small Empty State (for custom playlists section) */

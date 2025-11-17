@@ -7,12 +7,28 @@
   --padding-bottom: 0;
 }
 
+/* Desktop: Full-width modal */
+@media (min-width: 1024px) {
+  .photo-picker-modal {
+    --width: 95%;
+    --max-width: 100%;
+    --height: 90%;
+  }
+}
+
 .photo-picker-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 16px;
   width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .photo-picker-actions {
+    padding: 0 24px;
+    gap: 16px;
+  }
 }
 
 .selection-badge {
@@ -117,6 +133,24 @@
   cursor: pointer;
   transition: background-color 0.2s ease;
   border-bottom: 1px solid var(--ion-color-light-shade);
+}
+
+@media (min-width: 1024px) {
+  .photo-picker-album-item {
+    padding: 20px 32px;
+  }
+  
+  .album-icon {
+    font-size: 40px;
+  }
+  
+  .album-text h3 {
+    font-size: 18px;
+  }
+  
+  .album-text p {
+    font-size: 15px;
+  }
 }
 
 .photo-picker-album-item:active {
@@ -253,18 +287,27 @@ ion-infinite-scroll-content::part(spinner) {
 /* Desktop */
 @media (min-width: 1024px) {
   .photo-picker-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 16px;
-    padding: 20px 16px;
+    padding: 20px 24px;
   }
 }
 
 /* Large Desktop */
 @media (min-width: 1440px) {
   .photo-picker-grid {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 16px;
-    padding: 24px 20px;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 20px;
+    padding: 24px 32px;
+  }
+}
+
+/* Extra Large Desktop */
+@media (min-width: 1920px) {
+  .photo-picker-grid {
+    grid-template-columns: repeat(10, 1fr);
+    gap: 24px;
+    padding: 32px 48px;
   }
 }
 

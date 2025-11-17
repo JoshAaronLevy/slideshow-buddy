@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-11-17
+
+### Changed
+- Enhanced Music page layout for macOS with responsive design up to 1400px+ screens
+- Expanded music container from fixed 600px width to dynamic width using desktop content variables
+- Improved custom playlists grid with better column layouts on wider screens (2-3 columns on desktop)
+- Enhanced playlist and track item display with multi-column grid layouts on desktop (2-3 columns)
+- Increased profile card spacing and avatar size on desktop screens
+- Photo picker modal now takes full width on macOS for better photo browsing experience
+- Improved photo grid density: 6 columns at 1024px, 8 at 1440px, 10 at 1920px (up from 5-6)
+- Enhanced photo picker album list with larger icons and text on desktop
+- Preferences modal now wider on desktop (900px at 1024px, 1100px at 1440px)
+- Photo Library Manager with increased list height and larger thumbnails on desktop
+- Improved spacing, padding, and card layouts throughout music page for desktop viewing
+
+### Fixed
+- iOS layouts remain completely unchanged - all responsive improvements scoped to desktop breakpoints only
+
 ## [1.0.0] - 2025-11-17
 
 ### Added - macOS Photo Library System

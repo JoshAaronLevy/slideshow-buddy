@@ -31,6 +31,13 @@
   margin-bottom: 16px;
 }
 
+@media (min-width: 768px) {
+  .management-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
 /* Search and Sort Controls */
 .search-sort-controls {
   margin-top: 16px;
@@ -56,6 +63,19 @@
   margin-top: 16px;
 }
 
+/* Desktop: More space for photo list */
+@media (min-width: 1024px) {
+  .photo-management-list {
+    max-height: 500px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .photo-management-list {
+    max-height: 600px;
+  }
+}
+
 .photo-management-item {
   --padding-start: 8px;
   --inner-padding-end: 8px;
@@ -68,6 +88,22 @@
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .photo-thumbnail {
+    width: 80px;
+    height: 80px;
+    margin: 0 16px;
+  }
+  
+  .photo-info h3 {
+    font-size: 15px;
+  }
+  
+  .photo-info p {
+    font-size: 13px;
+  }
 }
 
 .photo-thumbnail img {
