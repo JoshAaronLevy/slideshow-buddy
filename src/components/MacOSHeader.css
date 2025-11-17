@@ -37,11 +37,10 @@
 
 .macos-header ion-button.active {
   --color: var(--ion-color-primary);
-  --background: var(--ion-color-primary-tint);
 }
 
 .macos-header ion-icon {
-  font-size: 18px;
+  font-size: 24px;
 }
 
 /* macOS-specific styling adjustments */
