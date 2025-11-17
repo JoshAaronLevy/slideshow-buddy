@@ -22,6 +22,8 @@ import {
 } from '@ionic/react';
 import { useEffect, useState } from 'react';
 import { close, settings, musicalNotes, images, time } from 'ionicons/icons';
+import { isMacOS } from '../utils/platform';
+import PhotoLibraryManager from './PhotoLibraryManager';
 import './PreferencesModal.css';
 
 interface PreferencesModalProps {
@@ -304,6 +306,9 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({ isOpen, onClose }) 
             </IonList>
           </IonCardContent>
         </IonCard>
+
+        {/* Photo Library Management (macOS only) */}
+        {isMacOS() && <PhotoLibraryManager />}
 
         {/* Footer info */}
         <div className="preferences-footer">
