@@ -240,14 +240,19 @@ contextBridge.exposeInMainWorld('electron', {
   
   spotify: {
     onOAuthCallback: (callback: (url: string) => void): (() => void) => {
-      const removeListener = () => {
-        ipcRenderer.removeListener('spotify:oauth-callback', callback);
+      const wrappedCallback = (_event: Electron.IpcRendererEvent, url: string) => {
+        console.log('[Preload] OAuth callback received in preload:', url);
+        console.log('[Preload] URL length:', url.length);
+        console.log('[Preload] URL starts with expected prefix:', url.startsWith('com.slideshowbuddy://callback'));
+        callback(url);
       };
       
-      ipcRenderer.on('spotify:oauth-callback', (event, url: string) => {
-        console.log('OAuth callback received in preload:', url);
-        callback(url);
-      });
+      const removeListener = () => {
+        ipcRenderer.removeListener('spotify:oauth-callback', wrappedCallback);
+      };
+      
+      ipcRenderer.on('spotify:oauth-callback', wrappedCallback);
+      console.log('[Preload] Spotify OAuth callback listener registered');
       
       return removeListener;
     }

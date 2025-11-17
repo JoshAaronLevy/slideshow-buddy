@@ -144,23 +144,32 @@ let pendingOAuthCallback: string | null = null;
  */
 app.on('open-url', (event, url) => {
   event.preventDefault();
-  console.log('OAuth callback received:', url);
+  console.log('[Electron Main] OAuth callback received:', url);
+  console.log('[Electron Main] URL details:', {
+    length: url.length,
+    startsWithExpected: url.startsWith('com.slideshowbuddy://callback'),
+    hasQueryParams: url.includes('?'),
+  });
   
   // Check if this is a Spotify OAuth callback
   if (url.startsWith('com.slideshowbuddy://callback')) {
+    console.log('[Electron Main] Confirmed Spotify OAuth callback');
     const mainWindow = myCapacitorApp.getMainWindow();
     
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
       // Send callback immediately if window is ready
+      console.log('[Electron Main] Sending callback to renderer via IPC');
       mainWindow.webContents.send('spotify:oauth-callback', url);
       mainWindow.show();
       mainWindow.focus();
-      console.log('OAuth callback sent to renderer:', url);
+      console.log('[Electron Main] OAuth callback sent to renderer:', url);
     } else {
       // Store callback for when window becomes ready
       pendingOAuthCallback = url;
-      console.log('OAuth callback queued - window not ready yet');
+      console.log('[Electron Main] OAuth callback queued - window not ready yet');
     }
+  } else {
+    console.log('[Electron Main] URL does not match expected callback pattern');
   }
 });
 

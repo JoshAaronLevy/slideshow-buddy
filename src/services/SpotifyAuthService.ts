@@ -460,29 +460,37 @@ export const setupAuthListener = async (
   // Process OAuth callback URL (shared logic for all platforms)
   const processCallback = (callbackUrl: string) => {
     try {
-      const url = new URL(callbackUrl);
-      console.log('[SpotifyAuth] Parsed callback URL:', {
-        protocol: url.protocol,
-        host: url.host,
-        pathname: url.pathname,
-        search: url.search
-      });
+      console.log('[SpotifyAuth] Processing callback URL:', callbackUrl);
       
-      // Check if this is our OAuth callback
-      // Support multiple URL schemes for backward compatibility
+      // Check if this is our OAuth callback by checking the URL prefix
       const isCallback = (
-        (url.protocol === 'com.slideshowbuddy:' && url.host === 'callback') ||
-        (url.protocol === 'slideshowbuddy:' && url.host === 'callback') ||
-        (url.protocol === 'com.slideshowbuddy.app:' && url.host === 'callback')
+        callbackUrl.startsWith('com.slideshowbuddy://callback') ||
+        callbackUrl.startsWith('slideshowbuddy://callback') ||
+        callbackUrl.startsWith('com.slideshowbuddy.app://callback')
       );
       
       if (isCallback) {
-        const code = url.searchParams.get('code');
-        const state = url.searchParams.get('state');
+        console.log('[SpotifyAuth] OAuth callback detected');
         
-        console.log('[SpotifyAuth] OAuth callback detected', {
+        // Parse the URL - handle custom protocol URLs carefully
+        // For custom protocols, the URL constructor may not parse correctly
+        // So we'll manually extract the query parameters
+        const queryStart = callbackUrl.indexOf('?');
+        if (queryStart === -1) {
+          console.error('[SpotifyAuth] No query parameters in callback URL');
+          return;
+        }
+        
+        const queryString = callbackUrl.substring(queryStart + 1);
+        const params = new URLSearchParams(queryString);
+        const code = params.get('code');
+        const state = params.get('state');
+        
+        console.log('[SpotifyAuth] Extracted parameters:', {
           hasCode: !!code,
-          hasState: !!state
+          hasState: !!state,
+          codeLength: code?.length,
+          stateLength: state?.length
         });
         
         if (code && state) {
@@ -490,9 +498,10 @@ export const setupAuthListener = async (
           onCallback(code, state);
         } else {
           console.error('[SpotifyAuth] Missing code or state in callback URL');
+          console.error('[SpotifyAuth] Query string was:', queryString);
         }
       } else {
-        console.log('[SpotifyAuth] URL is not an OAuth callback');
+        console.log('[SpotifyAuth] URL is not an OAuth callback:', callbackUrl);
       }
     } catch (error) {
       console.error('[SpotifyAuth] Error parsing callback URL:', error);
