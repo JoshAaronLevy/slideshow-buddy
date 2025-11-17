@@ -44,6 +44,31 @@ export interface SpotifyTrack {
   uri: string;
   duration_ms: number;
   preview_url?: string;
+  image_url?: string;
+}
+
+/**
+ * Represents a Spotify album
+ */
+export interface SpotifyAlbum {
+  id: string;
+  name: string;
+  artists: string[];
+  image_url: string;
+  release_date: string;
+  total_tracks: number;
+  uri: string;
+}
+
+/**
+ * Represents a Spotify artist
+ */
+export interface SpotifyArtist {
+  id: string;
+  name: string;
+  image_url?: string;
+  genres?: string[];
+  uri: string;
 }
 
 /**

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-11-17
+
+### Added
+- **Profile popover component** for macOS: compact user profile display in toolbar with profile picture, name, email, account status, and disconnect button
+- **Enhanced "My Library" tab** in track picker with four new sections:
+  - Recently Played: Last 10 tracks played
+  - Albums: Saved albums with browseable track lists
+  - Artists: Top artists with browseable top tracks
+  - Songs: User's saved tracks library
+- New Spotify API integrations: `fetchUserSavedTracks`, `fetchUserAlbums`, `fetchUserTopArtists`, `fetchAlbumTracks`, `fetchArtistTopTracks`
+- New types: `SpotifyAlbum` and `SpotifyArtist` interfaces
+- Breadcrumb navigation for library sections (albums/artists) with back button
+
+### Changed
+- **Music page redesign (macOS)**: Removed large profile card, moved user profile to compact toolbar icon
+- **Music page sections**: Removed "Recently Played" and "Your Playlists" from main view - now only shows search bar and custom playlists
+- **Playlist Creation Modal**: Now takes full window width on macOS (100% width/height) for better usability
+- **Track Picker Modal**: Now takes full window width on macOS (100% width/height) for enhanced browsing
+- "My Library" tab reorganized into categorized sections instead of single track list
+- Search results now filtered to exclude tracks with null/undefined IDs for better reliability
+
+### Fixed
+- **Search bug in Track Picker**: Fixed "Cannot read properties of null (reading 'id')" error by adding null checks and filtering invalid track objects from search results
+- Improved error handling in music search with better console logging
+
 ## [1.0.1] - 2025-11-17
 
 ### Changed

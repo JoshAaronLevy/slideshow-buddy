@@ -1,11 +1,18 @@
 import { IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonIcon } from '@ionic/react';
-import { settingsOutline, musicalNotesOutline, imagesOutline } from 'ionicons/icons';
+import { settingsOutline, musicalNotesOutline, imagesOutline, personCircleOutline } from 'ionicons/icons';
 import { useHistory, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { useAuthStore } from '../stores/authStore';
+import ProfilePopover from './ProfilePopover';
+import * as HapticService from '../services/HapticService';
 import './MacOSHeader.css';
 
 const MacOSHeader: React.FC = () => {
   const history = useHistory();
   const location = useLocation();
+  const { isAuthenticated, logout } = useAuthStore();
+  const [showProfilePopover, setShowProfilePopover] = useState(false);
+  const [popoverEvent, setPopoverEvent] = useState<Event>();
 
   const handleSettingsClick = () => {
     history.push('/settings');
@@ -17,6 +24,18 @@ const MacOSHeader: React.FC = () => {
 
   const handleMusicClick = () => {
     history.push('/music');
+  };
+
+  const handleProfileClick = (e: React.MouseEvent) => {
+    HapticService.impactLight();
+    setPopoverEvent(e.nativeEvent);
+    setShowProfilePopover(true);
+  };
+
+  const handleLogout = async () => {
+    setShowProfilePopover(false);
+    await HapticService.impactMedium();
+    await logout();
   };
 
   // Get page title based on current route
@@ -59,8 +78,24 @@ const MacOSHeader: React.FC = () => {
           >
             <IonIcon icon={settingsOutline} />
           </IonButton>
+          {isAuthenticated && (
+            <IonButton
+              fill="clear"
+              onClick={handleProfileClick}
+              className="profile-button"
+            >
+              <IonIcon icon={personCircleOutline} />
+            </IonButton>
+          )}
         </IonButtons>
       </IonToolbar>
+      
+      <ProfilePopover
+        isOpen={showProfilePopover}
+        event={popoverEvent}
+        onDismiss={() => setShowProfilePopover(false)}
+        onLogout={handleLogout}
+      />
     </IonHeader>
   );
 };

@@ -43,6 +43,14 @@
   font-size: 24px;
 }
 
+.macos-header ion-button.profile-button {
+  --color: var(--ion-color-medium);
+}
+
+.macos-header ion-button.profile-button:hover {
+  --color: var(--ion-color-primary);
+}
+
 /* macOS-specific styling adjustments */
 @media (prefers-color-scheme: dark) {
   .macos-header {

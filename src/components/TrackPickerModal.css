@@ -96,6 +96,38 @@ ion-item {
   --min-height: 72px;
 }
 
+/* Library Sections */
+.library-sections {
+  padding: 16px 0;
+}
+
+.library-section {
+  margin-bottom: 24px;
+}
+
+.library-section-header {
+  padding: 8px 16px;
+  background: var(--ion-color-light);
+  border-bottom: 1px solid var(--ion-border-color);
+}
+
+.library-section-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ion-color-medium);
+  letter-spacing: 0.5px;
+}
+
+.library-section ion-list {
+  margin-bottom: 0;
+}
+
+.library-section ion-item img {
+  object-fit: cover;
+}
+
 /* Playlist Browse */
 ion-item[button] {
   cursor: pointer;
@@ -103,6 +135,15 @@ ion-item[button] {
 
 ion-item[button]:hover {
   --background: var(--ion-color-light);
+}
+
+/* macOS Desktop Fullwidth Styles */
+@media (min-width: 1024px) {
+  ion-modal.track-picker-modal {
+    --width: 100%;
+    --height: 100%;
+    --border-radius: 0;
+  }
 }
 
 /* Responsive */

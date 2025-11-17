@@ -111,7 +111,7 @@ const PlaylistCreationModal: React.FC<PlaylistCreationModalProps> = ({
 
   return (
     <>
-      <IonModal isOpen={isOpen} onDidDismiss={handleDismiss}>
+      <IonModal isOpen={isOpen} onDidDismiss={handleDismiss} className="playlist-creation-modal">
         <IonHeader>
           <IonToolbar>
             <IonTitle>New Playlist</IonTitle>

@@ -11,9 +11,7 @@ import {
   IonButton,
   IonSpinner,
   IonText,
-  IonAvatar,
   IonIcon,
-  IonBadge,
   IonSearchbar,
   IonList,
   IonItem,
@@ -26,11 +24,9 @@ import {
 } from '@ionic/react';
 import {
   musicalNotesOutline,
-  checkmarkCircle,
-  warningOutline,
   musicalNotesSharp,
-  playCircleOutline,
   addCircleOutline,
+  checkmarkCircle,
 } from 'ionicons/icons';
 import { useEffect, useState, useCallback } from 'react';
 import { useAuthStore } from '../stores/authStore';
@@ -320,35 +316,11 @@ const MusicSelection: React.FC = () => {
         </>
       )}
 
-      {/* Recently Played Section */}
-      {!isLoading && showRecentTracks && (
+      {/* Search Results Section */}
+      {!isLoading && searchQuery && (
         <IonCard>
           <IonCardHeader>
-            <IonCardTitle>Recently Played</IonCardTitle>
-          </IonCardHeader>
-          <IonCardContent className="music-card-content">
-            <IonList lines="none">
-              {recentTracks.slice(0, 5).map((track) => (
-                <IonItem key={track.id} className="track-item">
-                  <IonIcon icon={musicalNotesSharp} slot="start" color="primary" />
-                  <IonLabel>
-                    <h3>{track.name}</h3>
-                    <p>{track.artists.join(', ')}</p>
-                  </IonLabel>
-                </IonItem>
-              ))}
-            </IonList>
-          </IonCardContent>
-        </IonCard>
-      )}
-
-      {/* Playlists Section */}
-      {!isLoading && (
-        <IonCard>
-          <IonCardHeader>
-            <IonCardTitle>
-              {searchQuery ? 'Search Results' : 'Your Playlists'}
-            </IonCardTitle>
+            <IonCardTitle>Search Results</IonCardTitle>
           </IonCardHeader>
           <IonCardContent className="music-card-content">
             {displayPlaylists.length === 0 && !isLoading && (
@@ -404,43 +376,6 @@ const MusicSelection: React.FC = () => {
             ))}
           </IonList>
         </IonCardContent>
-        </IonCard>
-      )}
-
-      {/* Featured Playlists Section */}
-      {!isLoading && showFeaturedPlaylists && (
-        <IonCard>
-          <IonCardHeader>
-            <IonCardTitle>Featured Playlists</IonCardTitle>
-          </IonCardHeader>
-          <IonCardContent className="music-card-content">
-            <IonList lines="none">
-              {featuredPlaylists.map((playlist) => (
-                <IonItem
-                  key={playlist.id}
-                  button
-                  onClick={() => handlePlaylistClick(playlist)}
-                  className="playlist-item"
-                  aria-label={`Featured playlist: ${playlist.name}, ${playlist.description || 'Curated by Spotify'}`}
-                >
-                  <IonThumbnail slot="start" className="playlist-thumbnail">
-                    {playlist.image_url ? (
-                      <img src={playlist.image_url} alt={playlist.name} />
-                    ) : (
-                      <div className="playlist-placeholder">
-                        <IonIcon icon={musicalNotesSharp} />
-                      </div>
-                    )}
-                  </IonThumbnail>
-                  <IonLabel>
-                    <h3>{playlist.name}</h3>
-                    <p>{playlist.description || 'Curated by Spotify'}</p>
-                  </IonLabel>
-                  <IonIcon icon={playCircleOutline} slot="end" color="medium" />
-                </IonItem>
-              ))}
-            </IonList>
-          </IonCardContent>
         </IonCard>
       )}
 
@@ -620,68 +555,21 @@ const Tab2: React.FC = () => {
           {/* Connected State */}
           {!isLoading && isAuthenticated && user && (
             <>
-              <IonCard className="profile-card">
-                <IonCardContent>
-                  <div className="profile-header">
-                    {user.images && user.images.length > 0 ? (
-                      <IonAvatar className="profile-avatar">
-                        <img src={user.images[0].url} alt={user.display_name} />
-                      </IonAvatar>
-                    ) : (
-                      <IonAvatar className="profile-avatar">
-                        <div className="avatar-placeholder">
-                          {user.display_name?.charAt(0).toUpperCase()}
-                        </div>
-                      </IonAvatar>
-                    )}
-                    <div className="profile-info">
-                      <h2>{user.display_name}</h2>
-                      {user.email && (
-                        <IonText color="medium">
-                          <p>{user.email}</p>
-                        </IonText>
-                      )}
-                      <div className="account-status">
-                        {isPremium ? (
-                          <IonBadge color="success">
-                            <IonIcon icon={checkmarkCircle} />
-                            <span>Premium</span>
-                          </IonBadge>
-                        ) : (
-                          <IonBadge color="warning">
-                            <IonIcon icon={warningOutline} />
-                            <span>Free Account</span>
-                          </IonBadge>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {!isPremium && (
-                    <div className="premium-warning">
-                      <IonText color="warning">
-                        <p>
-                          <strong>Spotify Premium Required</strong>
-                        </p>
-                        <p>
-                          Music playback requires a Spotify Premium subscription. Please
-                          upgrade your account to use this feature.
-                        </p>
-                      </IonText>
-                    </div>
-                  )}
-
-                  <IonButton
-                    expand="block"
-                    fill="outline"
-                    onClick={handleLogout}
-                    className="disconnect-button"
-                    aria-label="Disconnect from Spotify"
-                  >
-                    Disconnect
-                  </IonButton>
-                </IonCardContent>
-              </IonCard>
+              {!isPremium && (
+                <IonCard className="premium-warning-card">
+                  <IonCardContent>
+                    <IonText color="warning">
+                      <p>
+                        <strong>Spotify Premium Required</strong>
+                      </p>
+                      <p>
+                        Music playback requires a Spotify Premium subscription. Please
+                        upgrade your account to use this feature.
+                      </p>
+                    </IonText>
+                  </IonCardContent>
+                </IonCard>
+              )}
 
               {/* Music Selection UI */}
               {isPremium && <MusicSelection />}

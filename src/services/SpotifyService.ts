@@ -4,7 +4,7 @@
 
 import axios from 'axios';
 import { SPOTIFY_CONFIG } from '../constants';
-import { SpotifyPlaylist, SpotifyTrack } from '../types';
+import { SpotifyPlaylist, SpotifyTrack, SpotifyAlbum, SpotifyArtist } from '../types';
 import {
   SpotifyApiPlaylist,
   SpotifyApiPlaylistItem,
@@ -235,6 +235,160 @@ export const fetchFeaturedPlaylists = async (limit: number = 20): Promise<Spotif
     }));
   } catch (error) {
     console.error('Error fetching featured playlists:', error);
+    return [];
+  }
+};
+
+/**
+ * Get user's saved tracks
+ * @param limit - Number of tracks to fetch (default 50)
+ */
+export const fetchUserSavedTracks = async (limit: number = 50): Promise<SpotifyTrack[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.get(
+      `${SPOTIFY_CONFIG.API_BASE_URL}/me/tracks`,
+      {
+        headers,
+        params: { limit },
+      }
+    );
+
+    return response.data.items.map((item: any) => ({
+      id: item.track.id,
+      name: item.track.name,
+      artists: item.track.artists?.map((artist: SpotifyApiArtist) => artist.name) || [],
+      album: item.track.album?.name || '',
+      uri: item.track.uri,
+      duration_ms: item.track.duration_ms || 0,
+      preview_url: item.track.preview_url,
+      image_url: item.track.album?.images?.[0]?.url || '',
+    }));
+  } catch (error) {
+    console.error('Error fetching saved tracks:', error);
+    return [];
+  }
+};
+
+/**
+ * Get user's saved albums
+ * @param limit - Number of albums to fetch (default 50)
+ */
+export const fetchUserAlbums = async (limit: number = 50): Promise<SpotifyAlbum[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.get(
+      `${SPOTIFY_CONFIG.API_BASE_URL}/me/albums`,
+      {
+        headers,
+        params: { limit },
+      }
+    );
+
+    return response.data.items.map((item: any) => ({
+      id: item.album.id,
+      name: item.album.name,
+      artists: item.album.artists?.map((artist: SpotifyApiArtist) => artist.name) || [],
+      image_url: item.album.images?.[0]?.url || '',
+      release_date: item.album.release_date || '',
+      total_tracks: item.album.total_tracks || 0,
+      uri: item.album.uri,
+    }));
+  } catch (error) {
+    console.error('Error fetching user albums:', error);
+    return [];
+  }
+};
+
+/**
+ * Get user's top artists
+ * @param limit - Number of artists to fetch (default 50)
+ * @param timeRange - Time range for top artists ('short_term', 'medium_term', 'long_term')
+ */
+export const fetchUserTopArtists = async (
+  limit: number = 50,
+  timeRange: 'short_term' | 'medium_term' | 'long_term' = 'medium_term'
+): Promise<SpotifyArtist[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.get(
+      `${SPOTIFY_CONFIG.API_BASE_URL}/me/top/artists`,
+      {
+        headers,
+        params: { limit, time_range: timeRange },
+      }
+    );
+
+    return response.data.items.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      image_url: item.images?.[0]?.url || '',
+      genres: item.genres || [],
+      uri: item.uri,
+    }));
+  } catch (error) {
+    console.error('Error fetching top artists:', error);
+    return [];
+  }
+};
+
+/**
+ * Get tracks from an album
+ * @param albumId - Spotify album ID
+ */
+export const fetchAlbumTracks = async (albumId: string): Promise<SpotifyTrack[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.get(
+      `${SPOTIFY_CONFIG.API_BASE_URL}/albums/${albumId}/tracks`,
+      {
+        headers,
+        params: { limit: 50 },
+      }
+    );
+
+    return response.data.items.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      artists: item.artists?.map((artist: SpotifyApiArtist) => artist.name) || [],
+      album: '', // Will be filled in from album data
+      uri: item.uri,
+      duration_ms: item.duration_ms || 0,
+      preview_url: item.preview_url,
+    }));
+  } catch (error) {
+    console.error('Error fetching album tracks:', error);
+    return [];
+  }
+};
+
+/**
+ * Get tracks from an artist (top tracks)
+ * @param artistId - Spotify artist ID
+ */
+export const fetchArtistTopTracks = async (artistId: string): Promise<SpotifyTrack[]> => {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await axios.get(
+      `${SPOTIFY_CONFIG.API_BASE_URL}/artists/${artistId}/top-tracks`,
+      {
+        headers,
+        params: { market: 'US' }, // Default market
+      }
+    );
+
+    return response.data.tracks.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      artists: item.artists?.map((artist: SpotifyApiArtist) => artist.name) || [],
+      album: item.album?.name || '',
+      uri: item.uri,
+      duration_ms: item.duration_ms || 0,
+      preview_url: item.preview_url,
+      image_url: item.album?.images?.[0]?.url || '',
+    }));
+  } catch (error) {
+    console.error('Error fetching artist top tracks:', error);
     return [];
   }
 };
