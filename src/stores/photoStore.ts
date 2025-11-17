@@ -21,11 +21,14 @@ interface PhotoState {
   error: string | null;
   lastImportResult: PhotoImportResult | null;
   lastValidationResult: PhotoValidationResult | null;
+  importProgress: { current: number; total: number; filename: string } | null;
 
   // Actions
   loadPhotos: () => Promise<void>;
   importPhotos: () => Promise<void>;
-  importPhotosToLibrary: () => Promise<PhotoImportResult>;
+  importPhotosToLibrary: (
+    onProgress?: (current: number, total: number, filename: string) => void
+  ) => Promise<PhotoImportResult>;
   validateLibraryPhotos: () => Promise<PhotoValidationResult>;
   togglePhotoSelection: (photoId: string) => void;
   clearSelection: () => void;
@@ -47,6 +50,7 @@ export const usePhotoStore = create<PhotoState>((set) => ({
   error: null,
   lastImportResult: null,
   lastValidationResult: null,
+  importProgress: null,
 
   /**
    * Load photos from persistent storage
@@ -130,10 +134,13 @@ export const usePhotoStore = create<PhotoState>((set) => ({
   /**
    * Import photos to library (macOS-specific)
    * Opens file dialog, processes files with thumbnails and duplicate detection
+   * @param onProgress - Optional progress callback
    * @returns PhotoImportResult with detailed import statistics
    */
-  importPhotosToLibrary: async (): Promise<PhotoImportResult> => {
-    set({ isLoading: true, error: null });
+  importPhotosToLibrary: async (
+    onProgress?: (current: number, total: number, filename: string) => void
+  ): Promise<PhotoImportResult> => {
+    set({ isLoading: true, error: null, importProgress: null });
     
     try {
       // Open file dialog to select photos
@@ -146,12 +153,23 @@ export const usePhotoStore = create<PhotoState>((set) => ({
           duplicates: 0,
           failed: 0,
         };
-        set({ isLoading: false, lastImportResult: emptyResult });
+        set({ isLoading: false, lastImportResult: emptyResult, importProgress: null });
         return emptyResult;
       }
 
+      // Progress callback that updates store and calls external callback
+      const progressCallback = (current: number, total: number, filename: string) => {
+        set({ importProgress: { current, total, filename } });
+        if (onProgress) {
+          onProgress(current, total, filename);
+        }
+      };
+
       // Import photos with thumbnail generation and duplicate detection
-      const importResult = await PhotoLibraryService.importPhotosToLibrary(selectedFiles);
+      const importResult = await PhotoLibraryService.importPhotosToLibrary(
+        selectedFiles,
+        progressCallback
+      );
       
       // Reload photos from library
       const allPhotos = await PhotoLibraryService.getLibraryPhotos();
@@ -163,6 +181,7 @@ export const usePhotoStore = create<PhotoState>((set) => ({
         photos: allPhotos,
         isLoading: false,
         lastImportResult: importResult,
+        importProgress: null,
       });
       
       return importResult;
@@ -180,6 +199,7 @@ export const usePhotoStore = create<PhotoState>((set) => ({
         error: errorMessage,
         isLoading: false,
         lastImportResult: failedResult,
+        importProgress: null,
       });
       
       return failedResult;

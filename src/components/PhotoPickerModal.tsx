@@ -27,6 +27,7 @@ import { usePhotoStore } from '../stores/photoStore';
 import * as HapticService from '../services/HapticService';
 import { isMacOS } from '../utils/platform';
 import ContextMenu from './ContextMenu';
+import PhotoImportModal from './PhotoImportModal';
 import './PhotoPickerModal.css';
 
 interface PhotoPickerModalProps {
@@ -59,6 +60,8 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<PhotoImportResult | null>(null);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; filename: string } | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [showPerformanceWarning, setShowPerformanceWarning] = useState(false);
@@ -125,23 +128,48 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     setIsImporting(true);
     setError(null);
     setImportResult(null);
+    setImportProgress(null);
+    setShowImportModal(true);
     
     try {
-      const result = await photoStore.importPhotosToLibrary();
+      // Progress callback
+      const onProgress = (current: number, total: number, filename: string) => {
+        setImportProgress({ current, total, filename });
+      };
+      
+      const result = await photoStore.importPhotosToLibrary(onProgress);
       setImportResult(result);
       
       if (result.success && result.imported.length > 0) {
-        // Reload library photos
-        await loadLibraryPhotos();
         await HapticService.notificationSuccess();
+      } else if (!result.success) {
+        await HapticService.notificationError();
       }
     } catch (err) {
       console.error('Error importing photos:', err);
+      const errorResult: PhotoImportResult = {
+        success: false,
+        imported: [],
+        duplicates: 0,
+        failed: 0,
+        errors: [err instanceof Error ? err.message : 'Failed to import photos'],
+      };
+      setImportResult(errorResult);
       setError(err instanceof Error ? err.message : 'Failed to import photos');
       await HapticService.notificationError();
     } finally {
       setIsImporting(false);
     }
+  };
+
+  /**
+   * Handle import completion (reload library)
+   */
+  const handleImportComplete = async (result: PhotoImportResult) => {
+    if (result.success && result.imported.length > 0) {
+      await loadLibraryPhotos();
+    }
+    setShowImportModal(false);
   };
 
   /**
@@ -559,53 +587,30 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
                   style={{ maxWidth: '300px', margin: '20px auto 0' }}
                 >
                   <IonIcon slot="start" icon={addOutline} />
-                  {isImporting ? 'Importing...' : 'Import Photos'}
+                  Import Photos
                 </IonButton>
-                {importResult && (
-                  <IonText color={importResult.success ? 'success' : 'danger'} style={{ marginTop: '16px' }}>
-                    <p>
-                      {importResult.success
-                        ? `Imported ${importResult.imported.length} photos${importResult.duplicates > 0 ? ` (${importResult.duplicates} duplicates skipped)` : ''}`
-                        : `Import failed${importResult.errors ? ': ' + importResult.errors[0] : ''}`}
-                    </p>
-                  </IonText>
-                )}
               </div>
             ) : (
-              <>
-                <div className="photo-picker-grid">
-                  {photos.map((photo) => {
-                    const isSelected = selectedPhotos.has(photo.id);
-                    return (
-                      <div
-                        key={photo.id}
-                        className={`photo-picker-item ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handlePhotoClick(photo)}
-                        onContextMenu={(e) => handlePhotoContextMenu(e, photo)}
-                      >
-                        <img src={photo.uri} alt={photo.filename} loading="lazy" />
-                        {isSelected && (
-                          <div className="photo-picker-overlay">
-                            <IonIcon icon={checkmarkCircle} className="checkmark-icon" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                {importResult && (
-                  <div style={{ padding: '16px', textAlign: 'center' }}>
-                    <IonText color={importResult.success ? 'success' : 'danger'}>
-                      <p>
-                        {importResult.success
-                          ? `Imported ${importResult.imported.length} photos${importResult.duplicates > 0 ? ` (${importResult.duplicates} duplicates skipped)` : ''}`
-                          : `Import failed${importResult.errors ? ': ' + importResult.errors[0] : ''}`}
-                      </p>
-                    </IonText>
-                  </div>
-                )}
-              </>
+              <div className="photo-picker-grid">
+                {photos.map((photo) => {
+                  const isSelected = selectedPhotos.has(photo.id);
+                  return (
+                    <div
+                      key={photo.id}
+                      className={`photo-picker-item ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handlePhotoClick(photo)}
+                      onContextMenu={(e) => handlePhotoContextMenu(e, photo)}
+                    >
+                      <img src={photo.uri} alt={photo.filename} loading="lazy" />
+                      {isSelected && (
+                        <div className="photo-picker-overlay">
+                          <IonIcon icon={checkmarkCircle} className="checkmark-icon" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
@@ -754,6 +759,17 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
           onClose={() => setContextMenu(null)}
         />
       )}
+
+      {/* Photo Import Modal */}
+      <PhotoImportModal
+        isOpen={showImportModal}
+        onDismiss={() => setShowImportModal(false)}
+        onComplete={handleImportComplete}
+        importResult={importResult}
+        isImporting={isImporting}
+        currentFile={importProgress?.filename}
+        progress={importProgress ? importProgress.current / importProgress.total : 0}
+      />
     </IonModal>
   );
 };

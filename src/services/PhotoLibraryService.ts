@@ -136,12 +136,21 @@ export const validatePhotoExists = async (filePath: string): Promise<boolean> =>
 };
 
 /**
+ * Progress callback for photo import
+ */
+export interface ImportProgressCallback {
+  (current: number, total: number, filename: string): void;
+}
+
+/**
  * Import photos to the library with thumbnail generation and duplicate detection
  * @param files - Array of selected image files
+ * @param onProgress - Optional progress callback (current, total, filename)
  * @returns Promise<PhotoImportResult> - Import results with success/failure counts
  */
 export const importPhotosToLibrary = async (
-  files: SelectedImageFile[]
+  files: SelectedImageFile[],
+  onProgress?: ImportProgressCallback
 ): Promise<PhotoImportResult> => {
   if (!isMacOS()) {
     throw new Error('Photo library import only available on macOS');
@@ -176,7 +185,13 @@ export const importPhotosToLibrary = async (
   );
 
   // Process each file
-  for (const file of files) {
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    
+    // Report progress
+    if (onProgress) {
+      onProgress(i + 1, files.length, file.filename);
+    }
     try {
       // Check for duplicate by path first (fastest)
       if (existingPaths.has(file.path)) {
