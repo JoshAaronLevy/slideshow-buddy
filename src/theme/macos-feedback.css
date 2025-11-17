@@ -1,0 +1,217 @@
+/* macOS Visual Feedback Animations */
+/* Only apply these animations on macOS platforms */
+
+/* CSS Custom Properties for easy customization */
+:root {
+  --macos-feedback-duration-light: 100ms;
+  --macos-feedback-duration-medium: 150ms;
+  --macos-feedback-duration-heavy: 200ms;
+  --macos-feedback-duration-feedback: 180ms;
+  
+  --macos-feedback-scale-light: 0.98;
+  --macos-feedback-scale-medium: 0.95;
+  --macos-feedback-scale-heavy: 0.92;
+  
+  --macos-feedback-success-color: #28a745;
+  --macos-feedback-warning-color: #ffc107;
+  --macos-feedback-error-color: #dc3545;
+  --macos-feedback-selection-color: #007aff;
+}
+
+/* Light Impact Animation - Subtle scale pulse for light taps */
+@keyframes macos-impact-light {
+  0% { 
+    transform: scale(var(--macos-feedback-scale-light)); 
+  }
+  100% { 
+    transform: scale(1); 
+  }
+}
+
+.macos-feedback-light {
+  animation: macos-impact-light var(--macos-feedback-duration-light) ease-out;
+}
+
+/* Medium Impact Animation - Scale pulse with opacity for medium interactions */
+@keyframes macos-impact-medium {
+  0% { 
+    transform: scale(var(--macos-feedback-scale-medium)); 
+    opacity: 0.8; 
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+.macos-feedback-medium {
+  animation: macos-impact-medium var(--macos-feedback-duration-medium) ease-out;
+}
+
+/* Heavy Impact Animation - More pronounced scale/opacity for important actions */
+@keyframes macos-impact-heavy {
+  0% { 
+    transform: scale(var(--macos-feedback-scale-heavy)); 
+    opacity: 0.7; 
+  }
+  50% { 
+    transform: scale(0.96); 
+    opacity: 0.85; 
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+.macos-feedback-heavy {
+  animation: macos-impact-heavy var(--macos-feedback-duration-heavy) ease-out;
+}
+
+/* Success Animation - Green flash/glow effect */
+@keyframes macos-feedback-success {
+  0% { 
+    transform: scale(0.95);
+    filter: drop-shadow(0 0 0px var(--macos-feedback-success-color));
+  }
+  50% { 
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 8px var(--macos-feedback-success-color));
+  }
+  100% { 
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px var(--macos-feedback-success-color));
+  }
+}
+
+.macos-feedback-success {
+  animation: macos-feedback-success var(--macos-feedback-duration-feedback) ease-out;
+}
+
+/* Warning Animation - Yellow/orange pulse */
+@keyframes macos-feedback-warning {
+  0% { 
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px var(--macos-feedback-warning-color));
+  }
+  25% { 
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 6px var(--macos-feedback-warning-color));
+  }
+  50% { 
+    transform: scale(0.98);
+    filter: drop-shadow(0 0 4px var(--macos-feedback-warning-color));
+  }
+  100% { 
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px var(--macos-feedback-warning-color));
+  }
+}
+
+.macos-feedback-warning {
+  animation: macos-feedback-warning var(--macos-feedback-duration-feedback) ease-out;
+}
+
+/* Error Animation - Red shake/flash */
+@keyframes macos-feedback-error {
+  0% { 
+    transform: translateX(0) scale(1);
+    filter: drop-shadow(0 0 0px var(--macos-feedback-error-color));
+  }
+  20% { 
+    transform: translateX(-3px) scale(1.01);
+    filter: drop-shadow(0 0 6px var(--macos-feedback-error-color));
+  }
+  40% { 
+    transform: translateX(2px) scale(0.99);
+    filter: drop-shadow(0 0 4px var(--macos-feedback-error-color));
+  }
+  60% { 
+    transform: translateX(-1px) scale(1.005);
+    filter: drop-shadow(0 0 2px var(--macos-feedback-error-color));
+  }
+  100% { 
+    transform: translateX(0) scale(1);
+    filter: drop-shadow(0 0 0px var(--macos-feedback-error-color));
+  }
+}
+
+.macos-feedback-error {
+  animation: macos-feedback-error var(--macos-feedback-duration-feedback) ease-out;
+}
+
+/* Selection Animation - Subtle highlight/glow */
+@keyframes macos-feedback-selection {
+  0% { 
+    transform: scale(0.99);
+    filter: drop-shadow(0 0 0px var(--macos-feedback-selection-color));
+    opacity: 0.9;
+  }
+  100% { 
+    transform: scale(1);
+    filter: drop-shadow(0 0 4px var(--macos-feedback-selection-color));
+    opacity: 1;
+  }
+}
+
+.macos-feedback-selection {
+  animation: macos-feedback-selection var(--macos-feedback-duration-light) ease-out;
+}
+
+/* Platform-specific application - only apply on macOS */
+@media (platform: macOS), (-webkit-user-interface: macos), (platform: desktop) {
+  /* Animations will be active on macOS */
+}
+
+/* Optional: Disable animations if user prefers reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .macos-feedback-light,
+  .macos-feedback-medium,
+  .macos-feedback-heavy,
+  .macos-feedback-success,
+  .macos-feedback-warning,
+  .macos-feedback-error,
+  .macos-feedback-selection {
+    animation: none;
+  }
+}
+
+/*
+USAGE EXAMPLES:
+
+1. Light feedback for simple button taps:
+   <ion-button class="macos-feedback-light">Light Tap</ion-button>
+
+2. Medium feedback for form submissions:
+   <ion-button class="macos-feedback-medium">Submit</ion-button>
+
+3. Heavy feedback for important actions:
+   <ion-button class="macos-feedback-heavy">Delete</ion-button>
+
+4. Success feedback for completed actions:
+   <ion-button class="macos-feedback-success">Saved!</ion-button>
+
+5. Warning feedback for caution actions:
+   <ion-button class="macos-feedback-warning">Careful</ion-button>
+
+6. Error feedback for failed actions:
+   <ion-button class="macos-feedback-error">Error</ion-button>
+
+7. Selection feedback for item selection:
+   <ion-item class="macos-feedback-selection">Selected Item</ion-item>
+
+PROGRAMMATIC USAGE:
+You can apply these classes dynamically when haptic feedback is triggered:
+
+// Example in a component method
+triggerFeedback(element: HTMLElement, type: string) {
+  element.classList.add(`macos-feedback-${type}`);
+  setTimeout(() => {
+    element.classList.remove(`macos-feedback-${type}`);
+  }, 200); // Remove after animation completes
+}
+
+INTEGRATION WITH HAPTIC SERVICE:
+These animations can complement the MacOSFeedbackService.ts audio feedback.
+Apply the appropriate CSS class when calling haptic feedback methods.
+*/

@@ -14,7 +14,7 @@ import {
   createGesture,
   Gesture,
 } from '@ionic/react';
-import { App } from '@capacitor/app';
+import lifecycleService from '../services/LifecycleService';
 import {
   playOutline,
   pauseOutline,
@@ -34,6 +34,7 @@ import { useMusicStore } from '../stores/musicStore';
 import { keepAwake, allowSleep, preloadNextImages } from '../services/SlideshowService';
 import * as MusicPlayerService from '../services/MusicPlayerService';
 import * as HapticService from '../services/HapticService';
+import { isMacOS } from '../utils/platform';
 import './SlideshowPlayer.css';
 
 interface SlideshowPlayerProps {
@@ -67,6 +68,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   const [timeRemaining, setTimeRemaining] = useState(5);
   const [musicInitialized, setMusicInitialized] = useState(false);
   const [presentToast] = useIonToast();
+
+  // Desktop-specific state
+  const hideControlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize slideshow from SavedSlideshow
   useEffect(() => {
@@ -245,51 +249,46 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
 
   // Listen for app state changes and pause timers when backgrounded
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let listenerHandle: any = null;
-    
-    const setupListener = async () => {
-      listenerHandle = await App.addListener('appStateChange', ({ isActive }) => {
-        console.log('[SlideshowPlayer] App state changed:', isActive ? 'ACTIVE' : 'BACKGROUND');
-        setIsAppActive(isActive);
-        
-        if (!isActive) {
-          // Pause all timers when app backgrounds
-          console.log('[SlideshowPlayer] Pausing timers - app backgrounded');
-          
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-          
-          if (trackUpdateIntervalRef.current) {
-            clearInterval(trackUpdateIntervalRef.current);
-            trackUpdateIntervalRef.current = null;
-          }
-          
-          if (controlsTimeoutRef.current) {
-            clearTimeout(controlsTimeoutRef.current);
-            controlsTimeoutRef.current = null;
-          }
-        } else {
-          // Resume timers when app foregrounds (if playing)
-          console.log('[SlideshowPlayer] App foregrounded - isPlaying:', isPlaying);
-          
-          if (isPlaying && !isPaused) {
-            console.log('[SlideshowPlayer] Resuming timers');
-            // Slideshow timer will restart via the isPlaying useEffect
-            // Track update will restart via the isMusicPlaying useEffect
-          }
-        }
-      });
+    const handleBackground = () => {
+      console.log('[SlideshowPlayer] App backgrounded');
+      setIsAppActive(false);
+      
+      // Pause all timers when app backgrounds
+      console.log('[SlideshowPlayer] Pausing timers - app backgrounded');
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
+      if (trackUpdateIntervalRef.current) {
+        clearInterval(trackUpdateIntervalRef.current);
+        trackUpdateIntervalRef.current = null;
+      }
+      
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
+      }
     };
     
-    setupListener();
+    const handleForeground = () => {
+      console.log('[SlideshowPlayer] App foregrounded - isPlaying:', isPlaying);
+      setIsAppActive(true);
+      
+      if (isPlaying && !isPaused) {
+        console.log('[SlideshowPlayer] Resuming timers');
+        // Slideshow timer will restart via the isPlaying useEffect
+        // Track update will restart via the isMusicPlaying useEffect
+      }
+    };
+
+    lifecycleService.on('background', handleBackground);
+    lifecycleService.on('foreground', handleForeground);
     
     return () => {
-      if (listenerHandle) {
-        listenerHandle.remove();
-      }
+      lifecycleService.off('background', handleBackground);
+      lifecycleService.off('foreground', handleForeground);
     };
   }, [isPlaying, isPaused]);
   
@@ -319,7 +318,81 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     };
   }, [isOpen, isMusicPlaying, isAppActive]);
 
-  // Auto-hide controls after 3 seconds
+  // Desktop keyboard controls
+  useEffect(() => {
+    if (!isMacOS() || !isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch(e.key) {
+        case ' ':
+          e.preventDefault();
+          setIsPlaying(prev => !prev);
+          if (!isPlaying) {
+            setIsPaused(false);
+            // Resume music
+            try {
+              MusicPlayerService.resumePlayback();
+              setMusicPlaying(true);
+            } catch (error) {
+              console.error('Failed to resume music:', error);
+            }
+          } else {
+            setIsPaused(true);
+            // Pause music
+            try {
+              MusicPlayerService.pausePlayback();
+              setMusicPlaying(false);
+            } catch (error) {
+              console.error('Failed to pause music:', error);
+            }
+          }
+          resetControlsTimeout();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handlePrevious();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          handleNext(true);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          handleStop();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isPlaying]);
+
+  // Desktop mouse hover controls
+  useEffect(() => {
+    if (!isMacOS() || !isOpen) return;
+
+    const handleMouseMove = () => {
+      setShowControls(true);
+      
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+      }
+      
+      hideControlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+      }
+    };
+  }, [isOpen]);
+
+  // Auto-hide controls after 3 seconds (mobile behavior)
   const resetControlsTimeout = useCallback(() => {
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
@@ -334,15 +407,33 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     }, 3000);
   }, [isPlaying]);
 
-  // Toggle controls on tap
-  const handleTap = () => {
-    if (showControls) {
-      setShowControls(false);
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
+  // Toggle controls on tap (mobile) or handle desktop click navigation
+  const handleTap = (e?: React.MouseEvent) => {
+    // Desktop click navigation
+    if (isMacOS() && e) {
+      const clickX = e.clientX;
+      const screenWidth = window.innerWidth;
+      
+      if (clickX < screenWidth * 0.2) {
+        handlePrevious();
+        return;
+      } else if (clickX > screenWidth * 0.8) {
+        handleNext(true);
+        return;
       }
-    } else {
-      resetControlsTimeout();
+      // Center area falls through to mobile behavior
+    }
+
+    // Mobile tap behavior
+    if (!isMacOS()) {
+      if (showControls) {
+        setShowControls(false);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
+      } else {
+        resetControlsTimeout();
+      }
     }
   };
 
@@ -562,9 +653,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     }
   }, [currentIndex, photos]);
 
-  // Setup swipe gestures
+  // Setup swipe gestures (mobile only)
   useEffect(() => {
-    if (!imageContainerRef.current) return;
+    if (!imageContainerRef.current || isMacOS()) return;
 
     const gesture = createGesture({
       el: imageContainerRef.current,
@@ -599,6 +690,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
+      }
     }
   }, [isPaused]);
 
@@ -610,6 +704,9 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
       }
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
+      }
+      if (hideControlsTimeoutRef.current) {
+        clearTimeout(hideControlsTimeoutRef.current);
       }
     };
   }, []);

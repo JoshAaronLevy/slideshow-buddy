@@ -1,14 +1,15 @@
 # Slideshow Buddy
 
-An iOS application that creates photo slideshows with Spotify music integration. Built with Ionic React and Capacitor.
+A cross-platform photo slideshow application that creates beautiful slideshows with Spotify music integration. Available for both iOS and macOS. Built with Ionic React and Capacitor.
 
 ## Overview
 
 Slideshow Buddy allows users to:
-- Import photos from their device photo library
+- Import photos from their device photo library (iOS) or Photos app (macOS)
 - Connect to Spotify and select playlists or tracks
 - Create beautiful slideshows with synchronized music playback
 - Customize slideshow settings (transition speed, shuffle, loop)
+- Enjoy native platform experiences on both mobile and desktop
 
 ## Requirements
 
@@ -18,12 +19,17 @@ Slideshow Buddy allows users to:
   - macOS with Xcode 14+ installed
   - iOS device or simulator running iOS 13+
   - Apple Developer account (for device testing)
+- **macOS Development**:
+  - macOS Sequoia 15.0+ for development
+  - Xcode Command Line Tools
+  - Apple Developer account (for code signing and distribution)
 - **Spotify**:
   - Spotify Developer account (for API credentials)
   - Spotify Premium account (required for music playback)
 
 ## Installation
 
+### For iOS Development
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -34,6 +40,22 @@ npm install
 
 # Sync Capacitor with iOS
 npm run cap:sync:ios
+```
+
+### For macOS Development
+```bash
+# Clone the repository
+git clone <repository-url>
+cd slideshow-buddy
+
+# Install dependencies
+npm install
+
+# Install Electron dependencies
+cd electron && npm install && cd ..
+
+# Sync Capacitor with Electron
+npm run cap:sync:electron
 ```
 
 ## Development Scripts
@@ -53,10 +75,24 @@ npm run cap:sync:ios
 - **`npm run ios:sync`** - Build and sync to iOS (without opening Xcode)
   - Useful when you just need to update iOS with latest changes
 
+### macOS Development Workflow
+- **`npm run electron:dev`** - Full development workflow: build → sync → open Electron
+  - Builds web assets
+  - Syncs to Electron platform
+  - Opens Electron app for testing
+  
+- **`npm run electron:sync`** - Build and sync to Electron (without opening app)
+  - Useful when you just need to update Electron with latest changes
+  
+- **`npm run electron:build:mac`** - Build signed macOS DMG for distribution
+  - Creates production-ready .dmg installer
+
 ### Capacitor Commands
-- **`npm run cap:sync`** - Sync web assets to all platforms (iOS)
+- **`npm run cap:sync`** - Sync web assets to all platforms (iOS, Electron)
 - **`npm run cap:sync:ios`** - Sync web assets to iOS only
+- **`npm run cap:sync:electron`** - Sync web assets to Electron only
 - **`npm run cap:open:ios`** - Open iOS project in Xcode
+- **`npm run cap:open:electron`** - Open Electron project
 - **`npm run cap:run:ios`** - Build and run on iOS device/simulator (if configured)
 - **`npm run cap:copy`** - Copy web assets to native platforms without updating plugins
 - **`npm run cap:update`** - Update Capacitor plugins to latest compatible versions
@@ -91,6 +127,17 @@ npm run ios:dev
 # Option 2: Just sync changes (if Xcode is already open)
 npm run ios:sync
 # Then run again from Xcode
+```
+
+### macOS Desktop Testing
+```bash
+# Option 1: Full workflow (most common)
+npm run electron:dev
+# This builds, syncs, and opens the Electron app
+
+# Option 2: Just sync changes (if you want to manually open)
+npm run electron:sync
+npm run cap:open:electron
 ```
 
 ### Making Code Changes

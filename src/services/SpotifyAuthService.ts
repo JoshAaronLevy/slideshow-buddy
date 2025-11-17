@@ -10,6 +10,7 @@ import { SPOTIFY_CONFIG, STORAGE_KEYS } from '../constants';
 import { SpotifyTokens, SpotifyUser } from '../types';
 import { generateCodeVerifier, generateCodeChallenge, generateState } from '../utils/pkce';
 import TokenManager from './TokenManager';
+import { isMacOS } from '../utils/platform';
 
 // Store the current auth listener to prevent accumulation
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -405,6 +406,25 @@ export const checkAuthStatus = async (): Promise<boolean> => {
 };
 
 /**
+ * Setup Electron OAuth callback listener for macOS
+ * Uses the IPC bridge to receive OAuth callbacks from the main process
+ */
+const setupElectronAuthListener = (onCallback: (url: string) => void): (() => void) => {
+  if (!(window as any).electron?.spotify) {
+    console.error('[SpotifyAuth] Electron Spotify OAuth bridge not available');
+    return () => {};
+  }
+
+  console.log('[SpotifyAuth] Setting up Electron OAuth listener');
+  const removeListener = (window as any).electron.spotify.onOAuthCallback((url: string) => {
+    console.log('[SpotifyAuth] Electron OAuth callback received:', url);
+    onCallback(url);
+  });
+
+  return removeListener;
+};
+
+/**
  * Setup app URL listener for OAuth callback
  * Should be called on app initialization
  * Automatically removes previous listener to prevent accumulation
@@ -412,7 +432,7 @@ export const checkAuthStatus = async (): Promise<boolean> => {
 export const setupAuthListener = async (
   onCallback: (code: string, state: string) => void
 ): Promise<{ remove: () => void }> => {
-  console.log('[SpotifyAuth] Setting up app URL listener for OAuth callback');
+  console.log('[SpotifyAuth] Setting up OAuth callback listener');
   
   // Remove existing listener if present
   if (currentAuthListener) {
@@ -420,14 +440,12 @@ export const setupAuthListener = async (
     currentAuthListener.remove();
     currentAuthListener = null;
   }
-  
-  // Add new listener
-  const listener = await App.addListener('appUrlOpen', (data) => {
-    console.log('[SpotifyAuth] App URL opened:', data.url);
-    
+
+  // Process OAuth callback URL (shared logic for all platforms)
+  const processCallback = (callbackUrl: string) => {
     try {
-      const url = new URL(data.url);
-      console.log('[SpotifyAuth] Parsed URL:', {
+      const url = new URL(callbackUrl);
+      console.log('[SpotifyAuth] Parsed callback URL:', {
         protocol: url.protocol,
         host: url.host,
         pathname: url.pathname,
@@ -461,15 +479,42 @@ export const setupAuthListener = async (
         console.log('[SpotifyAuth] URL is not an OAuth callback');
       }
     } catch (error) {
-      console.error('[SpotifyAuth] Error parsing app URL:', error);
+      console.error('[SpotifyAuth] Error parsing callback URL:', error);
     }
-  });
+  };
   
-  // Store listener reference for cleanup
-  currentAuthListener = listener;
-  console.log('[SpotifyAuth] Auth listener setup complete');
-  
-  return listener;
+  // Platform-specific listener setup
+  if (isMacOS()) {
+    console.log('[SpotifyAuth] Setting up macOS Electron OAuth listener');
+    const removeElectronListener = setupElectronAuthListener(processCallback);
+    
+    // Store cleanup function
+    const cleanup = () => {
+      console.log('[SpotifyAuth] Removing Electron auth listener');
+      removeElectronListener();
+      currentAuthListener = null;
+    };
+    
+    const listener = { remove: cleanup };
+    currentAuthListener = listener;
+    console.log('[SpotifyAuth] Electron auth listener setup complete');
+    
+    return listener;
+  } else {
+    console.log('[SpotifyAuth] Setting up mobile OAuth listener');
+    
+    // Mobile implementation using Capacitor App listener
+    const listener = await App.addListener('appUrlOpen', (data) => {
+      console.log('[SpotifyAuth] App URL opened:', data.url);
+      processCallback(data.url);
+    });
+    
+    // Store listener reference for cleanup
+    currentAuthListener = listener;
+    console.log('[SpotifyAuth] Mobile auth listener setup complete');
+    
+    return listener;
+  }
 };
 
 /**

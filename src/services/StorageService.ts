@@ -1,13 +1,47 @@
 /**
- * StorageService - Handles persistent storage using Capacitor Preferences
+ * StorageService - Handles persistent storage with platform detection
+ * Uses ElectronStorageService on macOS, Capacitor Preferences on iOS
  * All data is stored as JSON in key-value pairs
  */
 
 import { Preferences } from '@capacitor/preferences';
+import { isMacOS } from '../utils/platform';
+import electronStorageService from './ElectronStorageService';
 import { SavedSlideshow, NewSlideshow, SlideshowUpdate } from '../types/slideshow';
 import { CustomPlaylist, NewPlaylist, PlaylistUpdate } from '../types/playlist';
 import { Photo } from '../types';
 import { STORAGE_KEYS } from '../constants';
+
+// Create storage adapter that routes based on platform
+const storage = {
+  async get(options: { key: string }) {
+    if (isMacOS()) {
+      return await electronStorageService.get(options);
+    }
+    return await Preferences.get(options);
+  },
+  
+  async set(options: { key: string; value: string }) {
+    if (isMacOS()) {
+      return await electronStorageService.set(options);
+    }
+    return await Preferences.set(options);
+  },
+  
+  async remove(options: { key: string }) {
+    if (isMacOS()) {
+      return await electronStorageService.remove(options);
+    }
+    return await Preferences.remove(options);
+  },
+  
+  async clear() {
+    if (isMacOS()) {
+      return await electronStorageService.clear();
+    }
+    return await Preferences.clear();
+  }
+};
 
 /**
  * Generate a unique ID using timestamp + random string
@@ -49,7 +83,7 @@ export const generatePlaylistName = (): string => {
  */
 export const getSlideshows = async (): Promise<SavedSlideshow[]> => {
   try {
-    const { value } = await Preferences.get({ key: STORAGE_KEYS.SLIDESHOWS });
+    const { value } = await storage.get({ key: STORAGE_KEYS.SLIDESHOWS });
     if (!value) return [];
     
     const slideshows = JSON.parse(value) as SavedSlideshow[];
@@ -92,7 +126,7 @@ export const saveSlideshow = async (slideshow: NewSlideshow): Promise<SavedSlide
   const slideshows = await getSlideshows();
   slideshows.push(newSlideshow);
   
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.SLIDESHOWS,
     value: JSON.stringify(slideshows),
   });
@@ -117,7 +151,7 @@ export const updateSlideshow = async (update: SlideshowUpdate): Promise<SavedSli
 
   slideshows[index] = updatedSlideshow;
   
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.SLIDESHOWS,
     value: JSON.stringify(slideshows),
   });
@@ -136,7 +170,7 @@ export const deleteSlideshow = async (id: string): Promise<boolean> => {
     return false; // No slideshow found with that ID
   }
 
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.SLIDESHOWS,
     value: JSON.stringify(filtered),
   });
@@ -167,7 +201,7 @@ export const recordSlideshowPlay = async (id: string): Promise<void> => {
  */
 export const getPlaylists = async (): Promise<CustomPlaylist[]> => {
   try {
-    const { value } = await Preferences.get({ key: STORAGE_KEYS.CUSTOM_PLAYLISTS });
+    const { value } = await storage.get({ key: STORAGE_KEYS.CUSTOM_PLAYLISTS });
     if (!value) return [];
     
     const playlists = JSON.parse(value) as CustomPlaylist[];
@@ -201,7 +235,7 @@ export const savePlaylist = async (playlist: NewPlaylist): Promise<CustomPlaylis
   const playlists = await getPlaylists();
   playlists.push(newPlaylist);
   
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.CUSTOM_PLAYLISTS,
     value: JSON.stringify(playlists),
   });
@@ -226,7 +260,7 @@ export const updatePlaylist = async (update: PlaylistUpdate): Promise<CustomPlay
 
   playlists[index] = updatedPlaylist;
   
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.CUSTOM_PLAYLISTS,
     value: JSON.stringify(playlists),
   });
@@ -245,7 +279,7 @@ export const deletePlaylist = async (id: string): Promise<boolean> => {
     return false; // No playlist found with that ID
   }
 
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.CUSTOM_PLAYLISTS,
     value: JSON.stringify(filtered),
   });
@@ -262,7 +296,7 @@ export const deletePlaylist = async (id: string): Promise<boolean> => {
  */
 export const getPhotos = async (): Promise<Photo[]> => {
   try {
-    const { value } = await Preferences.get({ key: STORAGE_KEYS.PHOTO_LIBRARY });
+    const { value } = await storage.get({ key: STORAGE_KEYS.PHOTO_LIBRARY });
     if (!value) return [];
     
     const photos = JSON.parse(value) as Photo[];
@@ -288,7 +322,7 @@ export const savePhotos = async (newPhotos: Photo[]): Promise<Photo[]> => {
   
   const allPhotos = [...existingPhotos, ...uniqueNewPhotos];
   
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.PHOTO_LIBRARY,
     value: JSON.stringify(allPhotos),
   });
@@ -308,7 +342,7 @@ export const deletePhotos = async (photoIds: string[]): Promise<boolean> => {
     return false; // No photos found with those IDs
   }
 
-  await Preferences.set({
+  await storage.set({
     key: STORAGE_KEYS.PHOTO_LIBRARY,
     value: JSON.stringify(filtered),
   });
@@ -332,9 +366,9 @@ export const getPhotosByIds = async (photoIds: string[]): Promise<Photo[]> => {
  * Clear all app data (useful for testing and debugging)
  */
 export const clearAllData = async (): Promise<void> => {
-  await Preferences.remove({ key: STORAGE_KEYS.SLIDESHOWS });
-  await Preferences.remove({ key: STORAGE_KEYS.CUSTOM_PLAYLISTS });
-  await Preferences.remove({ key: STORAGE_KEYS.PHOTO_LIBRARY });
+  await storage.remove({ key: STORAGE_KEYS.SLIDESHOWS });
+  await storage.remove({ key: STORAGE_KEYS.CUSTOM_PLAYLISTS });
+  await storage.remove({ key: STORAGE_KEYS.PHOTO_LIBRARY });
 };
 
 /**

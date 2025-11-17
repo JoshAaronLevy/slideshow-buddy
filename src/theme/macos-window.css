@@ -1,0 +1,78 @@
+/* macOS Window Chrome Adjustments */
+
+/* Adjust for macOS title bar spacing when running as Electron app */
+@media (min-width: 1024px) {
+  /* Only apply to desktop environments */
+  .app-container {
+    /* No additional padding needed since we're using native title bar */
+    padding-top: 0;
+  }
+
+  /* Adjust header spacing for traffic light buttons on macOS */
+  .desktop-header {
+    padding-left: 80px; /* Space for traffic lights */
+    -webkit-app-region: no-drag; /* Allow interactions with header elements */
+  }
+
+  /* Make the title bar area draggable on macOS */
+  .title-bar-drag-region {
+    -webkit-app-region: drag;
+    height: 28px;
+    position: absolute;
+    top: 0;
+    left: 80px; /* After traffic lights */
+    right: 0;
+    z-index: 1000;
+  }
+
+  /* Ensure clickable elements in header are not draggable */
+  .desktop-header button,
+  .desktop-header input,
+  .desktop-header select,
+  .desktop-header a {
+    -webkit-app-region: no-drag;
+  }
+}
+
+/* Theme-specific adjustments */
+@media (prefers-color-scheme: dark) {
+  .app-container {
+    background-color: #1c1c1e;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .app-container {
+    background-color: #ffffff;
+  }
+}
+
+/* macOS-specific visual enhancements */
+.macos-window-controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-left: 80px; /* Space for traffic lights */
+}
+
+/* Blur effect for window chrome (optional enhancement) */
+.macos-title-bar-blur {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.macos-title-bar-blur.dark {
+  background-color: rgba(28, 28, 30, 0.8);
+}
+
+/* Ensure proper window button visibility */
+.electron-window-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 80px;
+  height: 28px;
+  z-index: 1001;
+  -webkit-app-region: no-drag;
+}

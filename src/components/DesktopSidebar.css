@@ -1,0 +1,47 @@
+.desktop-sidebar {
+  width: 200px;
+  height: 100vh;
+  background: var(--ion-background-color);
+  border-right: 1px solid var(--ion-border-color);
+  padding-top: 10px;
+  flex-shrink: 0;
+}
+
+.desktop-sidebar ion-list {
+  background: transparent;
+  padding: 0;
+}
+
+.desktop-sidebar ion-item {
+  --padding-start: 16px;
+  --inner-padding-end: 16px;
+  --background: transparent;
+  --border-color: transparent;
+  margin: 2px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.desktop-sidebar ion-item:hover {
+  --background: var(--ion-color-light);
+}
+
+.desktop-sidebar ion-item.selected {
+  --background: var(--ion-color-primary);
+  --color: var(--ion-color-primary-contrast);
+}
+
+.desktop-sidebar ion-item.selected ion-icon {
+  color: var(--ion-color-primary-contrast);
+}
+
+.desktop-sidebar ion-icon {
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.desktop-sidebar ion-label {
+  font-weight: 500;
+  font-size: 14px;
+}

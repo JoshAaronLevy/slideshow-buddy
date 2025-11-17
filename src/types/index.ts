@@ -102,3 +102,18 @@ export interface AppError {
   message: string;
   details?: unknown;
 }
+
+/**
+ * File selection types for macOS file browser
+ */
+export interface SelectedImageFile {
+  id: string;
+  uri: string;
+  filename: string;
+  path: string;
+}
+
+export interface FileSelectionResult {
+  canceled: boolean;
+  files: SelectedImageFile[];
+}

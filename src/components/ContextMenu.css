@@ -1,0 +1,61 @@
+.context-menu {
+  background: var(--ion-background-color);
+  border: 1px solid var(--ion-border-color);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  min-width: 180px;
+  padding: 4px 0;
+  z-index: 10000;
+  font-family: var(--ion-font-family);
+  overflow: hidden;
+}
+
+.context-menu-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.4;
+  transition: background 150ms;
+  color: var(--ion-text-color);
+  user-select: none;
+}
+
+.context-menu-item:hover {
+  background: var(--ion-color-light);
+}
+
+.context-menu-item:active {
+  background: var(--ion-color-light-shade);
+}
+
+.context-menu-item.destructive {
+  color: var(--ion-color-danger);
+}
+
+.context-menu-item.destructive:hover {
+  background: var(--ion-color-danger);
+  color: var(--ion-color-danger-contrast);
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: var(--ion-border-color);
+  margin: 4px 0;
+}
+
+/* Dark mode specific adjustments */
+@media (prefers-color-scheme: dark) {
+  .context-menu {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Desktop-specific styling */
+.desktop .context-menu {
+  backdrop-filter: blur(20px);
+}
+
+.desktop .context-menu-item {
+  font-size: 13px;
+  padding: 6px 12px;
+}

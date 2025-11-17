@@ -1,0 +1,76 @@
+.macos-header {
+  border-bottom: 1px solid var(--ion-border-color);
+  background: var(--ion-background-color);
+}
+
+.macos-header ion-toolbar {
+  --background: var(--ion-background-color);
+  --border-color: var(--ion-border-color);
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.macos-header ion-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ion-text-color);
+  text-align: center;
+}
+
+.macos-header ion-buttons {
+  gap: 4px;
+}
+
+.macos-header ion-button {
+  --color: var(--ion-color-medium);
+  --border-radius: 6px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  height: 32px;
+  transition: all 0.2s ease;
+}
+
+.macos-header ion-button:hover {
+  --color: var(--ion-color-primary);
+  --background: var(--ion-color-light);
+}
+
+.macos-header ion-button.active {
+  --color: var(--ion-color-primary);
+  --background: var(--ion-color-primary-tint);
+}
+
+.macos-header ion-icon {
+  font-size: 18px;
+}
+
+/* macOS-specific styling adjustments */
+@media (prefers-color-scheme: dark) {
+  .macos-header {
+    background: rgba(40, 40, 40, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  
+  .macos-header ion-toolbar {
+    --background: rgba(40, 40, 40, 0.95);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .macos-header {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  
+  .macos-header ion-toolbar {
+    --background: rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* Focus states for accessibility */
+.macos-header ion-button:focus-visible {
+  outline: 2px solid var(--ion-color-primary);
+  outline-offset: 2px;
+}

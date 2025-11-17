@@ -64,8 +64,8 @@
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
-  padding: 4px;
+  gap: 8px;
+  padding: 8px;
 }
 
 /* Photo Item */
@@ -76,6 +76,7 @@
   cursor: pointer;
   background: var(--ion-color-light);
   border-radius: 4px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .photo-item img {
@@ -83,6 +84,20 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.2s ease;
+}
+
+/* Desktop hover effects */
+@media (hover: hover) and (pointer: fine) {
+  .photo-item:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+  }
+  
+  .photo-item:hover img {
+    transform: scale(1.05);
+  }
 }
 
 /* Selected Overlay */
@@ -127,18 +142,32 @@
 }
 
 /* Responsive adjustments */
+/* Tablet */
 @media (min-width: 768px) {
   .photos-grid,
   .photo-grid {
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    padding: 8px;
+    gap: 12px;
+    padding: 12px;
   }
 }
 
+/* Desktop */
 @media (min-width: 1024px) {
   .photos-grid,
   .photo-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
+}
+
+/* Large Desktop */
+@media (min-width: 1440px) {
+  .photos-grid,
+  .photo-grid {
     grid-template-columns: repeat(6, 1fr);
+    gap: 16px;
+    padding: 20px;
   }
 }

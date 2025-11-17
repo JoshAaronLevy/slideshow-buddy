@@ -1,4 +1,29 @@
 # macOS Implementation Plan for Slideshow Buddy
+## ✅ Confirmed Configuration
+
+Based on your answers, here's the finalized configuration:
+
+### Development Environment
+- **Platform**: macOS Sequoia 15.1 with VS Code + Xcode for testing
+- **Node/npm**: v20.17.0 / v11.4.2 (✅ Compatible with latest Electron)
+- **Testing**: Manual testing only - **no automated tests will be created**
+
+### Project Configuration
+- **App Identifier**: `com.slideshowbuddy.app` (same as iOS - recommended for future Mac App Store submission)
+- **Electron Version**: Latest stable from `@capacitor-community/electron`
+- **Build Output**: Standard Electron build structure (`electron/dist/`)
+
+### Distribution & Deployment
+- **Initial Distribution**: DMG file for direct download
+- **Future Goal**: Mac App Store submission (App ID choice supports this)
+- **Code Signing**: Apple Developer account to be obtained when needed for distribution
+
+### Documentation & Workflow
+- **Implementation Notes**: Will be tracked in `macos-implementation-notes.md`
+- **Testing Approach**: Manual QA after each stage completion
+
+---
+
 
 ## Implementation Configuration
 
@@ -71,10 +96,17 @@ This plan outlines the steps to adapt the current iOS-focused Ionic/Capacitor ap
      ```
 
 ### Success Criteria
-- ✅ Electron app launches on macOS
+- ✅ Electron app launches on macOS Sequoia 15.1
 - ✅ Web content renders correctly
 - ✅ No console errors related to Capacitor platform detection
 - ✅ iOS build still works without regression
+- ✅ Ready for manual testing (no automated tests required)
+
+### Testing Notes
+**Manual Testing Only**: After each task completion, the app will be manually tested. No automated test suites or test runners will be created or executed during implementation.
+
+### Documentation Notes
+**Implementation Progress**: All implementation details, issues encountered, and solutions will be documented in `macos-implementation-notes.md` for future reference.
 
 ### Estimated Time: 2-3 days
 

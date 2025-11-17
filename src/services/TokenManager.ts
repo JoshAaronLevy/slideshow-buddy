@@ -1,16 +1,39 @@
 /**
  * TokenManager - Centralized token management with auto-refresh
  * Stage 6: Singleton pattern to replace scattered getAccessToken() calls
- * 
+ *
  * Features:
- * - In-memory token cache + Preferences persistence
+ * - In-memory token cache + platform-specific persistence
+ * - macOS: Keychain for tokens + electron-store for expiry
+ * - iOS: Capacitor Preferences for all data
  * - Auto-refresh 5 min before expiry (background timer)
  * - Guarantees valid tokens via getValidToken()
  * - Thread-safe refresh with mutex
  */
 
 import { Preferences } from '@capacitor/preferences';
-import { App } from '@capacitor/app';
+import lifecycleService from './LifecycleService';
+import { isMacOS } from '../utils/platform';
+import ElectronStorageService from './ElectronStorageService';
+
+// Extend Window interface for electron APIs (temporary fix)
+declare global {
+  interface Window {
+    electron?: {
+      storage: {
+        get: (key: string) => Promise<string>;
+        set: (key: string, value: string) => Promise<void>;
+        remove: (key: string) => Promise<void>;
+        clear: () => Promise<void>;
+      };
+      keychain: {
+        getPassword: (account: string) => Promise<string | null>;
+        setPassword: (account: string, password: string) => Promise<boolean>;
+        deletePassword: (account: string) => Promise<boolean>;
+      };
+    };
+  }
+}
 
 interface TokenData {
   accessToken: string;
@@ -27,18 +50,27 @@ class TokenManager {
   // Auto-refresh timer
   private refreshTimer: NodeJS.Timeout | null = null;
   
-  // App state listener
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private appStateListener: any = null;
+  // Lifecycle event handlers
+  private backgroundHandler: (() => void) | null = null;
+  private foregroundHandler: (() => void) | null = null;
   
   // Mutex for refresh operations
   private refreshPromise: Promise<string> | null = null;
+  
+  // Storage service for non-keychain data
+  private storage = ElectronStorageService;
   
   // Storage keys
   private readonly STORAGE_KEYS = {
     ACCESS_TOKEN: 'SPOTIFY_ACCESS_TOKEN',
     REFRESH_TOKEN: 'SPOTIFY_REFRESH_TOKEN',
     TOKEN_EXPIRY: 'SPOTIFY_TOKEN_EXPIRY',
+  };
+  
+  // Keychain account names for macOS
+  private readonly KEYCHAIN_ACCOUNTS = {
+    ACCESS_TOKEN: 'spotify-access-token',
+    REFRESH_TOKEN: 'spotify-refresh-token',
   };
   
   // Constants
@@ -60,22 +92,44 @@ class TokenManager {
   }
   
   /**
-   * Initialize TokenManager - load tokens from Preferences
+   * Initialize TokenManager - load tokens from platform-specific storage
    * Call this on app start (App.tsx)
    */
   public async initialize(): Promise<void> {
     console.log('[TokenManager] Initializing...');
     
     try {
-      const [accessTokenResult, refreshTokenResult, expiryResult] = await Promise.all([
-        Preferences.get({ key: this.STORAGE_KEYS.ACCESS_TOKEN }),
-        Preferences.get({ key: this.STORAGE_KEYS.REFRESH_TOKEN }),
-        Preferences.get({ key: this.STORAGE_KEYS.TOKEN_EXPIRY }),
-      ]);
+      let accessToken: string | null = null;
+      let refreshToken: string | null = null;
+      let expiryStr: string | null = null;
       
-      const accessToken = accessTokenResult.value;
-      const refreshToken = refreshTokenResult.value;
-      const expiryStr = expiryResult.value;
+      if (isMacOS() && window.electron?.keychain) {
+        // macOS: Get tokens from Keychain
+        console.log('[TokenManager] Loading tokens from macOS Keychain');
+        
+        const [accessTokenResult, refreshTokenResult, expiryResult] = await Promise.all([
+          window.electron.keychain.getPassword(this.KEYCHAIN_ACCOUNTS.ACCESS_TOKEN),
+          window.electron.keychain.getPassword(this.KEYCHAIN_ACCOUNTS.REFRESH_TOKEN),
+          this.storage.get({ key: this.STORAGE_KEYS.TOKEN_EXPIRY }),
+        ]);
+        
+        accessToken = accessTokenResult;
+        refreshToken = refreshTokenResult;
+        expiryStr = expiryResult.value;
+      } else {
+        // iOS: Get tokens from Capacitor Preferences
+        console.log('[TokenManager] Loading tokens from Capacitor Preferences');
+        
+        const [accessTokenResult, refreshTokenResult, expiryResult] = await Promise.all([
+          Preferences.get({ key: this.STORAGE_KEYS.ACCESS_TOKEN }),
+          Preferences.get({ key: this.STORAGE_KEYS.REFRESH_TOKEN }),
+          Preferences.get({ key: this.STORAGE_KEYS.TOKEN_EXPIRY }),
+        ]);
+        
+        accessToken = accessTokenResult.value;
+        refreshToken = refreshTokenResult.value;
+        expiryStr = expiryResult.value;
+      }
       
       if (accessToken && refreshToken && expiryStr) {
         const expiresAt = parseInt(expiryStr, 10);
@@ -91,6 +145,7 @@ class TokenManager {
         const timeUntilExpiry = Math.floor((expiresAt - now) / 1000 / 60);
         
         console.log('[TokenManager] Loaded tokens from storage', {
+          platform: isMacOS() ? 'macOS (Keychain)' : 'iOS (Preferences)',
           hasAccessToken: true,
           hasRefreshToken: true,
           expiresAt: new Date(expiresAt).toISOString(),
@@ -164,7 +219,7 @@ class TokenManager {
   
   /**
    * Set tokens (after OAuth exchange or refresh)
-   * Updates memory + Preferences
+   * Updates memory + platform-specific storage
    */
   public async setTokens(
     accessToken: string,
@@ -174,6 +229,7 @@ class TokenManager {
     const expiresAt = Date.now() + expiresInSeconds * 1000;
     
     console.log('[TokenManager] Setting tokens', {
+      platform: isMacOS() ? 'macOS (Keychain)' : 'iOS (Preferences)',
       expiresInSeconds,
       expiresAt: new Date(expiresAt).toISOString(),
     });
@@ -185,14 +241,36 @@ class TokenManager {
       expiresAt,
     };
     
-    // Persist to storage
-    await Promise.all([
-      Preferences.set({ key: this.STORAGE_KEYS.ACCESS_TOKEN, value: accessToken }),
-      Preferences.set({ key: this.STORAGE_KEYS.REFRESH_TOKEN, value: refreshToken }),
-      Preferences.set({ key: this.STORAGE_KEYS.TOKEN_EXPIRY, value: expiresAt.toString() }),
-    ]);
-    
-    console.log('[TokenManager] Tokens saved to storage');
+    try {
+      if (isMacOS() && window.electron?.keychain) {
+        // macOS: Store tokens in Keychain, expiry in electron-store
+        console.log('[TokenManager] Storing tokens in macOS Keychain');
+        
+        const [accessSuccess, refreshSuccess] = await Promise.all([
+          window.electron.keychain.setPassword(this.KEYCHAIN_ACCOUNTS.ACCESS_TOKEN, accessToken),
+          window.electron.keychain.setPassword(this.KEYCHAIN_ACCOUNTS.REFRESH_TOKEN, refreshToken),
+          this.storage.set({ key: this.STORAGE_KEYS.TOKEN_EXPIRY, value: expiresAt.toString() }),
+        ]);
+        
+        if (!accessSuccess || !refreshSuccess) {
+          throw new Error('Failed to store tokens in Keychain');
+        }
+      } else {
+        // iOS: Store all data in Capacitor Preferences
+        console.log('[TokenManager] Storing tokens in Capacitor Preferences');
+        
+        await Promise.all([
+          Preferences.set({ key: this.STORAGE_KEYS.ACCESS_TOKEN, value: accessToken }),
+          Preferences.set({ key: this.STORAGE_KEYS.REFRESH_TOKEN, value: refreshToken }),
+          Preferences.set({ key: this.STORAGE_KEYS.TOKEN_EXPIRY, value: expiresAt.toString() }),
+        ]);
+      }
+      
+      console.log('[TokenManager] Tokens saved to storage successfully');
+    } catch (error) {
+      console.error('[TokenManager] Failed to persist tokens:', error);
+      // Don't throw here as memory cache is still valid
+    }
     
     // Restart auto-refresh timer
     this.startAutoRefresh();
@@ -200,10 +278,12 @@ class TokenManager {
   
   /**
    * Clear tokens (on logout)
-   * Clears memory + Preferences + stops timer
+   * Clears memory + platform-specific storage + stops timer
    */
   public async clearTokens(): Promise<void> {
-    console.log('[TokenManager] Clearing tokens');
+    console.log('[TokenManager] Clearing tokens', {
+      platform: isMacOS() ? 'macOS (Keychain)' : 'iOS (Preferences)',
+    });
     
     // Clear memory
     this.tokenData = null;
@@ -211,14 +291,31 @@ class TokenManager {
     // Stop auto-refresh
     this.stopAutoRefresh();
     
-    // Clear storage
-    await Promise.all([
-      Preferences.remove({ key: this.STORAGE_KEYS.ACCESS_TOKEN }),
-      Preferences.remove({ key: this.STORAGE_KEYS.REFRESH_TOKEN }),
-      Preferences.remove({ key: this.STORAGE_KEYS.TOKEN_EXPIRY }),
-    ]);
-    
-    console.log('[TokenManager] Tokens cleared from storage');
+    try {
+      if (isMacOS() && window.electron?.keychain) {
+        // macOS: Clear from Keychain and electron-store
+        console.log('[TokenManager] Clearing tokens from macOS Keychain');
+        
+        await Promise.all([
+          window.electron.keychain.deletePassword(this.KEYCHAIN_ACCOUNTS.ACCESS_TOKEN),
+          window.electron.keychain.deletePassword(this.KEYCHAIN_ACCOUNTS.REFRESH_TOKEN),
+          this.storage.remove({ key: this.STORAGE_KEYS.TOKEN_EXPIRY }),
+        ]);
+      } else {
+        // iOS: Clear from Capacitor Preferences
+        console.log('[TokenManager] Clearing tokens from Capacitor Preferences');
+        
+        await Promise.all([
+          Preferences.remove({ key: this.STORAGE_KEYS.ACCESS_TOKEN }),
+          Preferences.remove({ key: this.STORAGE_KEYS.REFRESH_TOKEN }),
+          Preferences.remove({ key: this.STORAGE_KEYS.TOKEN_EXPIRY }),
+        ]);
+      }
+      
+      console.log('[TokenManager] Tokens cleared from storage successfully');
+    } catch (error) {
+      console.error('[TokenManager] Failed to clear tokens from storage:', error);
+    }
   }
   
   /**
@@ -285,27 +382,26 @@ class TokenManager {
   }
   
   /**
-   * Setup app state listener to pause/resume refresh based on app state
+   * Setup lifecycle listeners to pause/resume refresh based on app state
    */
   private setupAppStateListener(): void {
-    // Remove existing listener if any
+    // Remove existing listeners if any
     this.removeAppStateListener();
     
-    console.log('[TokenManager] Setting up app state listener');
+    console.log('[TokenManager] Setting up lifecycle listeners');
     
-    this.appStateListener = App.addListener('appStateChange', ({ isActive }) => {
-      console.log('[TokenManager] App state changed:', isActive ? 'ACTIVE' : 'BACKGROUND');
-      
-      if (isActive) {
-        // Resume auto-refresh when app becomes active
-        console.log('[TokenManager] App foregrounded - resuming auto-refresh');
-        this.startAutoRefresh();
-      } else {
-        // Pause auto-refresh when backgrounded
-        console.log('[TokenManager] App backgrounded - pausing auto-refresh');
-        this.pauseAutoRefresh();
-      }
-    });
+    this.backgroundHandler = () => {
+      console.log('[TokenManager] App backgrounded - pausing auto-refresh');
+      this.pauseAutoRefresh();
+    };
+    
+    this.foregroundHandler = () => {
+      console.log('[TokenManager] App foregrounded - resuming auto-refresh');
+      this.startAutoRefresh();
+    };
+    
+    lifecycleService.on('background', this.backgroundHandler);
+    lifecycleService.on('foreground', this.foregroundHandler);
   }
   
   /**
@@ -320,13 +416,18 @@ class TokenManager {
   }
   
   /**
-   * Remove app state listener
+   * Remove lifecycle listeners
    */
   private removeAppStateListener(): void {
-    if (this.appStateListener) {
-      console.log('[TokenManager] Removing app state listener');
-      this.appStateListener.remove();
-      this.appStateListener = null;
+    if (this.backgroundHandler) {
+      console.log('[TokenManager] Removing lifecycle listeners');
+      lifecycleService.off('background', this.backgroundHandler);
+      this.backgroundHandler = null;
+    }
+    
+    if (this.foregroundHandler) {
+      lifecycleService.off('foreground', this.foregroundHandler);
+      this.foregroundHandler = null;
     }
   }
   

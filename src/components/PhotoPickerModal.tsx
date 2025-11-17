@@ -23,6 +23,8 @@ import { useEffect, useState } from 'react';
 import { Photo, PhotoAlbum } from '../types';
 import { getPhotoAlbums, getPhotosFromAlbum } from '../services/PhotoService';
 import * as HapticService from '../services/HapticService';
+import { isMacOS } from '../utils/platform';
+import ContextMenu from './ContextMenu';
 import './PhotoPickerModal.css';
 
 interface PhotoPickerModalProps {
@@ -55,8 +57,11 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [showPerformanceWarning, setShowPerformanceWarning] = useState(false);
   const [hasShownWarning, setHasShownWarning] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; photo: Photo } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const PAGE_SIZE = 100;
   const PERFORMANCE_WARNING_THRESHOLD = 400;
+  const isDesktop = isMacOS();
 
   // Load albums when modal opens
   useEffect(() => {
@@ -74,6 +79,8 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
       setCurrentPage(1);
       setHasShownWarning(false);
       setShowPerformanceWarning(false);
+      setContextMenu(null);
+      setIsDragOver(false);
     }
   }, [isOpen]);
 
@@ -240,6 +247,115 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
     onDismiss();
   };
 
+  const handlePhotoContextMenu = (e: React.MouseEvent, photo: Photo) => {
+    if (!isMacOS()) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, photo });
+  };
+
+  const handleTogglePhotoSelection = (photo: Photo) => {
+    setSelectedPhotos((prev) => {
+      const next = new Map(prev);
+      if (next.has(photo.id)) {
+        next.delete(photo.id);
+      } else {
+        next.set(photo.id, photo);
+        
+        // Show performance warning if threshold crossed and not shown yet
+        if (!hasShownWarning && next.size >= PERFORMANCE_WARNING_THRESHOLD) {
+          setShowPerformanceWarning(true);
+          setHasShownWarning(true);
+        }
+      }
+      return next;
+    });
+  };
+
+  // Drag & Drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!isDesktop) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!isDesktop) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!isDesktop) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    if (!isDesktop) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length > 0) {
+      await handleDroppedFiles(imageFiles);
+    }
+  };
+
+  const fileToDataURL = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDroppedFiles = async (files: File[]) => {
+    try {
+      // Convert File objects to Photo objects
+      const droppedPhotos = await Promise.all(
+        files.map(async (file) => {
+          const uri = await fileToDataURL(file);
+          return {
+            id: `dropped-${Date.now()}-${Math.random()}`,
+            uri,
+            filename: file.name,
+            timestamp: file.lastModified,
+            selected: false
+          };
+        })
+      );
+      
+      // Add to existing photos at the beginning for immediate visibility
+      setPhotos(prev => [...droppedPhotos, ...prev]);
+      
+      // Auto-select the dropped photos
+      setSelectedPhotos(prev => {
+        const next = new Map(prev);
+        droppedPhotos.forEach(photo => next.set(photo.id, photo));
+        
+        // Show performance warning if threshold crossed and not shown yet
+        if (!hasShownWarning && next.size >= PERFORMANCE_WARNING_THRESHOLD) {
+          setShowPerformanceWarning(true);
+          setHasShownWarning(true);
+        }
+        
+        return next;
+      });
+      
+    } catch (error) {
+      console.error('Error processing dropped files:', error);
+      setError('Failed to process dropped files');
+    }
+  };
+
   const selectedCount = selectedPhotos.size;
 
   return (
@@ -279,7 +395,18 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
         )}
       </IonHeader>
 
-      <IonContent className="photo-picker-content">
+      <IonContent
+        className={`photo-picker-content ${isDragOver ? 'drag-over' : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {isDragOver && isDesktop && (
+          <div className="drop-overlay">
+            <p>Drop photos here to import</p>
+          </div>
+        )}
         {/* Loading State */}
         {isLoading && photos.length === 0 && albums.length === 0 && (
           <div className="photo-picker-loading">
@@ -357,6 +484,7 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
                         key={photo.id}
                         className={`photo-picker-item ${isSelected ? 'selected' : ''}`}
                         onClick={() => handlePhotoClick(photo)}
+                        onContextMenu={(e) => handlePhotoContextMenu(e, photo)}
                       >
                         <img src={photo.uri} alt={photo.filename} loading="lazy" />
                         {isSelected && (
@@ -416,6 +544,21 @@ const PhotoPickerModal: React.FC<PhotoPickerModalProps> = ({
         message={`You've selected ${selectedCount} photos. Slideshows with over ${PERFORMANCE_WARNING_THRESHOLD} photos may experience slower performance on some devices. Consider creating multiple smaller slideshows for the best experience.`}
         buttons={['Got It']}
       />
+
+      {/* Context Menu for Photos */}
+      {contextMenu && (
+        <ContextMenu
+          items={[
+            {
+              label: selectedPhotos.has(contextMenu.photo.id) ? 'Deselect' : 'Select',
+              action: () => handleTogglePhotoSelection(contextMenu.photo)
+            }
+          ]}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </IonModal>
   );
 };

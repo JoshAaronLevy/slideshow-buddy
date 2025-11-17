@@ -1,2 +1,131 @@
 /* For information on how to create your own theme, please see:
 http://ionicframework.com/docs/theming/ */
+
+/* Desktop-Optimized Layout Variables */
+:root {
+  /* Breakpoint variables for consistency */
+  --breakpoint-tablet: 768px;
+  --breakpoint-desktop: 1024px;
+  --breakpoint-large-desktop: 1440px;
+  
+  /* Desktop spacing variables */
+  --desktop-container-padding: 20px;
+  --desktop-grid-gap: 16px;
+  --desktop-content-max-width: 1200px;
+  --large-desktop-content-max-width: 1400px;
+}
+
+/* Desktop Layout Optimizations */
+
+/* Tablet adjustments */
+@media (min-width: 768px) {
+  :root {
+    --ion-grid-padding: 16px;
+  }
+  
+  ion-content {
+    --padding-start: 16px;
+    --padding-end: 16px;
+  }
+  
+  .main-content {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+}
+
+/* Desktop optimizations */
+@media (min-width: 1024px) {
+  :root {
+    --ion-grid-padding: var(--desktop-container-padding);
+  }
+  
+  ion-content {
+    --padding-start: var(--desktop-container-padding);
+    --padding-end: var(--desktop-container-padding);
+  }
+  
+  .main-content {
+    max-width: var(--desktop-content-max-width);
+    margin: 0 auto;
+    padding: 0 var(--desktop-container-padding);
+  }
+  
+  /* Larger click targets for desktop */
+  ion-button {
+    --border-radius: 8px;
+    min-height: 44px;
+  }
+  
+  /* Enhanced shadows for depth */
+  ion-card {
+    --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Improved modal sizing */
+  ion-modal {
+    --width: 90%;
+    --max-width: 800px;
+    --height: 85%;
+    --max-height: 600px;
+  }
+}
+
+/* Large Desktop optimizations */
+@media (min-width: 1440px) {
+  .main-content {
+    max-width: var(--large-desktop-content-max-width);
+    padding: 0 32px;
+  }
+  
+  ion-content {
+    --padding-start: 32px;
+    --padding-end: 32px;
+  }
+  
+  /* Even larger modals for wide screens */
+  ion-modal {
+    --width: 80%;
+    --max-width: 1000px;
+    --height: 80%;
+    --max-height: 800px;
+  }
+}
+
+/* Platform-specific optimizations for macOS */
+@media (hover: hover) and (pointer: fine) {
+  /* Enhance interactive elements for precise pointing devices */
+  ion-button:hover {
+    --box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.3);
+  }
+  
+  ion-card:hover {
+    --box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Smooth focus indicators */
+  ion-button:focus,
+  ion-item:focus {
+    outline: 2px solid var(--ion-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Utility classes for responsive design */
+.desktop-only {
+  display: none;
+}
+
+.mobile-only {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .desktop-only {
+    display: block;
+  }
+  
+  .mobile-only {
+    display: none;
+  }
+}
