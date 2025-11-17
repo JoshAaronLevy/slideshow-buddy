@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2025-11-17
+
+### Added - macOS Photo Library System
+- **Complete photo library management system for macOS** with persistent storage, thumbnail generation, and file path references
+- PhotoLibraryService with import, validation, duplicate detection, and cleanup operations
+- PhotoLibraryManager component in Preferences with comprehensive library management UI
+- Hybrid storage architecture: 512px JPEG thumbnails (80% quality) in IndexedDB + original file path references
+- Hash-based duplicate detection (SHA256) during photo import with skip behavior and import statistics
+- PhotoImportModal with real-time progress tracking, duplicate detection UI, and expandable error details
+- Photo library validation with missing file detection and bulk cleanup options
+- Slideshow integration: photos loaded from library by ID on macOS, complete Photo objects on iOS/Android
+- File existence validation during slideshow playback with graceful error handling
+- PhotoLibraryManager with statistics dashboard, search/filter, sorting, and bulk operations
+- Photo usage tracking: shows which slideshows use each photo before deletion
+- Storage optimization service with quota monitoring, cleanup recommendations, and automatic orphaned photo removal
+- Storage quota warnings at 80% (warning) and 95% (critical) usage levels
+- "Optimize Storage" feature to automatically clean up orphaned photos (missing original files)
+- Safe deletion behavior: app-only removal, original files always preserved
+- Memory management with blob URL cleanup and proper resource handling
+- Platform detection with macOS-specific features, iOS/Android backward compatibility maintained
+
+### Changed
+- PhotoPickerModal now shows library-first view on macOS with prominent import button
+- Slideshow creation on macOS stores only photo IDs (not full Photo objects) for efficiency
+- SlideshowPlayer loads photos from library on-demand on macOS (validates file existence before playback)
+- Enhanced slideshow storage to support ID-based references on macOS
+- PhotoStore enhanced with importPhotosToLibrary(), validateLibraryPhotos(), and progress tracking
+- StorageService extended with photo library metadata tracking and retrieval by IDs
+- PreferencesModal now includes Photo Library Management section on macOS
+
+### Fixed
+- Memory leaks from blob URLs now properly cleaned up during photo deletion
+- Slideshow shuffle-on-loop now works correctly with library-loaded photos
+- Missing photo handling during slideshow playback with user-friendly error messages
+- Storage overflow prevention with proactive warnings and optimization tools
+
+### Security
+- All deletion operations are app-only (original files never touched)
+- File path validation before slideshow playback
+- Safe cleanup operations with dry-run previews
+
 ## [0.4.3] - 2025-11-14
 
 ### Added

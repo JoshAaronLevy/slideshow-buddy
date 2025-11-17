@@ -39,6 +39,7 @@ import {
 import { usePhotoStore } from '../stores/photoStore';
 import { useSlideshowLibraryStore } from '../stores/slideshowLibraryStore';
 import * as PhotoLibraryService from '../services/PhotoLibraryService';
+import * as StorageOptimizationService from '../services/StorageOptimizationService';
 import { isMacOS } from '../utils/platform';
 import './PhotoLibraryManager.css';
 
@@ -69,9 +70,31 @@ const PhotoLibraryManager: React.FC = () => {
   const [photoUsageMap, setPhotoUsageMap] = useState<Map<string, PhotoUsage>>(new Map());
   const [isCalculatingUsage, setIsCalculatingUsage] = useState(false);
   const [showUnusedOnly, setShowUnusedOnly] = useState(false);
+  const [storageQuota, setStorageQuota] = useState<{ usagePercentage: number; isWarning: boolean; isCritical: boolean } | null>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   
   const [presentToast] = useIonToast();
   const [presentActionSheet] = useIonActionSheet();
+
+  // Monitor storage quota
+  useEffect(() => {
+    const checkQuota = async () => {
+      try {
+        const stats = await StorageOptimizationService.getStorageStats();
+        setStorageQuota({
+          usagePercentage: stats.usagePercentage,
+          isWarning: stats.isWarning,
+          isCritical: stats.isCritical,
+        });
+      } catch (error) {
+        console.error('[PhotoLibraryManager] Error checking storage quota:', error);
+      }
+    };
+    
+    if (photos.length > 0) {
+      checkQuota();
+    }
+  }, [photos]);
 
   // Calculate library statistics
   useEffect(() => {
@@ -185,6 +208,41 @@ const PhotoLibraryManager: React.FC = () => {
   // Clear selection
   const clearSelection = () => {
     setSelectedPhotoIds(new Set());
+  };
+
+  // Optimize storage (cleanup orphaned photos)
+  const handleOptimizeStorage = async () => {
+    setIsOptimizing(true);
+    try {
+      const result = await StorageOptimizationService.optimizeStorage();
+      
+      if (result.photosRemoved > 0) {
+        await loadPhotos(); // Reload photos after cleanup
+        await presentToast({
+          message: `Optimized! Removed ${result.photosRemoved} orphaned photo${result.photosRemoved > 1 ? 's' : ''}, freed ${StorageOptimizationService.formatBytes(result.spaceFreed)}`,
+          duration: 3000,
+          color: 'success',
+          position: 'top',
+        });
+      } else {
+        await presentToast({
+          message: 'Library already optimized - no orphaned photos found',
+          duration: 2000,
+          color: 'success',
+          position: 'top',
+        });
+      }
+    } catch (error) {
+      console.error('[PhotoLibraryManager] Optimization error:', error);
+      await presentToast({
+        message: 'Failed to optimize storage',
+        duration: 3000,
+        color: 'danger',
+        position: 'top',
+      });
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   // Validate library photos
@@ -345,6 +403,22 @@ const PhotoLibraryManager: React.FC = () => {
           </IonCardTitle>
         </IonCardHeader>
         <IonCardContent>
+          {/* Storage Quota Warning */}
+          {storageQuota && storageQuota.isCritical && (
+            <IonText color="danger">
+              <p style={{ margin: '0 0 12px 0', fontWeight: 500 }}>
+                ⚠️ Storage critically low ({(storageQuota.usagePercentage * 100).toFixed(1)}%). Cleanup recommended.
+              </p>
+            </IonText>
+          )}
+          {storageQuota && storageQuota.isWarning && !storageQuota.isCritical && (
+            <IonText color="warning">
+              <p style={{ margin: '0 0 12px 0', fontWeight: 500 }}>
+                Storage usage high ({(storageQuota.usagePercentage * 100).toFixed(1)}%). Consider cleanup.
+              </p>
+            </IonText>
+          )}
+
           {stats ? (
             <IonGrid>
               <IonRow>
@@ -391,6 +465,20 @@ const PhotoLibraryManager: React.FC = () => {
                   </div>
                 </IonCol>
               </IonRow>
+              {storageQuota && (
+                <IonRow>
+                  <IonCol size="12">
+                    <div className="stat-item">
+                      <IonText color="medium">
+                        <p className="stat-label">Storage Usage</p>
+                      </IonText>
+                      <IonText color={storageQuota.isCritical ? 'danger' : storageQuota.isWarning ? 'warning' : 'success'}>
+                        <h3 className="stat-value">{(storageQuota.usagePercentage * 100).toFixed(1)}%</h3>
+                      </IonText>
+                    </div>
+                  </IonCol>
+                </IonRow>
+              )}
             </IonGrid>
           ) : (
             <IonText color="medium">
@@ -411,6 +499,16 @@ const PhotoLibraryManager: React.FC = () => {
         <IonCardContent>
           {/* Action Buttons */}
           <div className="management-actions">
+            <IonButton
+              expand="block"
+              color="primary"
+              onClick={handleOptimizeStorage}
+              disabled={isLoading || isOptimizing || photos.length === 0}
+            >
+              <IonIcon icon={refreshOutline} slot="start" />
+              {isOptimizing ? 'Optimizing...' : 'Optimize Storage'}
+            </IonButton>
+
             <IonButton
               expand="block"
               color="primary"
