@@ -1,7 +1,15 @@
 # Context
 
-We now have the macOS version of the application working. But we need to make some UI adjustments to ensure it looks good on macOS.
+We need to make some UI/UX enhancements to improve the music page on the macOS version of the application. I want you to please make the following changes:
 
-The first area we need to address is the music page/tab. Currently, after synced with Spotify, it clearly is still very much designed for iOS. We need to make it more macOS-friendly. For instance, the `.music-container` has a fixed max-width of `600px`, which is too narrow for a desktop application. Also, the layout and elements within the music page (the profile card, search bar, my playlists, recently played, etc.) should be adjusted to take advantage of the larger screen real estate available on macOS. I know I am being kind of vague here, but please use your judgment to make the necessary adjustments to improve the UI for macOS users.
+1. The profile card takes up way too much space. Instead of having that card, I want to instead add another icon in the toolbar at the top of the app. Next to the settings icon, please add a user profile icon. When clicked, it should open a small popover that shows the user's profile information (profile picture, name, email) and a disconnect from Spotify button.
 
-The second area to address is the photo library/photo picker component. On macOS, it opens up just fine and functionality is good. But it would be better if it took up the full width of the window. Please adjust the styles accordingly to make it more suitable for macOS. And please make any other UI tweaks you think are necessary to enhance the user experience on macOS.
+2. The cards/sections for "Your Playlists" and "Recently Played" don't need to be in the main music page/tab. It should only have the search bar and a list of the custom playlists created by the user. Please remove those two sections from the main music page/tab.
+
+3. When a user clicks the button to create a new playlist, the modal that opens up should take up the full width of the window on macOS. Please adjust the styles accordingly.
+
+4. When a user clicks the button to add tracks to a playlist, the photo picker component that opens up should also take up the full width of the window on macOS. Please adjust the styles accordingly.
+
+5. When a user clicks the button to add tracks to a playlist, the "My Library" tab should have sections for "Recently Played", "Albums", "Artists", and "Songs". Please add those sections to the "My Library" tab in the photo picker component. Each section should display a list of items with their respective thumbnails and titles. If you can't add all those sections, please add whatever you can. But keep the "Playlists" in a separate tab (as it is now).
+
+6. **Bug Fix**: In the "Add Tracks" component, in the "Search" tab, when a user searches for a song title or artist name, it just says "Search failed", and in the console, I see a console error saying "Error searching music: TypeError: Cannot read properties of null (reading 'id')". Please fix this bug so that the search functionality works properly.
