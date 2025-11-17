@@ -32,6 +32,7 @@ import SlideshowEditModal from '../components/SlideshowEditModal';
 import SlideshowPlayer from '../components/SlideshowPlayer';
 import SkeletonLoader from '../components/SkeletonLoader';
 import * as HapticService from '../services/HapticService';
+import { isMacOS } from '../utils/platform';
 import './SlideshowsTab.css';
 
 const SlideshowsTab: React.FC = () => {
@@ -98,7 +99,9 @@ const SlideshowsTab: React.FC = () => {
       const newSlideshow: import('../types/slideshow').NewSlideshow = {
         name,
         photoIds: selectedPhotos.map(p => p.id),
-        photos: selectedPhotos, // Store complete photo objects
+        // On macOS, store only IDs (photos loaded from library on playback)
+        // On iOS/Android, store full Photo objects for backward compatibility
+        photos: isMacOS() ? [] : selectedPhotos,
         musicSource,
         settings,
       };
@@ -132,7 +135,9 @@ const SlideshowsTab: React.FC = () => {
       const newSlideshowData: import('../types/slideshow').NewSlideshow = {
         name,
         photoIds: selectedPhotos.map(p => p.id),
-        photos: selectedPhotos, // Store complete photo objects
+        // On macOS, store only IDs (photos loaded from library on playback)
+        // On iOS/Android, store full Photo objects for backward compatibility
+        photos: isMacOS() ? [] : selectedPhotos,
         musicSource,
         settings,
       };

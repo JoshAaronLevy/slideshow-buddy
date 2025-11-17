@@ -35,6 +35,8 @@ import { keepAwake, allowSleep, preloadNextImages } from '../services/SlideshowS
 import * as MusicPlayerService from '../services/MusicPlayerService';
 import * as HapticService from '../services/HapticService';
 import { isMacOS } from '../utils/platform';
+import * as StorageService from '../services/StorageService';
+import * as PhotoLibraryService from '../services/PhotoLibraryService';
 import './SlideshowPlayer.css';
 
 interface SlideshowPlayerProps {
@@ -67,6 +69,8 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
   const [showControls, setShowControls] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState(5);
   const [musicInitialized, setMusicInitialized] = useState(false);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+  const [photoLoadError, setPhotoLoadError] = useState<string | null>(null);
   const [presentToast] = useIonToast();
 
   // Desktop-specific state
@@ -74,33 +78,101 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
 
   // Initialize slideshow from SavedSlideshow
   useEffect(() => {
-    if (isOpen && slideshow) {
-      // Use photos directly from slideshow
-      const slideshowPhotos = slideshow.photos || [];
+    const loadPhotosForSlideshow = async () => {
+      if (isOpen && slideshow) {
+        setIsLoadingPhotos(true);
+        setPhotoLoadError(null);
+        
+        try {
+          let slideshowPhotos: Photo[] = [];
+          
+          // On macOS, load photos from library by ID (with validation)
+          // On iOS/Android, use photos array directly (backward compatibility)
+          if (isMacOS() && slideshow.photoIds && slideshow.photoIds.length > 0) {
+            // Load photos from library
+            const loadedPhotos = await StorageService.getPhotosByIds(slideshow.photoIds);
+            
+            // Validate that files still exist
+            const validationResult = await PhotoLibraryService.validateLibraryPhotos(loadedPhotos);
+            
+            if (validationResult.invalid.length > 0) {
+              const missingCount = validationResult.invalid.length;
+              const totalCount = slideshow.photoIds.length;
+              
+              // Show error with missing photo details
+              const missingNames = validationResult.invalid
+                .slice(0, 3)
+                .map((p: Photo) => p.originalPath?.split('/').pop() || 'Unknown')
+                .join(', ');
+              
+              const errorMsg = `${missingCount} of ${totalCount} photo${missingCount > 1 ? 's' : ''} could not be found: ${missingNames}${missingCount > 3 ? '...' : ''}. Slideshow will play with available photos.`;
+              
+              setPhotoLoadError(errorMsg);
+              await presentToast({
+                message: errorMsg,
+                duration: 5000,
+                color: 'warning',
+                position: 'top',
+              });
+            }
+            
+            // Use valid photos only
+            slideshowPhotos = validationResult.valid;
+            
+            // If no valid photos remain, show error and close
+            if (slideshowPhotos.length === 0) {
+              await presentToast({
+                message: 'No photos available for this slideshow. All files may have been moved or deleted.',
+                duration: 4000,
+                color: 'danger',
+                position: 'top',
+              });
+              onClose();
+              return;
+            }
+          } else {
+            // Fallback: use photos array (iOS/Android or old slideshows)
+            slideshowPhotos = slideshow.photos || [];
+          }
 
-      // Shuffle if needed
-      const orderedPhotos = slideshow.settings.shuffle
-        ? [...slideshowPhotos].sort(() => Math.random() - 0.5)
-        : slideshowPhotos;
+          // Shuffle if needed
+          const orderedPhotos = slideshow.settings.shuffle
+            ? [...slideshowPhotos].sort(() => Math.random() - 0.5)
+            : slideshowPhotos;
 
-      setPhotos(orderedPhotos);
-      setTransitionTime(slideshow.settings.transitionTime);
-      setTimeRemaining(slideshow.settings.transitionTime);
-      setCurrentIndex(0);
-      setIsPlaying(true);
-      setIsPaused(false);
-      setMusicInitialized(false);
-      setShowControls(true);
-      
-      // Start auto-hide timer for controls
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
+          setPhotos(orderedPhotos);
+          setTransitionTime(slideshow.settings.transitionTime);
+          setTimeRemaining(slideshow.settings.transitionTime);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+          setIsPaused(false);
+          setMusicInitialized(false);
+          setShowControls(true);
+          
+          // Start auto-hide timer for controls
+          if (controlsTimeoutRef.current) {
+            clearTimeout(controlsTimeoutRef.current);
+          }
+          controlsTimeoutRef.current = setTimeout(() => {
+            setShowControls(false);
+          }, 3000);
+        } catch (error) {
+          console.error('[SlideshowPlayer] Error loading photos:', error);
+          await presentToast({
+            message: 'Failed to load photos for slideshow',
+            duration: 3000,
+            color: 'danger',
+            position: 'top',
+          });
+          onClose();
+        } finally {
+          setIsLoadingPhotos(false);
+        }
       }
-      controlsTimeoutRef.current = setTimeout(() => {
-        setShowControls(false);
-      }, 3000);
-    }
-  }, [isOpen, slideshow]);
+    };
+    
+    loadPhotosForSlideshow();
+  }, [isOpen, slideshow, onClose, presentToast]);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -555,8 +627,8 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
         // If loop is enabled, restart from beginning
         if (slideshow?.settings.loop) {
           // If shuffle is also enabled, re-shuffle the photos for a fresh experience
-          if (slideshow?.settings.shuffle && slideshow.photos) {
-            const reshuffled = [...slideshow.photos].sort(() => Math.random() - 0.5);
+          if (slideshow?.settings.shuffle && photos.length > 0) {
+            const reshuffled = [...photos].sort(() => Math.random() - 0.5);
             setPhotos(reshuffled);
           }
           return 0; // Start from first photo
@@ -711,7 +783,7 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     };
   }, []);
 
-  if (!currentPhoto) {
+  if (!currentPhoto && !isLoadingPhotos) {
     return null;
   }
 
@@ -723,20 +795,32 @@ const SlideshowPlayer: React.FC<SlideshowPlayerProps> = ({ slideshow, isOpen, on
     >
       <div className="slideshow-container">
         {/* Photo Display */}
-        <div
-          ref={imageContainerRef}
-          className="slideshow-image-container"
-          onClick={handleTap}
-        >
-          <img
-            src={currentPhoto.uri}
-            alt={currentPhoto.filename}
-            className="slideshow-image"
-          />
-        </div>
+        {!isLoadingPhotos && currentPhoto && (
+          <div
+            ref={imageContainerRef}
+            className="slideshow-image-container"
+            onClick={handleTap}
+          >
+            <img
+              src={currentPhoto.uri}
+              alt={currentPhoto.filename}
+              className="slideshow-image"
+            />
+          </div>
+        )}
+
+        {/* Photo Loading Overlay */}
+        {isLoadingPhotos && (
+          <div className="music-loading-overlay">
+            <IonSpinner name="crescent" />
+            <IonText>
+              <p>Loading photos from library...</p>
+            </IonText>
+          </div>
+        )}
 
         {/* Music Loading Overlay */}
-        {!musicInitialized && (
+        {!musicInitialized && !isLoadingPhotos && (
           <div className="music-loading-overlay">
             <IonSpinner name="crescent" />
             <IonText>
