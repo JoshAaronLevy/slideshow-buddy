@@ -3,9 +3,11 @@
  */
 
 import { create } from 'zustand';
-import { Photo } from '../types';
-import { importPhotos as importPhotosService, revokeBlobUrl } from '../services/PhotoService';
+import { Photo, PhotoImportResult, PhotoValidationResult } from '../types';
+import { importPhotos as importPhotosService, revokeBlobUrl, selectImageFilesForImport } from '../services/PhotoService';
+import * as PhotoLibraryService from '../services/PhotoLibraryService';
 import * as StorageService from '../services/StorageService';
+import { isMacOS } from '../utils/platform';
 
 // Constants for cache management
 const MAX_PHOTOS_IN_MEMORY = 100;
@@ -17,10 +19,14 @@ interface PhotoState {
   selectedPhotos: Photo[];
   isLoading: boolean;
   error: string | null;
+  lastImportResult: PhotoImportResult | null;
+  lastValidationResult: PhotoValidationResult | null;
 
   // Actions
   loadPhotos: () => Promise<void>;
   importPhotos: () => Promise<void>;
+  importPhotosToLibrary: () => Promise<PhotoImportResult>;
+  validateLibraryPhotos: () => Promise<PhotoValidationResult>;
   togglePhotoSelection: (photoId: string) => void;
   clearSelection: () => void;
   selectAll: () => void;
@@ -39,21 +45,27 @@ export const usePhotoStore = create<PhotoState>((set) => ({
   selectedPhotos: [],
   isLoading: false,
   error: null,
+  lastImportResult: null,
+  lastValidationResult: null,
 
   /**
    * Load photos from persistent storage
-   * Note: Blob URLs are ephemeral and won't work after app restart.
-   * Photos should be re-imported from device library on app launch.
-   * Persisted photos are mainly for slideshow references.
+   * For macOS: Loads library photos with thumbnails
+   * For iOS/Android: Blob URLs are ephemeral and won't work after app restart
    */
   loadPhotos: async () => {
     set({ isLoading: true, error: null });
     
     try {
-      const photos = await StorageService.getPhotos();
+      const photos = await PhotoLibraryService.getLibraryPhotos();
       
-      console.log(`[PhotoStore] Loaded ${photos.length} photos from storage`);
-      console.warn('[PhotoStore] Note: Blob URLs from storage may be invalid. Re-import photos if needed.');
+      console.log(`[PhotoStore] Loaded ${photos.length} photos from library`);
+      
+      // On macOS, library photos have thumbnails that persist
+      // On iOS/Android, warn about blob URL limitations
+      if (!isMacOS() && photos.length > 0) {
+        console.warn('[PhotoStore] Note: Blob URLs from storage may be invalid. Re-import photos if needed.');
+      }
       
       set({ 
         photos,
@@ -70,6 +82,8 @@ export const usePhotoStore = create<PhotoState>((set) => ({
 
   /**
    * Import photos from the device library and persist them
+   * Legacy method - uses device photo library (iOS/Android)
+   * For macOS library import, use importPhotosToLibrary()
    */
   importPhotos: async () => {
     set({ isLoading: true, error: null });
@@ -110,6 +124,104 @@ export const usePhotoStore = create<PhotoState>((set) => ({
         error: errorMessage,
         isLoading: false,
       });
+    }
+  },
+
+  /**
+   * Import photos to library (macOS-specific)
+   * Opens file dialog, processes files with thumbnails and duplicate detection
+   * @returns PhotoImportResult with detailed import statistics
+   */
+  importPhotosToLibrary: async (): Promise<PhotoImportResult> => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      // Open file dialog to select photos
+      const selectedFiles = await selectImageFilesForImport();
+      
+      if (selectedFiles.length === 0) {
+        const emptyResult: PhotoImportResult = {
+          success: true,
+          imported: [],
+          duplicates: 0,
+          failed: 0,
+        };
+        set({ isLoading: false, lastImportResult: emptyResult });
+        return emptyResult;
+      }
+
+      // Import photos with thumbnail generation and duplicate detection
+      const importResult = await PhotoLibraryService.importPhotosToLibrary(selectedFiles);
+      
+      // Reload photos from library
+      const allPhotos = await PhotoLibraryService.getLibraryPhotos();
+      
+      // Update metadata
+      await StorageService.updatePhotoLibraryMetadata();
+      
+      set({
+        photos: allPhotos,
+        isLoading: false,
+        lastImportResult: importResult,
+      });
+      
+      return importResult;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to import photos to library';
+      const failedResult: PhotoImportResult = {
+        success: false,
+        imported: [],
+        duplicates: 0,
+        failed: 0,
+        errors: [errorMessage],
+      };
+      
+      set({ 
+        error: errorMessage,
+        isLoading: false,
+        lastImportResult: failedResult,
+      });
+      
+      return failedResult;
+    }
+  },
+
+  /**
+   * Validate library photos to check if original files still exist
+   * @returns PhotoValidationResult with valid/invalid photo lists
+   */
+  validateLibraryPhotos: async (): Promise<PhotoValidationResult> => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      const validationResult = await PhotoLibraryService.validateLibraryPhotos();
+      
+      set({
+        isLoading: false,
+        lastValidationResult: validationResult,
+      });
+      
+      // If there are invalid photos, optionally update the store
+      if (validationResult.invalid.length > 0) {
+        console.warn(`[PhotoStore] Found ${validationResult.invalid.length} photos with missing files`);
+      }
+      
+      return validationResult;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to validate photos';
+      const emptyResult: PhotoValidationResult = {
+        valid: [],
+        invalid: [],
+        missing: [],
+      };
+      
+      set({ 
+        error: errorMessage,
+        isLoading: false,
+        lastValidationResult: emptyResult,
+      });
+      
+      return emptyResult;
     }
   },
 

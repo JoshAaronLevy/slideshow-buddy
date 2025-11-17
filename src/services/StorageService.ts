@@ -391,3 +391,61 @@ export const getStorageStats = async (): Promise<{
     photoCount: photos.length,
   };
 };
+
+// ============================================================================
+// PHOTO LIBRARY METADATA STORAGE
+// ============================================================================
+
+/**
+ * Get photo library metadata
+ */
+export const getPhotoLibraryMetadata = async (): Promise<import('../types').PhotoLibraryMetadata | null> => {
+  try {
+    const { value } = await storage.get({ key: STORAGE_KEYS.PHOTO_LIBRARY_METADATA });
+    if (!value) return null;
+    
+    const metadata = JSON.parse(value) as import('../types').PhotoLibraryMetadata;
+    return metadata;
+  } catch (error) {
+    console.error('Error getting photo library metadata:', error);
+    return null;
+  }
+};
+
+/**
+ * Save photo library metadata
+ */
+export const savePhotoLibraryMetadata = async (
+  metadata: import('../types').PhotoLibraryMetadata
+): Promise<void> => {
+  try {
+    await storage.set({
+      key: STORAGE_KEYS.PHOTO_LIBRARY_METADATA,
+      value: JSON.stringify(metadata),
+    });
+  } catch (error) {
+    console.error('Error saving photo library metadata:', error);
+  }
+};
+
+/**
+ * Update photo library metadata with current library stats
+ */
+export const updatePhotoLibraryMetadata = async (): Promise<void> => {
+  const photos = await getPhotos();
+  
+  const totalSize = photos.reduce((sum, photo) => {
+    if (photo.thumbnailUri) {
+      return sum + photo.thumbnailUri.length;
+    }
+    return sum;
+  }, 0);
+  
+  const metadata: import('../types').PhotoLibraryMetadata = {
+    totalPhotos: photos.length,
+    totalSize,
+    lastImportDate: Date.now(),
+  };
+  
+  await savePhotoLibraryMetadata(metadata);
+};;

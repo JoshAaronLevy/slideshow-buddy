@@ -140,6 +140,31 @@ interface DialogAPI {
   selectImages: () => Promise<FileSelectionResult>;
 }
 
+// Photo Library API types (for macOS photo library management)
+interface PhotoHashResult {
+  success: boolean;
+  hash?: string;
+  error?: string;
+}
+
+interface FileValidationResult {
+  success: boolean;
+  exists?: boolean;
+  error?: string;
+}
+
+interface FileSizeResult {
+  success: boolean;
+  size?: number;
+  error?: string;
+}
+
+interface PhotoLibraryAPI {
+  generateHash(filePath: string): Promise<PhotoHashResult>;
+  validateFile(filePath: string): Promise<FileValidationResult>;
+  getFileSize(filePath: string): Promise<FileSizeResult>;
+}
+
 // Extend global Window interface
 declare global {
   interface Window {
@@ -153,6 +178,7 @@ declare global {
       storage: StorageAPI;
       keychain: KeychainAPI;
       dialog: DialogAPI;
+      photoLibrary: PhotoLibraryAPI;
     };
   }
 }

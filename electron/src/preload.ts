@@ -141,6 +141,31 @@ interface DialogAPI {
   selectImages: () => Promise<FileSelectionResult>;
 }
 
+// Photo Library API Interface (for macOS photo library management)
+interface PhotoHashResult {
+  success: boolean;
+  hash?: string;
+  error?: string;
+}
+
+interface FileValidationResult {
+  success: boolean;
+  exists?: boolean;
+  error?: string;
+}
+
+interface FileSizeResult {
+  success: boolean;
+  size?: number;
+  error?: string;
+}
+
+interface PhotoLibraryAPI {
+  generateHash: (filePath: string) => Promise<PhotoHashResult>;
+  validateFile: (filePath: string) => Promise<FileValidationResult>;
+  getFileSize: (filePath: string) => Promise<FileSizeResult>;
+}
+
 // Common helper function to create menu event listeners
 const createMenuEventListener = (eventName: string) => {
   return (callback: () => void): (() => void) => {
@@ -177,6 +202,17 @@ contextBridge.exposeInMainWorld('electron', {
     selectImages: (): Promise<FileSelectionResult> =>
       ipcRenderer.invoke('dialog:selectImages')
   } as DialogAPI,
+  
+  photoLibrary: {
+    generateHash: (filePath: string): Promise<PhotoHashResult> =>
+      ipcRenderer.invoke('photoLibrary:generateHash', filePath),
+    
+    validateFile: (filePath: string): Promise<FileValidationResult> =>
+      ipcRenderer.invoke('photoLibrary:validateFile', filePath),
+    
+    getFileSize: (filePath: string): Promise<FileSizeResult> =>
+      ipcRenderer.invoke('photoLibrary:getFileSize', filePath)
+  } as PhotoLibraryAPI,
   
   slideshow: {
     keepAwakeStart: (): Promise<SlideshowKeepAwakeResult> =>
@@ -276,6 +312,7 @@ declare global {
       keychain: KeychainAPI;
       menu: MenuAPI;
       dialog: DialogAPI;
+      photoLibrary: PhotoLibraryAPI;
     };
   }
 }

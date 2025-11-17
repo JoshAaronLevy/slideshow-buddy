@@ -443,7 +443,7 @@ export const getPermissionStatusMessage = async (): Promise<string> => {
 
 /**
  * Select photos from file system using macOS file browser
- * @returns Promise<Photo[]> - Array of selected photos
+ * @returns Promise<Photo[]> - Array of selected photos (for backward compatibility)
  */
 export const selectPhotosFromFiles = async (): Promise<Photo[]> => {
   console.log('[PhotoService] Opening file browser for photo selection...');
@@ -471,4 +471,28 @@ export const selectPhotosFromFiles = async (): Promise<Photo[]> => {
 
   console.log('[PhotoService] Converted to photos:', photos.length);
   return photos;
+};
+
+/**
+ * Select image files from file system for library import (macOS)
+ * Returns full file information including paths for library import
+ * @returns Promise<SelectedImageFile[]> - Array of selected image files with paths
+ */
+export const selectImageFilesForImport = async (): Promise<SelectedImageFile[]> => {
+  console.log('[PhotoService] Opening file browser for library import...');
+  
+  const electron = window.electron as any;
+  if (!electron?.dialog) {
+    throw new Error('File dialog not available');
+  }
+
+  const result: FileSelectionResult = await electron.dialog.selectImages();
+  console.log('[PhotoService] File selection result:', result.canceled ? 'Canceled' : `${result.files.length} files selected`);
+
+  if (result.canceled) {
+    return [];
+  }
+
+  console.log('[PhotoService] Selected files for import:', result.files.length);
+  return result.files;
 };

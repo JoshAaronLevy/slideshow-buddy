@@ -11,10 +11,16 @@ export * from './playlist';
  */
 export interface Photo {
   id: string;
-  uri: string; // Blob URL (revocable) for memory efficiency
+  uri: string; // Blob URL (revocable) for memory efficiency or thumbnail data URI
   filename: string;
   timestamp: number;
   selected: boolean;
+  // macOS library-specific fields (optional for backward compatibility)
+  originalPath?: string; // File system path to original file (macOS only)
+  thumbnailUri?: string; // Data URI of compressed thumbnail for storage
+  fileHash?: string; // Hash for duplicate detection
+  importedAt?: number; // Timestamp when added to library
+  fileSize?: number; // Original file size in bytes
 }
 
 /**
@@ -116,4 +122,34 @@ export interface SelectedImageFile {
 export interface FileSelectionResult {
   canceled: boolean;
   files: SelectedImageFile[];
+}
+
+/**
+ * Photo library metadata for tracking library state
+ */
+export interface PhotoLibraryMetadata {
+  totalPhotos: number;
+  totalSize: number; // Total size of thumbnails in bytes
+  lastImportDate?: number;
+  lastCleanupDate?: number;
+}
+
+/**
+ * Result of photo import operation
+ */
+export interface PhotoImportResult {
+  success: boolean;
+  imported: Photo[];
+  duplicates: number;
+  failed: number;
+  errors?: string[];
+}
+
+/**
+ * Result of photo validation operation
+ */
+export interface PhotoValidationResult {
+  valid: Photo[];
+  invalid: Photo[];
+  missing: string[]; // Photo IDs that are missing from file system
 }

@@ -54,6 +54,7 @@ export const STORAGE_KEYS = {
   SLIDESHOWS: 'slideshows',
   CUSTOM_PLAYLISTS: 'custom_playlists',
   PHOTO_LIBRARY: 'photo_library',
+  PHOTO_LIBRARY_METADATA: 'photo_library_metadata',
   APP_VERSION: 'app_version', // For future data migrations
 };
 

@@ -630,3 +630,63 @@ ipcMain.handle('dialog:selectImages', async () => {
     throw error;
   }
 });
+
+// Photo Library IPC Handlers
+// These handlers provide photo library management operations for macOS
+
+/**
+ * Generate SHA256 hash of a file for duplicate detection
+ * Returns: { success: boolean, hash?: string, error?: string }
+ */
+ipcMain.handle('photoLibrary:generateHash', async (_event, filePath: string) => {
+  try {
+    const crypto = await import('crypto');
+    const fileBuffer = await fs.promises.readFile(filePath);
+    const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+    
+    return { success: true, hash };
+  } catch (error) {
+    console.error('[IPC Main] Error generating hash:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate hash'
+    };
+  }
+});
+
+/**
+ * Validate that a file exists at the specified path
+ * Returns: { success: boolean, exists?: boolean, error?: string }
+ */
+ipcMain.handle('photoLibrary:validateFile', async (_event, filePath: string) => {
+  try {
+    await fs.promises.access(filePath, fs.constants.F_OK);
+    return { success: true, exists: true };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { success: true, exists: false };
+    }
+    console.error('[IPC Main] Error validating file:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to validate file'
+    };
+  }
+});
+
+/**
+ * Get file size in bytes
+ * Returns: { success: boolean, size?: number, error?: string }
+ */
+ipcMain.handle('photoLibrary:getFileSize', async (_event, filePath: string) => {
+  try {
+    const stats = await fs.promises.stat(filePath);
+    return { success: true, size: stats.size };
+  } catch (error) {
+    console.error('[IPC Main] Error getting file size:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to get file size'
+    };
+  }
+});
