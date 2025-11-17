@@ -166,6 +166,17 @@ interface PhotoLibraryAPI {
   getFileSize: (filePath: string) => Promise<FileSizeResult>;
 }
 
+// Browser API Response Types
+interface BrowserOpenResult {
+  success: boolean;
+  error?: string;
+}
+
+// Browser API Interface
+interface BrowserAPI {
+  openExternal: (url: string) => Promise<BrowserOpenResult>;
+}
+
 // Common helper function to create menu event listeners
 const createMenuEventListener = (eventName: string) => {
   return (callback: () => void): (() => void) => {
@@ -182,7 +193,7 @@ const createMenuEventListener = (eventName: string) => {
   };
 };
 
-// Expose Photos API, Slideshow API, Spotify OAuth API, Window API, System API, Menu API, and Dialog API to renderer process
+// Expose Photos API, Slideshow API, Spotify OAuth API, Window API, System API, Menu API, Browser API, and Dialog API to renderer process
 contextBridge.exposeInMainWorld('electron', {
   photos: {
     requestPermission: (): Promise<PhotosPermissionResult> =>
@@ -197,6 +208,11 @@ contextBridge.exposeInMainWorld('electron', {
     getPhotos: (albumId?: string, quantity?: number): Promise<PhotosResult> =>
       ipcRenderer.invoke('photos:getPhotos', { albumId, quantity })
   } as PhotosAPI,
+  
+  browser: {
+    openExternal: (url: string): Promise<BrowserOpenResult> =>
+      ipcRenderer.invoke('browser:openExternal', url)
+  } as BrowserAPI,
   
   dialog: {
     selectImages: (): Promise<FileSelectionResult> =>
@@ -313,6 +329,7 @@ declare global {
       menu: MenuAPI;
       dialog: DialogAPI;
       photoLibrary: PhotoLibraryAPI;
+      browser: BrowserAPI;
     };
   }
 }

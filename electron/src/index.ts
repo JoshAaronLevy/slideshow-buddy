@@ -1,7 +1,7 @@
 import type { CapacitorElectronConfig } from '@capacitor-community/electron';
 import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor-community/electron';
 import type { MenuItemConstructorOptions } from 'electron';
-import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme, dialog } from 'electron';
+import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme, dialog, shell } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
 import { autoUpdater } from 'electron-updater';
@@ -687,6 +687,28 @@ ipcMain.handle('photoLibrary:getFileSize', async (_event, filePath: string) => {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to get file size'
+    };
+  }
+});
+
+// Browser IPC Handlers
+// These handlers provide external URL opening for OAuth flows
+
+/**
+ * Open a URL in the system's default external browser
+ * Params: url (string)
+ * Returns: { success: boolean, error?: string }
+ */
+ipcMain.handle('browser:openExternal', async (_event, url: string) => {
+  try {
+    console.log('[IPC Main] Opening external URL:', url);
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error('[IPC Main] Error opening external URL:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to open URL'
     };
   }
 });

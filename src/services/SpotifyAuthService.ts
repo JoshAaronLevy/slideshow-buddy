@@ -45,8 +45,24 @@ export const login = async (): Promise<void> => {
     console.log('[SpotifyAuth] Opening authorization URL:', finalUrl);
     console.log('[SpotifyAuth] Redirect URI being sent:', SPOTIFY_CONFIG.REDIRECT_URI);
 
-    // Open browser for authentication
-    await Browser.open({ url: finalUrl });
+    // Open browser for authentication - use platform-specific implementation
+    if (isMacOS()) {
+      // Electron: Use shell.openExternal via IPC
+      if ((window as any).electron?.browser) {
+        console.log('[SpotifyAuth] Using Electron browser API to open URL');
+        const result = await (window as any).electron.browser.openExternal(finalUrl);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to open browser');
+        }
+      } else {
+        console.error('[SpotifyAuth] Electron browser API not available');
+        throw new Error('Electron browser API not available');
+      }
+    } else {
+      // Mobile: Use Capacitor Browser plugin
+      console.log('[SpotifyAuth] Using Capacitor Browser plugin to open URL');
+      await Browser.open({ url: finalUrl });
+    }
   } catch (error) {
     console.error('Error starting Spotify login:', error);
     throw new Error('Failed to start Spotify login');
