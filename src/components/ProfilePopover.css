@@ -78,6 +78,17 @@
   font-size: 14px;
 }
 
+.profile-popover-connect {
+  padding: 16px 0;
+  text-align: center;
+}
+
+.profile-popover-connect p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .profile-popover-actions {
   margin-top: 8px;
 }

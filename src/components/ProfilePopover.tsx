@@ -16,6 +16,7 @@ interface ProfilePopoverProps {
   event: Event | undefined;
   onDismiss: () => void;
   onLogout: () => void;
+  onLogin: () => void;
 }
 
 const ProfilePopover: React.FC<ProfilePopoverProps> = ({
@@ -23,12 +24,11 @@ const ProfilePopover: React.FC<ProfilePopoverProps> = ({
   event,
   onDismiss,
   onLogout,
+  onLogin,
 }) => {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
 
-  if (!user) return null;
-
-  const isPremium = user.product === 'premium';
+  const isPremium = user?.product === 'premium';
 
   return (
     <IonPopover
@@ -41,53 +41,79 @@ const ProfilePopover: React.FC<ProfilePopoverProps> = ({
     >
       <IonContent>
         <div className="profile-popover-content">
-          {/* Profile Header */}
-          <div className="profile-popover-header">
-            {user.images && user.images.length > 0 ? (
-              <IonAvatar className="profile-popover-avatar">
-                <img src={user.images[0].url} alt={user.display_name} />
-              </IonAvatar>
-            ) : (
-              <IonAvatar className="profile-popover-avatar">
-                <div className="avatar-placeholder">
-                  {user.display_name?.charAt(0).toUpperCase()}
-                </div>
-              </IonAvatar>
-            )}
-            <div className="profile-popover-info">
-              <h3>{user.display_name}</h3>
-              {user.email && (
+          {!isAuthenticated ? (
+            // Not Connected State
+            <>
+              <div className="profile-popover-connect">
                 <IonText color="medium">
-                  <p className="profile-email">{user.email}</p>
+                  <p>Connect your Spotify account to access music features.</p>
                 </IonText>
-              )}
-              <div className="profile-badge">
-                {isPremium ? (
-                  <IonBadge color="success">
-                    <IonIcon icon={checkmarkCircle} />
-                    <span>Premium</span>
-                  </IonBadge>
-                ) : (
-                  <IonBadge color="warning">
-                    <IonIcon icon={warningOutline} />
-                    <span>Free</span>
-                  </IonBadge>
-                )}
               </div>
-            </div>
-          </div>
+              <div className="profile-popover-actions">
+                <IonButton
+                  expand="block"
+                  color="primary"
+                  onClick={() => {
+                    onDismiss();
+                    onLogin();
+                  }}
+                >
+                  Connect with Spotify
+                </IonButton>
+              </div>
+            </>
+          ) : (
+            // Connected State
+            <>
+              {/* Profile Header */}
+              <div className="profile-popover-header">
+                {user && user.images && user.images.length > 0 ? (
+                  <IonAvatar className="profile-popover-avatar">
+                    <img src={user.images[0].url} alt={user.display_name} />
+                  </IonAvatar>
+                ) : (
+                  <IonAvatar className="profile-popover-avatar">
+                    <div className="avatar-placeholder">
+                      {user?.display_name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  </IonAvatar>
+                )}
+                <div className="profile-popover-info">
+                  <h3>{user?.display_name || 'Unknown'}</h3>
+                  {user?.email && (
+                    <IonText color="medium">
+                      <p className="profile-email">{user.email}</p>
+                    </IonText>
+                  )}
+                  <div className="profile-badge">
+                    {isPremium ? (
+                      <IonBadge color="success">
+                        <IonIcon icon={checkmarkCircle} />
+                        <span>Premium</span>
+                      </IonBadge>
+                    ) : (
+                      <IonBadge color="warning">
+                        <IonIcon icon={warningOutline} />
+                        <span>Free</span>
+                      </IonBadge>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-          {/* Disconnect Button */}
-          <div className="profile-popover-actions">
-            <IonButton
-              expand="block"
-              fill="outline"
-              color="danger"
-              onClick={onLogout}
-            >
-              Disconnect from Spotify
-            </IonButton>
-          </div>
+              {/* Disconnect Button */}
+              <div className="profile-popover-actions">
+                <IonButton
+                  expand="block"
+                  fill="outline"
+                  color="danger"
+                  onClick={onLogout}
+                >
+                  Disconnect from Spotify
+                </IonButton>
+              </div>
+            </>
+          )}
         </div>
       </IonContent>
     </IonPopover>

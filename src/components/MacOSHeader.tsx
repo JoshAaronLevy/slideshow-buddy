@@ -38,6 +38,10 @@ const MacOSHeader: React.FC = () => {
     await logout();
   };
 
+  const handleLogin = () => {
+    history.push('/music');
+  };
+
   // Get page title based on current route
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -78,15 +82,13 @@ const MacOSHeader: React.FC = () => {
           >
             <IonIcon icon={settingsOutline} />
           </IonButton>
-          {isAuthenticated && (
-            <IonButton
-              fill="clear"
-              onClick={handleProfileClick}
-              className="profile-button"
-            >
-              <IonIcon icon={personCircleOutline} />
-            </IonButton>
-          )}
+          <IonButton
+            fill="clear"
+            onClick={handleProfileClick}
+            className="profile-button"
+          >
+            <IonIcon icon={personCircleOutline} />
+          </IonButton>
         </IonButtons>
       </IonToolbar>
       
@@ -95,6 +97,7 @@ const MacOSHeader: React.FC = () => {
         event={popoverEvent}
         onDismiss={() => setShowProfilePopover(false)}
         onLogout={handleLogout}
+        onLogin={handleLogin}
       />
     </IonHeader>
   );

@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Music page sections**: Removed "Recently Played" and "Your Playlists" from main view - now only shows search bar and custom playlists
 - **Playlist Creation Modal**: Now takes full window width on macOS (100% width/height) for better usability
 - **Track Picker Modal**: Now takes full window width on macOS (100% width/height) for enhanced browsing
+- **Profile icon**: Always visible in toolbar (not conditional on authentication state)
+- **Profile popover**: Shows "Connect with Spotify" button when user is not authenticated
 - "My Library" tab reorganized into categorized sections instead of single track list
 - Search results now filtered to exclude tracks with null/undefined IDs for better reliability
 
