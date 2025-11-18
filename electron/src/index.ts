@@ -5,6 +5,7 @@ import type { MenuItemConstructorOptions } from 'electron';
 import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme, dialog, shell } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
+import { Worker } from 'worker_threads';
 // electron-store will be dynamically imported to handle ESM compatibility
 import * as keytar from 'keytar';
 import * as fs from 'fs';
@@ -36,6 +37,227 @@ async function getAutoUpdater() {
   const { autoUpdater } = await import('electron-updater');
   return autoUpdater;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Photos Worker Manager
+// ═══════════════════════════════════════════════════════════════════════════
+// Manages a worker thread for blocking Photos FFI calls to prevent main thread freezes
+
+interface WorkerRequest {
+  id: string;
+  type: 'requestPermission' | 'checkPermission';
+}
+
+interface WorkerResponse {
+  id: string;
+  success: boolean;
+  hasPermission?: boolean;
+  error?: string;
+}
+
+class PhotosWorkerManager {
+  private worker: Worker | null = null;
+  private pendingRequests: Map<string, { resolve: (value: boolean) => void; reject: (error: Error) => void }> = new Map();
+  private requestIdCounter = 0;
+
+  /**
+   * Get the path to the compiled worker file
+   * Handles both development and production scenarios
+   */
+  private getWorkerPath(): string {
+    if (electronIsDev) {
+      // Development: worker is in electron/build/src/workers/
+      const devPath = path.join(__dirname, 'workers', 'photosPermissionWorker.js');
+      console.log('[Photos Worker Manager] Dev worker path:', devPath);
+      return devPath;
+    } else {
+      // Production: worker should be in app.asar or extraResources
+      // Try app.asar first, then extraResources
+      const asarPath = path.join(__dirname, 'workers', 'photosPermissionWorker.js');
+      const resourcesPath = path.join(process.resourcesPath, 'workers', 'photosPermissionWorker.js');
+      
+      console.log('[Photos Worker Manager] Checking production paths:');
+      console.log('[Photos Worker Manager]   asar:', asarPath);
+      console.log('[Photos Worker Manager]   resources:', resourcesPath);
+      
+      // Check if file exists (asar path is usually the right one for bundled code)
+      if (fs.existsSync(asarPath)) {
+        console.log('[Photos Worker Manager] ✓ Found worker in asar');
+        return asarPath;
+      } else if (fs.existsSync(resourcesPath)) {
+        console.log('[Photos Worker Manager] ✓ Found worker in resources');
+        return resourcesPath;
+      } else {
+        console.error('[Photos Worker Manager] ✗ Worker not found in either location');
+        return asarPath; // Try asar path anyway
+      }
+    }
+  }
+
+  /**
+   * Initialize the worker thread (lazy initialization)
+   */
+  private ensureWorker(): void {
+    if (this.worker) {
+      return; // Worker already exists
+    }
+
+    try {
+      console.log('[Photos Worker Manager] ═══════════════════════════════════════');
+      console.log('[Photos Worker Manager] Initializing worker thread...');
+      console.log('[Photos Worker Manager] Environment:', electronIsDev ? 'DEVELOPMENT' : 'PRODUCTION');
+      
+      const workerPath = this.getWorkerPath();
+      console.log('[Photos Worker Manager] Worker path:', workerPath);
+      
+      this.worker = new Worker(workerPath);
+      console.log('[Photos Worker Manager] ✓ Worker thread created');
+
+      // Handle messages from worker
+      this.worker.on('message', (response: WorkerResponse) => {
+        console.log('[Photos Worker Manager] Received response from worker:', {
+          id: response.id,
+          success: response.success,
+          hasPermission: response.hasPermission,
+          hasError: !!response.error
+        });
+
+        const pending = this.pendingRequests.get(response.id);
+        if (!pending) {
+          console.warn('[Photos Worker Manager] ⚠️  Received response for unknown request ID:', response.id);
+          return;
+        }
+
+        // Remove from pending map
+        this.pendingRequests.delete(response.id);
+
+        // Resolve or reject the promise
+        if (response.success) {
+          console.log('[Photos Worker Manager] ✓ Resolving request', response.id, 'with:', response.hasPermission);
+          pending.resolve(response.hasPermission ?? false);
+        } else {
+          console.error('[Photos Worker Manager] ✗ Rejecting request', response.id, 'with error:', response.error);
+          pending.reject(new Error(response.error || 'Worker request failed'));
+        }
+      });
+
+      // Handle worker errors
+      this.worker.on('error', (error) => {
+        console.error('[Photos Worker Manager] ✗✗✗ Worker error:', error);
+        console.error('[Photos Worker Manager] Error message:', error.message);
+        console.error('[Photos Worker Manager] Stack:', error.stack);
+        
+        // Reject all pending requests
+        this.pendingRequests.forEach((pending, id) => {
+          console.error('[Photos Worker Manager] Rejecting pending request', id, 'due to worker error');
+          pending.reject(new Error(`Worker error: ${error.message}`));
+        });
+        this.pendingRequests.clear();
+        
+        // Clean up worker
+        this.worker = null;
+      });
+
+      // Handle worker exit
+      this.worker.on('exit', (code) => {
+        console.log('[Photos Worker Manager] Worker exited with code:', code);
+        
+        if (code !== 0) {
+          console.error('[Photos Worker Manager] ✗ Worker exited with non-zero code');
+          
+          // Reject all pending requests
+          this.pendingRequests.forEach((pending, id) => {
+            console.error('[Photos Worker Manager] Rejecting pending request', id, 'due to worker exit');
+            pending.reject(new Error(`Worker exited with code ${code}`));
+          });
+          this.pendingRequests.clear();
+        }
+        
+        // Clean up worker reference
+        this.worker = null;
+      });
+
+      console.log('[Photos Worker Manager] ✓ Worker initialized successfully');
+      console.log('[Photos Worker Manager] ═══════════════════════════════════════');
+    } catch (error) {
+      console.error('[Photos Worker Manager] ✗✗✗ Failed to initialize worker:', error);
+      console.error('[Photos Worker Manager] Error:', error instanceof Error ? error.message : 'Unknown error');
+      if (error instanceof Error && error.stack) {
+        console.error('[Photos Worker Manager] Stack:', error.stack);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Send a request to the worker and return a promise that resolves with the result
+   */
+  private async sendRequest(type: 'requestPermission' | 'checkPermission'): Promise<boolean> {
+    this.ensureWorker();
+
+    if (!this.worker) {
+      throw new Error('Failed to initialize worker');
+    }
+
+    const id = `req_${++this.requestIdCounter}_${Date.now()}`;
+    console.log('[Photos Worker Manager] Sending request to worker:', { id, type });
+
+    const promise = new Promise<boolean>((resolve, reject) => {
+      this.pendingRequests.set(id, { resolve, reject });
+
+      const request: WorkerRequest = { id, type };
+      this.worker!.postMessage(request);
+      
+      console.log('[Photos Worker Manager] Request sent, waiting for response...');
+    });
+
+    return promise;
+  }
+
+  /**
+   * Request Photos permission via worker thread
+   */
+  public async requestPermission(): Promise<boolean> {
+    console.log('[Photos Worker Manager] requestPermission() called');
+    return this.sendRequest('requestPermission');
+  }
+
+  /**
+   * Check Photos permission via worker thread
+   */
+  public async checkPermission(): Promise<boolean> {
+    console.log('[Photos Worker Manager] checkPermission() called');
+    return this.sendRequest('checkPermission');
+  }
+
+  /**
+   * Cleanup worker and reject all pending requests
+   */
+  public dispose(): void {
+    console.log('[Photos Worker Manager] Disposing worker...');
+    
+    if (this.worker) {
+      this.worker.terminate();
+      this.worker = null;
+    }
+
+    // Reject all pending requests
+    this.pendingRequests.forEach((pending, id) => {
+      pending.reject(new Error('Worker manager disposed'));
+    });
+    this.pendingRequests.clear();
+    
+    console.log('[Photos Worker Manager] ✓ Worker disposed');
+  }
+}
+
+// Create singleton instance
+const photosWorkerManager = new PhotosWorkerManager();
+
+// Cleanup worker on app quit
+app.on('will-quit', () => {
+  photosWorkerManager.dispose();
+});
 
 // Register custom protocol for OAuth callbacks
 // This must be done before app.whenReady() to ensure proper registration
@@ -394,16 +616,18 @@ ipcMain.handle('system:get-theme', async () => {
 /**
  * Request permission to access the Photos library
  * Returns: { success: boolean, hasPermission?: boolean, error?: string }
+ * 
+ * NOTE: This handler uses a worker thread to avoid blocking the main process.
+ * The Swift bridge uses DispatchSemaphore which blocks the calling thread,
+ * so we run it in a worker to keep the main process responsive.
  */
 ipcMain.handle('photos:requestPermission', async () => {
   console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║         [MAIN-PROCESS] photos:requestPermission IPC            ║');
+  console.log('║         [MAIN-PROCESS-IPC] photos:requestPermission           ║');
   console.log('╚════════════════════════════════════════════════════════════════╝');
   console.log('[MAIN-PROCESS-IPC] Handler invoked');
   console.log('[MAIN-PROCESS-IPC] Timestamp:', new Date().toISOString());
   console.log('[MAIN-PROCESS-IPC] Process platform:', process.platform);
-  console.log('[MAIN-PROCESS-IPC] Process version:', process.version);
-  console.log('[MAIN-PROCESS-IPC] Electron version:', process.versions.electron);
   
   if (process.platform !== 'darwin') {
     console.error('[MAIN-PROCESS-IPC] ✗ Not running on macOS');
@@ -412,28 +636,16 @@ ipcMain.handle('photos:requestPermission', async () => {
   }
 
   try {
-    console.log('[MAIN-PROCESS-IPC] Step 1: Checking FFI initialization status...');
-    console.log('[MAIN-PROCESS-IPC] FFI isReady():', photosLibraryFFI.isReady());
+    console.log('[MAIN-PROCESS-IPC] Forwarding request to worker thread...');
+    console.log('[MAIN-PROCESS-IPC] Worker will handle blocking Swift FFI call');
     
-    if (!photosLibraryFFI.isReady()) {
-      console.error('[MAIN-PROCESS-IPC] ✗ Photos library FFI not initialized');
-      console.error('[MAIN-PROCESS-IPC] This means the Swift dylib failed to load');
-      console.log('╚════════════════════════════════════════════════════════════════╝');
-      return { success: false, error: 'Photos library FFI not initialized' };
-    }
+    const startTime = Date.now();
+    const hasPermission = await photosWorkerManager.requestPermission();
+    const duration = Date.now() - startTime;
     
-    console.log('[MAIN-PROCESS-IPC] ✓ FFI is ready');
-    console.log('[MAIN-PROCESS-IPC] Step 2: Calling photosLibraryFFI.requestPermission()...');
-    console.log('[MAIN-PROCESS-IPC] This will invoke Swift via koffi FFI bridge');
-    
-    const ffiStartTime = Date.now();
-    const hasPermission = await photosLibraryFFI.requestPermission();
-    const ffiDuration = Date.now() - ffiStartTime;
-    
-    console.log('[MAIN-PROCESS-IPC] ━━━ FFI call completed ━━━');
-    console.log('[MAIN-PROCESS-IPC] Duration:', ffiDuration, 'ms');
+    console.log('[MAIN-PROCESS-IPC] ━━━ Worker request completed ━━━');
+    console.log('[MAIN-PROCESS-IPC] Duration:', duration, 'ms');
     console.log('[MAIN-PROCESS-IPC] Result (hasPermission):', hasPermission);
-    console.log('[MAIN-PROCESS-IPC] Result type:', typeof hasPermission);
     console.log('[MAIN-PROCESS-IPC] Returning success response to renderer');
     console.log('╚════════════════════════════════════════════════════════════════╝');
     
@@ -441,12 +653,14 @@ ipcMain.handle('photos:requestPermission', async () => {
   } catch (error) {
     console.error('[MAIN-PROCESS-IPC] ⚠️  Exception caught in IPC handler');
     console.error('[MAIN-PROCESS-IPC] Error:', error);
-    console.error('[MAIN-PROCESS-IPC] Error message:', error.message);
-    console.error('[MAIN-PROCESS-IPC] Error stack:', error.stack);
+    console.error('[MAIN-PROCESS-IPC] Error message:', error instanceof Error ? error.message : 'Unknown error');
+    if (error instanceof Error && error.stack) {
+      console.error('[MAIN-PROCESS-IPC] Error stack:', error.stack);
+    }
     console.log('╚════════════════════════════════════════════════════════════════╝');
     return {
       success: false,
-      error: error.message || 'Failed to request Photos library permission'
+      error: error instanceof Error ? error.message : 'Failed to request Photos library permission'
     };
   }
 });
@@ -454,29 +668,29 @@ ipcMain.handle('photos:requestPermission', async () => {
 /**
  * Check current Photos library permission status
  * Returns: { success: boolean, hasPermission?: boolean, error?: string }
+ * 
+ * NOTE: This handler uses a worker thread to avoid blocking the main process.
+ * Even though checkPermission is typically fast, we route it through the worker
+ * for consistency and to ensure the main thread never blocks on FFI calls.
  */
 ipcMain.handle('photos:checkPermission', async () => {
-  console.log('[IPC Main] photos:checkPermission called');
+  console.log('[MAIN-PROCESS-IPC] photos:checkPermission called');
+  
   if (process.platform !== 'darwin') {
-    console.log('[IPC Main] Not on macOS, returning error');
+    console.log('[MAIN-PROCESS-IPC] Not on macOS, returning error');
     return { success: false, error: 'Photos library only available on macOS' };
   }
 
   try {
-    if (!photosLibraryFFI.isReady()) {
-      console.error('[IPC Main] PhotosLibraryFFI not ready');
-      return { success: false, error: 'Photos library FFI not initialized' };
-    }
-    
-    console.log('[IPC Main] Calling PhotosLibraryFFI.checkPermission()...');
-    const hasPermission = photosLibraryFFI.checkPermission();
-    console.log('[IPC Main] PhotosLibraryFFI.checkPermission result:', hasPermission);
+    console.log('[MAIN-PROCESS-IPC] Forwarding request to worker thread...');
+    const hasPermission = await photosWorkerManager.checkPermission();
+    console.log('[MAIN-PROCESS-IPC] Worker result:', hasPermission);
     return { success: true, hasPermission };
   } catch (error) {
-    console.error('[IPC Main] Error in photos:checkPermission:', error);
+    console.error('[MAIN-PROCESS-IPC] Error in photos:checkPermission:', error);
     return {
       success: false,
-      error: error.message || 'Failed to check Photos library permission'
+      error: error instanceof Error ? error.message : 'Failed to check Photos library permission'
     };
   }
 });
