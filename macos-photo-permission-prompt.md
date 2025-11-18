@@ -1,126 +1,71 @@
 ### 🧠 Context
 
-We’re working on the macOS Electron app for **Slideshow Buddy**. We have a Swift dynamic library `libPhotosLibraryBridge.dylib` that’s used via koffi FFI to access the Photos library.
+We’re working on the macOS Electron app for **Slideshow Buddy**.
 
-In **dev**, the FFI bridge can load the Swift dylib successfully.
+I am building an **unsigned local macOS app** using electron-builder (e.g. `npm run build:mac:unsigned`), and then opening:
 
-In the **packaged macOS app** (`Slideshow Buddy.app` under `electron/dist/mac-arm64/`), the app immediately crashes on startup with:
+`electron/dist/mac-arm64/Slideshow Buddy.app`
 
-> PhotosLibraryError: Failed to load Swift Photos library: Failed to load shared library: dlopen(.../Slideshow Buddy.app/Contents/Resources/app.asar/assets/libPhotosLibraryBridge.dylib, 0x0006): tried: '.../app.asar/assets/libPhotosLibraryBridge.dylib' (errno=20)
+On startup, the app now crashes with:
 
-This tells us:
+> Error: ENOENT: no such file or directory, open '/Users/.../Slideshow Buddy.app/Contents/Resources/app-update.yml'
 
-* The FFI loader is trying to load the dylib from a path inside `app.asar` (e.g. `app.asar/assets/...`).
-* `app.asar` is a file, not a directory, so `dlopen` fails with `errno=20` ("Not a directory").
-* Native binaries like `.dylib` must **not** be loaded from inside the asar — they need to live in `Contents/Resources` (outside the asar) and be loaded using `process.resourcesPath`.
+This is coming from the Electron auto-update / `electron-updater` logic that expects an `app-update.yml` file in the `Contents/Resources` folder, which is normally created when publishing builds.
 
-The goal of this task is **only** to fix how the Swift dylib is packaged and located at runtime in the macOS build so the app can start and the Photos bridge can load. We are *not* changing the Photos permissions logic in this task.
+For now, I **do not want any auto-update logic for local builds**. I just need the app to launch so I can test Photos permission and other features. Auto-update can be re-enabled later for real signed, published builds.
 
 ---
 
-### 🎯 Task – Fix dylib packaging and loading (no big refactors)
-
-Please do the following, focusing only on what’s necessary to make `libPhotosLibraryBridge.dylib` load correctly in the packaged macOS app:
-
----
-
-#### (1) Inspect how `libPhotosLibraryBridge.dylib` is currently loaded
-
-* Open `electron/src/native/PhotosLibraryFFI.ts` (or the equivalent file where the koffi interface is initialized).
-* Find where it computes the path(s) to `libPhotosLibraryBridge.dylib`.
-* Identify:
-
-  * What path it uses in **dev**.
-  * What path it uses in **production** (packaged app).
-* Right now, the error shows it’s using something that resolves to:
-
-  * `.../Contents/Resources/app.asar/assets/libPhotosLibraryBridge.dylib`
-    which is incorrect for a packaged app.
-
----
-
-#### (2) Adjust runtime path resolution for the dylib
-
-We want the code to:
-
-* In **dev**:
-
-  * Continue to load from the existing path where `build-swift.sh` drops the dylib (probably under `electron/assets`).
-* In **packaged macOS**:
-
-  * Load from **`process.resourcesPath`**, e.g.:
-
-    * `path.join(process.resourcesPath, 'assets', 'libPhotosLibraryBridge.dylib')`
+### 🎯 Task
 
 Please:
 
-* Implement robust logic in `PhotosLibraryFFI` that:
+1. **Find where auto-updates are initialized** in the Electron main process.
 
-  * Detects whether it’s running in a packaged build vs dev.
-  * Constructs a list of candidate paths to the dylib.
-  * Checks them (e.g. with `fs.existsSync`), logs which one is used, and throws a meaningful error if none are found.
-* Keep the code style consistent with the existing file.
-* You can use small reference snippets, but please integrate with the existing patterns instead of rewriting the whole module.
+   * This is likely where `autoUpdater` from `electron-updater` is imported and used.
+   * It may be in `electron/src/index.ts` or another main-process file.
 
----
+2. **Guard all auto-update initialization / usage** so that it does *not* run in my current local unsigned builds.
 
-#### (3) Ensure electron-builder actually copies the dylib into the right place
+   Specifically:
 
-Open the Electron Builder config (`electron/electron-builder.config.*` – JSON or JS) and:
+   * For now, it’s fine to completely skip auto-update logic when:
 
-* Confirm that `libPhotosLibraryBridge.dylib` is being copied into `Contents/Resources/assets` in the packaged app.
+     * the app is not published / no update URL is configured, or
+     * we’re in a dev-like scenario, or
+     * we’re running the unsigned local mac build from `dist/mac*`.
+   * A simple, explicit condition like
+     `if (!app.isPackaged) { /* skip autoUpdater entirely */ }`
+     is okay, but feel free to add a slightly more robust guard if appropriate.
+   * The important part: whatever is trying to read or require `app-update.yml` on startup should **not run at all** in my current workflow.
 
-* If it isn’t:
+3. Make sure:
 
-  * Add an **`extraResources`** entry (or similar) so that when we build for macOS, the dylib is included under `Resources/assets/`.
+   * The app can start **without** `app-update.yml` being present.
+   * No `ENOENT` is thrown if `app-update.yml` does not exist.
+   * Auto-update logic remains intact for future real production builds, but is cleanly bypassed for now.
 
-  * The intent is: after building, we should have something like:
+4. Do **not**:
 
-    * `Slideshow Buddy.app/Contents/Resources/assets/libPhotosLibraryBridge.dylib`
-
-* Ensure this configuration works for the `mac` / `mac-arm64` build target we’re using (e.g. `npm run build:mac:unsigned` or similar).
-
-* Do **not** put the `.dylib` in `app.asar`. It must be in `Contents/Resources` (outside asar) where `process.resourcesPath` points.
-
----
-
-#### (4) Do not over-refactor
-
-Please **do not**:
-
-* Change the overall architecture of the FFI bridge.
-* Introduce worker threads, native addons, or other significant new abstractions.
-* Rename the dylib file or change its build output location without also updating the Swift build script and all references.
-* Touch the Photos permission logic, IPC handlers, or React UI beyond what’s absolutely required to fix dylib loading.
-
-This task is strictly about:
-
-* Correctly packaging the Swift dylib into the macOS app.
-* Correctly resolving and loading its path at runtime in both dev and packaged modes.
+   * Add dummy `app-update.yml` files manually in `dist`.
+   * Put hard-coded file operations against `app-update.yml` that assume it exists.
+   * Remove `electron-updater` entirely; just guard it.
 
 ---
 
-#### (5) Add minimal logging
+### ✅ Expected result
 
-Add a few targeted logs (not too noisy) to the FFI loader to help diagnose future path issues:
+After your changes:
 
-* Log all candidate paths being tried.
-* Log which path successfully loads (or that none could be loaded).
-* Make sure the error message we saw originally gets replaced by something that clearly says:
+* When I build and run the macOS app from `electron/dist/mac-arm64/Slideshow Buddy.app`, it should:
 
-  * Which paths were tried.
-  * That the dylib could not be found or opened.
+  * Launch without crashing.
+  * Not try to read `app-update.yml`.
+  * Not attempt to check for or download updates.
+* Auto-updates should be effectively **disabled** for my current unsigned local builds, but the code should be easy to re-enable for real production builds later.
 
----
+Please list:
 
-### 📋 Expected output
-
-After you make these changes, please summarize:
-
-1. Which files you modified.
-2. Where the dylib is expected to live in:
-
-   * Dev mode
-   * Packaged macOS app
-3. The logic now used to locate and load `libPhotosLibraryBridge.dylib` at runtime.
-4. Any additional steps I need to run (e.g. `npm run build:swift`, `npm run build:mac:unsigned`) to test this in the packaged app.
+* The files you modified.
+* The conditions you use to skip autoUpdater.
+* Any environment variables or flags I might need to set (if you add any).

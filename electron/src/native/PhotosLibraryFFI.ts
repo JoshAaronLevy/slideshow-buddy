@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Photos Library FFI Bridge
  * Provides TypeScript interface to Swift Photos library through koffi FFI
@@ -118,7 +120,7 @@ class PhotosLibraryFFI {
       // Define FFI function signatures
       // Note: Modern koffi auto-converts char* returns to JavaScript strings
       
-      console.log('[FFI-Init] Binding Swift functions via koffi...');\
+      console.log('[FFI-Init] Binding Swift functions via koffi...');
       this.ffiInterface = {
         // Permission functions
         photos_request_permission: this.lib.func('photos_request_permission', 'string', []),
