@@ -9,7 +9,7 @@
  * worker thread, the main Electron event loop stays responsive.
  */
 
-import { parentPort } from 'worker_threads';
+import { parentPort, workerData } from 'worker_threads';
 import { PhotosLibraryFFI } from '../native/PhotosLibraryFFI';
 
 // Message types for communication with main thread
@@ -33,6 +33,10 @@ console.log('[Photos Worker] Worker thread starting...');
 console.log('[Photos Worker] Process platform:', process.platform);
 console.log('[Photos Worker] Thread ID:', require('worker_threads').threadId);
 console.log('[Photos Worker] Timestamp:', new Date().toISOString());
+console.log('[Photos Worker] Worker data:', workerData);
+console.log('[Photos Worker] NODE_ENV:', process.env.NODE_ENV);
+console.log('[Photos Worker] SLIDESHOW_BUDDY_DEV:', process.env.SLIDESHOW_BUDDY_DEV);
+console.log('[Photos Worker] process.resourcesPath:', process.resourcesPath);
 
 try {
   console.log('[Photos Worker] Initializing PhotosLibraryFFI...');

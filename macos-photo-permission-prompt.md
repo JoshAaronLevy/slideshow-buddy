@@ -1,191 +1,148 @@
-### 🧠 Context
+## SUMMARY
 
-We’re working on the macOS Electron app for **Slideshow Buddy**.
+### Changes Made
 
-We recently moved the blocking Swift Photos permission call into a **Node.js Worker Thread**. The flow is:
+I successfully removed the `electron-is-dev` dependency from the Photos FFI and worker thread system, replacing it with a worker-safe environment detection mechanism.
 
-* Renderer → `window.electron.photos.requestPermission()`
-* IPC to main: `'photos:requestPermission'`
-* Main → `Photos Worker Manager` → worker thread
-* Worker imports and uses `PhotosLibraryFFI` to call the Swift `.dylib`
+#### 1. **Files Modified:**
 
-When I click the Photos permission test button in the **packaged app**, the logs from the main process show:
+**PhotosLibraryFFI.ts** - Core FFI module
+- ✅ Removed `import electronIsDev from 'electron-is-dev'`
+- ✅ Removed `import { app } from 'electron'` (not worker-safe)
+- ✅ Added new `isDevEnvironment()` function that uses:
+  - `process.env.NODE_ENV === 'development'` (standard Node convention)
+  - `process.env.SLIDESHOW_BUDDY_DEV === 'true'` (project-specific flag)
+  - `process.resourcesPath` heuristic (checks if undefined or points to electron binary for dev mode)
+- ✅ Updated library path resolution to work in both dev and prod using only Node.js APIs
+- ✅ Fixed dev mode path from `../../build/native/` to `../native/` (correct relative path from compiled location)
+- ✅ Added detailed logging of environment variables (NODE_ENV, SLIDESHOW_BUDDY_DEV)
 
-```text
-[Photos Worker Manager] Sending request to worker: { id: 'req_1_...', type: 'requestPermission' }
-[Photos Worker Manager] Request sent, waiting for response...
-[Photos Worker Manager] ✗✗✗ Worker error: TypeError [Error]: Not running in an Electron environment!
-    at Object.<anonymous> (.../node_modules/electron-is-dev/index.js:5:8)
-    ...
-    at Object.<anonymous> (.../build/src/native/PhotosLibraryFFI.js:21:51)
-...
-[Photos Worker Manager] Rejecting pending request ... due to worker error
-[MAIN-PROCESS-IPC] ⚠️  Exception caught in IPC handler
-[MAIN-PROCESS-IPC] Error: Error: Worker error: Not running in an Electron environment!
+**photosPermissionWorker.ts** - Worker thread
+- ✅ Added `workerData` import from `worker_threads`
+- ✅ Added logging of worker environment (NODE_ENV, SLIDESHOW_BUDDY_DEV, process.resourcesPath)
+- ✅ Worker now receives environment context from main process
+
+**index.ts** - Main process & PhotosWorkerManager
+- ✅ Updated `PhotosWorkerManager` to pass environment info via `workerData` when creating Worker
+- ✅ Added `env` parameter to Worker constructor to set `NODE_ENV` and `SLIDESHOW_BUDDY_DEV`
+- ✅ Worker now receives: `{isDev, resourcesPath, nodeEnv}` as workerData
+- ✅ Error propagation already correct - IPC handler returns `{success: false, error: '...'}` to renderer
+
+**package.json** - Dependencies
+- ✅ Added `@types/node` as devDependency (required for TypeScript compilation)
+
+**.npmignore** - New file created
+- ✅ Created `.npmignore` to override .gitignore for electron-builder packaging
+- ✅ Allows `build/` directory to be included in packaged app (was blocked by .gitignore)
+
+#### 2. **How isDev / Environment Detection Now Works:**
+
+The new `isDevEnvironment()` function in PhotosLibraryFFI.ts uses a **three-tier detection strategy**:
+
+```typescript
+function isDevEnvironment(): boolean {
+  // 1. Check NODE_ENV (standard)
+  if (process.env.NODE_ENV === 'development') return true;
+  
+  // 2. Check project flag
+  if (process.env.SLIDESHOW_BUDDY_DEV === 'true') return true;
+  
+  // 3. Fallback: check if process.resourcesPath looks like dev
+  if (!process.resourcesPath || 
+      process.resourcesPath.includes('/node_modules/electron/')) {
+    return true;
+  }
+  
+  return false;
+}
 ```
 
-So the worker never reaches the Swift Photos permission call. It crashes as soon as it tries to load `PhotosLibraryFFI`, because that file depends on `electron-is-dev`, which throws when not running in a “real” Electron context.
+**Advantages:**
+- ✅ **Worker-safe:** No Electron-specific imports (`app`, `electron-is-dev`)
+- ✅ **Explicit control:** Main process sets `NODE_ENV` and `SLIDESHOW_BUDDY_DEV` when spawning worker
+- ✅ **Reliable:** Uses standard Node.js conventions
+- ✅ **Fallback:** Has heuristic using `process.resourcesPath` if env vars aren't set
 
-### Goal
+#### 3. **How Worker Initialization Works Now:**
 
-Make the Photos FFI and worker thread **not depend on `electron-is-dev` at all**, and use a worker-safe, environment-safe way to determine:
+**Main Process (`PhotosWorkerManager`):**
+```typescript
+const workerData = {
+  isDev: electronIsDev,
+  resourcesPath: process.resourcesPath,
+  nodeEnv: process.env.NODE_ENV || (electronIsDev ? 'development' : 'production')
+};
 
-* dev vs packaged (for library path resolution)
-* without assuming `process.type` or other Electron-only globals
+const workerEnv = {
+  ...process.env,
+  NODE_ENV: workerData.nodeEnv,
+  SLIDESHOW_BUDDY_DEV: electronIsDev ? 'true' : 'false'
+};
 
-Also, make sure that when the worker fails, the renderer actually sees an error instead of “nothing happens”.
-
----
-
-### 🎯 Task
-
-Please do the following, with minimal structural changes:
-
----
-
-#### (1) Find all usages of `electron-is-dev`
-
-Search the project (especially the Electron side) for:
-
-* `electron-is-dev`
-* `isDev` constants derived from it
-
-Most important: the usage inside the Photos-related code:
-
-* `electron/src/native/PhotosLibraryFFI.ts` (or the compiled JS version `build/src/native/PhotosLibraryFFI.js`)
-* Any worker files that import that module
-
----
-
-#### (2) Remove `electron-is-dev` from Photos FFI and the worker path
-
-The worker thread is just a **Node.js worker**, not an Electron main process, so `electron-is-dev` is not appropriate there.
-
-Please:
-
-* Remove any `import isDev from 'electron-is-dev'` (or similar) from `PhotosLibraryFFI` and from any worker files.
-
-* Instead, implement a **simple, worker-safe dev/prod detection**, for example:
-
-  > **Use this as a reference pattern only; adapt it to the project’s existing style and logic.**
-
-  ```ts
-  const isDev =
-    process.env.NODE_ENV === 'development' ||
-    process.env.SLIDESHOW_BUDDY_ENV === 'development';
-  ```
-
-* We can then:
-
-  * Set `NODE_ENV` or `SLIDESHOW_BUDDY_ENV` appropriately from the main process or build scripts.
-  * Or, if you prefer, base dev vs prod on something like `process.env.ELECTRON_RUN_AS_NODE` / `app.isPackaged` (but anything Electron-specific must not run inside the worker).
-
-The key rule:
-
-> **PhotosLibraryFFI must not import or rely on `electron-is-dev`, especially when used inside a Worker.**
-
----
-
-#### (3) Adjust PhotosLibraryFFI path resolution to work in both dev and prod without Electron-specific checks
-
-In `PhotosLibraryFFI` (TS source):
-
-* Update the logic that resolves the path to `libPhotosLibraryBridge.dylib` so that it does **not** rely on `electron-is-dev`.
-* Use a combination of:
-
-  * `process.resourcesPath` (for the packaged app)
-  * a reasonable dev path (e.g. relative to the project root / `__dirname` / `path.resolve`), guarded by `isDev`.
-
-Make sure this logic is **pure Node**:
-
-* No imports from `electron` (`app`, `BrowserWindow`, etc.) inside `PhotosLibraryFFI`.
-* No reads of `process.type` that assume Electron main/renderer.
-
-If you need Electron-specific information (e.g. `app.isPackaged`), that should be handled in the main process and passed into the worker via:
-
-* `workerData`
-* or an environment variable
-
-But ideally, `PhotosLibraryFFI` should be able to decide based on `process.env.NODE_ENV` and `process.resourcesPath`.
-
----
-
-#### (4) Make the worker initialization use the updated PhotosLibraryFFI
-
-In the Photos permission worker (e.g. `electron/src/workers/photosPermissionWorker.ts`):
-
-* Ensure you import `PhotosLibraryFFI` without pulling in any Electron-only modules.
-* If necessary, pass a simple env flag into the worker via `workerData` or process.env so that `PhotosLibraryFFI` can correctly detect dev vs prod without `electron-is-dev`.
-
-Confirm that:
-
-* The worker can require/import `PhotosLibraryFFI` successfully in the packaged app.
-* No “Not running in an Electron environment!” errors are thrown.
-
----
-
-#### (5) Make sure the renderer sees errors
-
-In the IPC handler for `'photos:requestPermission'`:
-
-* You already log the error and stack in the main process (good).
-* Ensure the handler **returns a structured error back to the renderer**, not just throws and leaves the renderer hanging.
-
-For example (conceptually):
-
-* If the worker fails, the IPC handler should resolve to something like:
-
-  ```ts
-  { success: false, error: 'Worker error: ...' }
-  ```
-
-* Then, in the renderer, where `window.electron.photos.requestPermission()` is called, make sure you:
-
-  * Handle the error case
-  * Log it or show a toast / message
-
-You don’t have to add UI right now, but at least ensure the Promise rejects or returns a meaningful result so the renderer isn’t “doing nothing”.
-
----
-
-#### (6) Don’t change the Swift bridge or PhotoKit logic here
-
-For this task:
-
-* **Do not** modify the Swift code (`PhotosPermissionManager.swift`, `PhotosLibraryBridge.swift`, etc.).
-* **Do not** change how the Swift permission API works.
-* We’re only fixing:
-
-  * The worker’s ability to load `PhotosLibraryFFI` without `electron-is-dev`, and
-  * Error propagation back to the renderer.
-
----
-
-### ✅ Expected outcome
-
-After your changes, when I:
-
-```bash
-cd electron
-npm run build:swift
-npm run build:ts
-npm run build:mac:unsigned
-cd dist/mac-arm64/Slideshow\ Buddy.app/Contents/MacOS
-./"Slideshow Buddy"
+this.worker = new Worker(workerPath, {
+  workerData,
+  env: workerEnv
+});
 ```
 
-and click the Photos permission test button:
+**Worker Thread:**
+- Receives `workerData` and `env` variables
+- When it imports `PhotosLibraryFFI`, the module reads `process.env.NODE_ENV` and `process.env.SLIDESHOW_BUDDY_DEV`
+- `isDevEnvironment()` correctly determines dev vs prod
+- Library path resolution works correctly for both modes
 
-* The worker thread should start successfully and load `PhotosLibraryFFI` without throwing `Not running in an Electron environment!`.
-* The main process logs should show:
+#### 4. **Error Propagation to Renderer:**
 
-  * Worker request sent
-  * Worker response received (either permission granted/denied or some other error)
-* The renderer should receive a response (or rejected Promise), not silently do nothing.
+Already working correctly! The flow is:
 
-Please summarize:
+1. **Worker fails** → throws error in worker thread
+2. **PhotosWorkerManager** catches via `worker.on('error', ...)` → rejects pending request Promise
+3. **IPC Handler** catches rejected Promise → returns `{success: false, error: error.message}`
+4. **Renderer** receives structured error response via `window.electron.photos.requestPermission()`
 
-1. All files where you removed `electron-is-dev` usage.
-2. How `isDev` / dev vs prod is now detected in `PhotosLibraryFFI`.
-3. How the worker is now initialized so it can safely use `PhotosLibraryFFI` in the packaged app.
-4. How errors from the worker are propagated back to the renderer.
+### Testing Status
+
+✅ **TypeScript compilation:** Successful  
+✅ **Swift library build:** Successful  
+✅ **Dev mode detection:** Working (confirmed in logs with `NODE_ENV=development`)  
+✅ **Worker-safe imports:** Confirmed (no `electron-is-dev` errors in worker)  
+✅ **Environment logging:** Working (shows NODE_ENV, SLIDESHOW_BUDDY_DEV, resourcesPath)
+
+⚠️ **Production build:** Incomplete due to pre-existing electron-builder configuration issue  
+- The `build/` directory is ignored by .gitignore, causing electron-builder to not package it
+- Created `.npmignore` as a fix, but this needs further testing
+- **Recommendation:** Test the packaged app build separately to verify the `.npmignore` fix works
+
+### Files Where `electron-is-dev` Was Removed
+
+1. ✅ PhotosLibraryFFI.ts - Removed completely
+2. ℹ️ index.ts - **Still uses it** (main process only, not in worker code)
+3. ℹ️ setup.ts - **Still uses it** (not Photos-related)
+
+**Note:** Main process files (index.ts, setup.ts) still use `electron-is-dev` because they run in the Electron main process where it's valid. Only the **Photos FFI and worker** needed to be changed.
+
+### Next Steps
+
+1. **Test in packaged app:** Run the unsigned build and verify the Photos permission button works
+   ```bash
+   cd electron
+   npm run build:mac:unsigned
+   cd dist/mac-arm64/Slideshow\ Buddy.app/Contents/MacOS
+   ./"Slideshow Buddy"
+   ```
+
+2. **Verify in logs:** Should see:
+   - `[Photos Worker Manager] Worker env.NODE_ENV: production`
+   - `[Photos Worker] NODE_ENV: production`
+   - `[Photos Worker] SLIDESHOW_BUDDY_DEV: false`
+   - `[FFI-Init] Environment: PRODUCTION`
+   - Worker successfully loads `PhotosLibraryFFI` without errors
+   - Permission dialog appears when clicking the test button
+
+3. **If build still fails:** Debug the electron-builder file inclusion issue separately (not related to this electron-is-dev fix)
+
+### Risk & Rollback
+
+**Risk:** Path resolution might differ between dev and production environments  
+**Mitigation:** Using `process.resourcesPath` which is reliable in packaged apps, and tested relative paths for dev  
+**Rollback:** Revert commits on this branch to restore `electron-is-dev` usage (though this would bring back the original worker thread error)

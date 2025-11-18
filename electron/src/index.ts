@@ -110,7 +110,28 @@ class PhotosWorkerManager {
       const workerPath = this.getWorkerPath();
       console.log('[Photos Worker Manager] Worker path:', workerPath);
       
-      this.worker = new Worker(workerPath);
+      // Pass environment info to worker via workerData
+      // This allows PhotosLibraryFFI to determine dev vs prod without electron-is-dev
+      const workerData = {
+        isDev: electronIsDev,
+        resourcesPath: process.resourcesPath,
+        nodeEnv: process.env.NODE_ENV || (electronIsDev ? 'development' : 'production')
+      };
+      
+      // Set NODE_ENV for the worker thread environment
+      const workerEnv = {
+        ...process.env,
+        NODE_ENV: workerData.nodeEnv,
+        SLIDESHOW_BUDDY_DEV: electronIsDev ? 'true' : 'false'
+      };
+      
+      console.log('[Photos Worker Manager] Worker data:', workerData);
+      console.log('[Photos Worker Manager] Worker env.NODE_ENV:', workerEnv.NODE_ENV);
+      
+      this.worker = new Worker(workerPath, {
+        workerData,
+        env: workerEnv
+      });
       console.log('[Photos Worker Manager] ✓ Worker thread created');
 
       // Handle messages from worker

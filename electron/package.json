@@ -37,6 +37,7 @@
     "koffi": "^2.8.0"
   },
   "devDependencies": {
+    "@types/node": "^24.10.1",
     "electron": "^26.2.2",
     "electron-builder": "~23.6.0",
     "electron-rebuild": "^3.2.9",

@@ -14,8 +14,6 @@
 import * as koffi from 'koffi';
 import * as path from 'path';
 import * as fs from 'fs';
-import { app } from 'electron';
-import electronIsDev from 'electron-is-dev';
 import {
   SwiftPhotosLibraryFFI,
   PhotoAlbum,
@@ -25,6 +23,32 @@ import {
   PhotosResponse,
   PhotosLibraryError
 } from './types';
+
+/**
+ * Worker-safe environment detection
+ * Uses process.env and process.resourcesPath instead of electron-is-dev
+ * to work correctly inside Node.js Worker threads.
+ */
+function isDevEnvironment(): boolean {
+  // Check NODE_ENV first (standard Node convention)
+  if (process.env.NODE_ENV === 'development') {
+    return true;
+  }
+  
+  // Check if SLIDESHOW_BUDDY_DEV is explicitly set
+  if (process.env.SLIDESHOW_BUDDY_DEV === 'true') {
+    return true;
+  }
+  
+  // In packaged apps, process.resourcesPath is always defined and points to .app/Contents/Resources
+  // In dev mode, it's usually undefined or points to electron binary location
+  // This is a reliable fallback for worker threads
+  if (!process.resourcesPath || process.resourcesPath.includes('/node_modules/electron/')) {
+    return true;
+  }
+  
+  return false;
+}
 
 class PhotosLibraryFFI {
   private lib: koffi.IKoffiLib | null = null;
@@ -40,21 +64,25 @@ class PhotosLibraryFFI {
    */
   private initializeLibrary(): void {
     try {
+      const isDev = isDevEnvironment();
+      
       console.log('[FFI-Init] ═════════════════════════════════════════════');
       console.log('[FFI-Init] Initializing Swift Photos Library FFI');
-      console.log('[FFI-Init] Environment:', electronIsDev ? 'DEVELOPMENT' : 'PRODUCTION');
+      console.log('[FFI-Init] Environment:', isDev ? 'DEVELOPMENT' : 'PRODUCTION');
       console.log('[FFI-Init] Platform:', process.platform);
       console.log('[FFI-Init] __dirname:', __dirname);
-      console.log('[FFI-Init] app.getAppPath():', app.getAppPath());
       console.log('[FFI-Init] process.resourcesPath:', process.resourcesPath);
+      console.log('[FFI-Init] NODE_ENV:', process.env.NODE_ENV);
+      console.log('[FFI-Init] SLIDESHOW_BUDDY_DEV:', process.env.SLIDESHOW_BUDDY_DEV);
       
       // Build list of candidate paths to try
       const possiblePaths: string[] = [];
       
-      if (electronIsDev) {
+      if (isDev) {
         // Development mode: dylib is built to electron/build/native/ or electron/assets/
+        // __dirname in compiled JS is electron/build/src/native, so go up to build/ then into native/
         possiblePaths.push(
-          path.join(__dirname, '../../build/native/libPhotosLibraryBridge.dylib'),
+          path.join(__dirname, '../native/libPhotosLibraryBridge.dylib'),
           path.join(__dirname, '../../assets/libPhotosLibraryBridge.dylib')
         );
       } else {
@@ -97,11 +125,12 @@ class PhotosLibraryFFI {
       }
 
       if (!libraryPath) {
+        const isDev = isDevEnvironment();
         const errorMsg = [
           'Swift Photos library not found. Tried the following paths:',
           ...possiblePaths.map((p, i) => `  ${i + 1}. ${p}`),
           '',
-          electronIsDev 
+          isDev 
             ? 'In DEV mode: Run "npm run build:swift" to build the dylib first.'
             : 'In PRODUCTION mode: Ensure electron-builder is configured to copy the dylib to Resources/assets/.'
         ].join('\n');
