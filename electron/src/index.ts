@@ -5,7 +5,6 @@ import type { MenuItemConstructorOptions } from 'electron';
 import { app, MenuItem, ipcMain, powerSaveBlocker, nativeTheme, dialog, shell } from 'electron';
 import electronIsDev from 'electron-is-dev';
 import unhandled from 'electron-unhandled';
-import { autoUpdater } from 'electron-updater';
 // electron-store will be dynamically imported to handle ESM compatibility
 import * as keytar from 'keytar';
 import * as fs from 'fs';
@@ -17,6 +16,27 @@ import { createMenu, updateMenuState } from './menu';
 
 // Graceful handling of unhandled errors.
 unhandled();
+
+/**
+ * Get autoUpdater instance only when explicitly enabled via environment variable.
+ * This prevents electron-updater from being imported in local unsigned builds,
+ * which would cause it to attempt reading app-update.yml and crash with ENOENT.
+ * 
+ * @returns autoUpdater instance if enabled, null otherwise
+ */
+function getAutoUpdater() {
+  // For now, completely disable auto-updates in local builds.
+  // We only want this code path to be used in real production builds later.
+  if (process.env.ENABLE_AUTO_UPDATE !== 'true') {
+    return null;
+  }
+
+  // Only require electron-updater when we explicitly enable it.
+  // This prevents it from trying to read app-update.yml in local unsigned builds.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { autoUpdater } = require('electron-updater');
+  return autoUpdater;
+}
 
 // Register custom protocol for OAuth callbacks
 // This must be done before app.whenReady() to ensure proper registration
@@ -58,13 +78,15 @@ if (electronIsDev) {
   // Initialize our app, build windows, and load content.
   await myCapacitorApp.init();
   
-  // Check for updates only in packaged production builds
-  // Skip auto-update in development or unsigned local builds to avoid ENOENT errors
-  if (app.isPackaged && !electronIsDev) {
-    console.log('[Auto-Update] Checking for updates...');
+  // Check for updates only when explicitly enabled via ENABLE_AUTO_UPDATE environment variable
+  // This prevents electron-updater from being imported in local unsigned builds
+  const autoUpdater = getAutoUpdater();
+  if (autoUpdater) {
+    console.log('[Auto-Update] Auto-updater enabled, checking for updates...');
     autoUpdater.checkForUpdatesAndNotify();
   } else {
-    console.log('[Auto-Update] Skipped (running in development or unsigned build)');
+    console.log('[Auto-Update] Auto-updater disabled (ENABLE_AUTO_UPDATE not set to "true")');
+    console.log('[Auto-Update] electron-updater will not be loaded, preventing app-update.yml read errors');
   }
 })();
 
