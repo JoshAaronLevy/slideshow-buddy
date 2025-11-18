@@ -42,7 +42,7 @@ const createBlobUrl = (base64Data: string): string => {
  */
 export const revokeBlobUrl = (blobUrl: string): void => {
   if (blobUrl && blobUrl.startsWith('blob:')) {
-    console.log('[PhotoService] Revoking blob URL');
+    // console.log('[PhotoService] Revoking blob URL');
     URL.revokeObjectURL(blobUrl);
   }
 };

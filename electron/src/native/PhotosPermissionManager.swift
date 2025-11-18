@@ -34,47 +34,77 @@ import Photos
             let currentStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
             
             // Enhanced diagnostic logging
-            NSLog("[PhotosPermissionManager] requestPermission() called")
-            NSLog("[PhotosPermissionManager] Current authorization status: %@", authorizationStatusToString(currentStatus))
-            NSLog("[PhotosPermissionManager] Thread: %@", Thread.current.description)
-            NSLog("[PhotosPermissionManager] Main thread: %@", Thread.isMainThread ? "YES" : "NO")
+            NSLog("========================================")
+            NSLog("[PermissionManager] requestPermission() called")
+            NSLog("[PermissionManager] Timestamp: %@", Date().description)
+            NSLog("[PermissionManager] Current status: %@", authorizationStatusToString(currentStatus))
+            NSLog("[PermissionManager] Thread: %@", Thread.current.description)
+            NSLog("[PermissionManager] Main thread: %@", Thread.isMainThread ? "YES" : "NO")
             
             switch currentStatus {
             case .authorized:
                 // Already authorized
-                NSLog("[PhotosPermissionManager] Already authorized, returning true")
+                NSLog("[PermissionManager] ✓ Already authorized")
+                NSLog("[PermissionManager] Full access to Photos library available")
+                NSLog("========================================")
                 continuation.resume(returning: true)
                 
             case .limited:
                 // Limited access is considered authorized for our purposes
-                NSLog("[PhotosPermissionManager] Limited access granted, returning true")
+                NSLog("[PermissionManager] ✓ Limited access granted")
+                NSLog("[PermissionManager] Selected photos available")
+                NSLog("========================================")
                 continuation.resume(returning: true)
                 
             case .denied, .restricted:
                 // Previously denied or restricted - cannot request again
-                NSLog("[PhotosPermissionManager] Permission denied/restricted, cannot request again")
+                NSLog("[PermissionManager] ✗ Permission %@", currentStatus == .denied ? "DENIED" : "RESTRICTED")
+                NSLog("[PermissionManager] Cannot request permission again")
+                NSLog("[PermissionManager] User must enable in System Settings")
+                NSLog("========================================")
                 continuation.resume(returning: false)
                 
             case .notDetermined:
                 // Need to request permission - dispatch to main queue for UI
-                NSLog("[PhotosPermissionManager] Status is notDetermined, requesting permission...")
-                NSLog("[PhotosPermissionManager] About to call PHPhotoLibrary.requestAuthorization(for: .readWrite)")
+                NSLog("[PermissionManager] Status: NOT DETERMINED")
+                NSLog("[PermissionManager] This is the first time requesting permission")
+                NSLog("[PermissionManager] Will show system permission dialog...")
                 
                 // Ensure we're on main queue for UI operations
                 DispatchQueue.main.async {
-                    NSLog("[PhotosPermissionManager] Now on main queue, calling PHPhotoLibrary.requestAuthorization")
+                    NSLog("[PermissionManager] Dispatched to main queue")
+                    NSLog("[PermissionManager] Calling PHPhotoLibrary.requestAuthorization(for: .readWrite)...")
+                    NSLog("[PermissionManager] ⏳ Waiting for user response...")
+                    
                     PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
-                        NSLog("[PhotosPermissionManager] Permission request returned with status: %@", self.authorizationStatusToString(status))
-                        NSLog("[PhotosPermissionManager] Completion handler thread: %@", Thread.current.description)
+                        NSLog("[PermissionManager] 📥 User responded!")
+                        NSLog("[PermissionManager] New status: %@", self.authorizationStatusToString(status))
+                        NSLog("[PermissionManager] Completion thread: %@", Thread.current.description)
+                        
                         let granted = (status == .authorized || status == .limited)
-                        NSLog("[PhotosPermissionManager] Final result: %@", granted ? "GRANTED" : "DENIED")
+                        
+                        if granted {
+                            NSLog("[PermissionManager] ✓✓✓ PERMISSION GRANTED ✓✓✓")
+                            if status == .authorized {
+                                NSLog("[PermissionManager] Access level: FULL")
+                            } else {
+                                NSLog("[PermissionManager] Access level: LIMITED")
+                            }
+                        } else {
+                            NSLog("[PermissionManager] ✗✗✗ PERMISSION DENIED ✗✗✗")
+                            NSLog("[PermissionManager] User declined access")
+                        }
+                        
+                        NSLog("========================================")
                         continuation.resume(returning: granted)
                     }
                 }
                 
             @unknown default:
                 // Unknown status - assume denied for safety
-                NSLog("[PhotosPermissionManager] Unknown status, returning false")
+                NSLog("[PermissionManager] ⚠️  Unknown authorization status")
+                NSLog("[PermissionManager] Returning false for safety")
+                NSLog("========================================")
                 continuation.resume(returning: false)
             }
         }

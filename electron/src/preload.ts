@@ -17,7 +17,7 @@ interface FileSelectionResult {
 require('./rt/electron-rt');
 //////////////////////////////
 // User Defined Preload scripts below
-console.log('User Preload!');
+// console.log('User Preload!');
 
 // Photos API Response Types
 interface PhotosPermissionResult {
@@ -185,7 +185,7 @@ const createMenuEventListener = (eventName: string) => {
     };
     
     ipcRenderer.on(eventName, () => {
-      console.log(`Menu event received: ${eventName}`);
+      // console.log(`Menu event received: ${eventName}`);
       callback();
     });
     
@@ -241,9 +241,9 @@ contextBridge.exposeInMainWorld('electron', {
   spotify: {
     onOAuthCallback: (callback: (url: string) => void): (() => void) => {
       const wrappedCallback = (_event: Electron.IpcRendererEvent, url: string) => {
-        console.log('[Preload] OAuth callback received in preload:', url);
-        console.log('[Preload] URL length:', url.length);
-        console.log('[Preload] URL starts with expected prefix:', url.startsWith('com.slideshowbuddy://callback'));
+        // console.log('[Preload] OAuth callback received in preload:', url);
+        // console.log('[Preload] URL length:', url.length);
+        // console.log('[Preload] URL starts with expected prefix:', url.startsWith('com.slideshowbuddy://callback'));
         callback(url);
       };
       
@@ -252,7 +252,7 @@ contextBridge.exposeInMainWorld('electron', {
       };
       
       ipcRenderer.on('spotify:oauth-callback', wrappedCallback);
-      console.log('[Preload] Spotify OAuth callback listener registered');
+      // console.log('[Preload] Spotify OAuth callback listener registered');
       
       return removeListener;
     }
@@ -273,7 +273,7 @@ contextBridge.exposeInMainWorld('electron', {
       };
       
       ipcRenderer.on('theme-changed', (event, theme: string) => {
-        console.log('Theme changed in preload:', theme);
+        // console.log('Theme changed in preload:', theme);
         callback(theme);
       });
       

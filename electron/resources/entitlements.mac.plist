@@ -6,27 +6,28 @@
     <key>com.apple.security.app-sandbox</key>
     <true/>
     
-    <!-- Required for Photos Library access -->
+    <!-- Required for Photos Library access (macOS 10.15+) -->
+    <!-- This is the CRITICAL entitlement for Photos library access -->
     <key>com.apple.security.assets.photos.read-only</key>
     <true/>
     
-    <!-- Required for network access (if needed for image loading) -->
+    <!-- Required for network access (Spotify, image CDN, etc.) -->
     <key>com.apple.security.network.client</key>
     <true/>
     
-    <!-- Required for reading user-selected files -->
+    <!-- Required for reading user-selected files via file dialogs -->
     <key>com.apple.security.files.user-selected.read-only</key>
     <true/>
     
-    <!-- Allow JIT for JavaScript engines -->
+    <!-- Allow JIT for JavaScript engines (required for Electron/Chromium) -->
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
     
-    <!-- Allow unsigned executable memory for native modules -->
+    <!-- Allow unsigned executable memory (required for native modules like koffi) -->
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
     <true/>
     
-    <!-- Disable library validation for native modules -->
+    <!-- Disable library validation (required for loading Swift dylib) -->
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
 </dict>

@@ -113,6 +113,11 @@ myCapacitorApp.init = async function(...args) {
       mainWindow.setWindowButtonVisibility(true);
       // Set initial theme
       updateTheme();
+      
+      // Check and request Photos library permission on startup
+      setTimeout(() => {
+        checkAndRequestPhotosPermission();
+      }, 1000); // Delay to ensure window is fully ready
     }
   }
   
@@ -123,7 +128,7 @@ myCapacitorApp.init = async function(...args) {
       mainWindow.webContents.send('spotify:oauth-callback', pendingOAuthCallback);
       mainWindow.show();
       mainWindow.focus();
-      console.log('Pending OAuth callback sent to renderer:', pendingOAuthCallback);
+      // console.log('Pending OAuth callback sent to renderer:', pendingOAuthCallback);
     }
     pendingOAuthCallback = null;
   }
@@ -139,37 +144,114 @@ let powerSaveBlockerId: number | null = null;
 let pendingOAuthCallback: string | null = null;
 
 /**
+ * Check and request Photos library permission on app startup (macOS only)
+ * This function is called after the app window is fully initialized
+ */
+async function checkAndRequestPhotosPermission(): Promise<void> {
+  console.log('='.repeat(80));
+  console.log('[Photos Permission] Starting permission check on app startup');
+  console.log('[Photos Permission] Platform:', process.platform);
+  console.log('[Photos Permission] Timestamp:', new Date().toISOString());
+  
+  try {
+    // Verify FFI is ready
+    if (!photosLibraryFFI.isReady()) {
+      console.error('[Photos Permission] ❌ PhotosLibraryFFI is not initialized');
+      console.error('[Photos Permission] Cannot proceed with permission check');
+      console.log('='.repeat(80));
+      return;
+    }
+    
+    console.log('[Photos Permission] ✓ PhotosLibraryFFI is initialized and ready');
+    
+    // Step 1: Check current permission status
+    console.log('[Photos Permission] Step 1: Checking current permission status...');
+    let hasPermission = false;
+    
+    try {
+      hasPermission = photosLibraryFFI.checkPermission();
+      console.log('[Photos Permission] Current permission status:', hasPermission ? '✓ GRANTED' : '✗ NOT GRANTED');
+    } catch (error) {
+      console.error('[Photos Permission] ❌ Error checking permission:', error);
+      console.log('='.repeat(80));
+      return;
+    }
+    
+    // Step 2: If permission already granted, we're done
+    if (hasPermission) {
+      console.log('[Photos Permission] ✓ Permission already granted');
+      console.log('[Photos Permission] ✓ App has access to Photos library');
+      console.log('[Photos Permission] No action needed');
+      console.log('='.repeat(80));
+      return;
+    }
+    
+    // Step 3: Permission not granted, request it
+    console.log('[Photos Permission] Step 2: Permission not granted, requesting permission...');
+    console.log('[Photos Permission] System alert will be shown to user');
+    console.log('[Photos Permission] Waiting for user response...');
+    
+    try {
+      const permissionGranted = await photosLibraryFFI.requestPermission();
+      
+      console.log('[Photos Permission] User responded to permission request');
+      console.log('[Photos Permission] Permission granted:', permissionGranted ? '✓ YES' : '✗ NO');
+      
+      if (permissionGranted) {
+        console.log('[Photos Permission] ✓✓✓ SUCCESS ✓✓✓');
+        console.log('[Photos Permission] App now has access to Photos library');
+        console.log('[Photos Permission] Photos can be accessed via PhotoKit APIs');
+      } else {
+        console.log('[Photos Permission] ⚠️  Permission denied by user');
+        console.log('[Photos Permission] App will fall back to file browser for photo selection');
+        console.log('[Photos Permission] User can grant permission later in System Settings > Privacy & Security > Photos');
+      }
+    } catch (error) {
+      console.error('[Photos Permission] ❌ Error requesting permission:', error);
+      console.error('[Photos Permission] Error details:', error.message);
+      console.error('[Photos Permission] Error stack:', error.stack);
+    }
+    
+  } catch (error) {
+    console.error('[Photos Permission] ❌ Unexpected error in permission flow:', error);
+  }
+  
+  console.log('[Photos Permission] Permission check completed');
+  console.log('='.repeat(80));
+}
+
+/**
  * Handle OAuth callback URLs from com.slideshowbuddy://callback
  * This is triggered when user completes OAuth flow in browser
  */
 app.on('open-url', (event, url) => {
   event.preventDefault();
-  console.log('[Electron Main] OAuth callback received:', url);
-  console.log('[Electron Main] URL details:', {
-    length: url.length,
-    startsWithExpected: url.startsWith('com.slideshowbuddy://callback'),
-    hasQueryParams: url.includes('?'),
-  });
+  // console.log('[Electron Main] OAuth callback received:', url);
+  // console.log('[Electron Main] URL details:', {
+  //   length: url.length,
+  //   startsWithExpected: url.startsWith('com.slideshowbuddy://callback'),
+  //   hasQueryParams: url.includes('?'),
+  // });
   
   // Check if this is a Spotify OAuth callback
   if (url.startsWith('com.slideshowbuddy://callback')) {
-    console.log('[Electron Main] Confirmed Spotify OAuth callback');
+    // console.log('[Electron Main] Confirmed Spotify OAuth callback');
     const mainWindow = myCapacitorApp.getMainWindow();
     
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
       // Send callback immediately if window is ready
-      console.log('[Electron Main] Sending callback to renderer via IPC');
+      // console.log('[Electron Main] Sending callback to renderer via IPC');
       mainWindow.webContents.send('spotify:oauth-callback', url);
       mainWindow.show();
       mainWindow.focus();
-      console.log('[Electron Main] OAuth callback sent to renderer:', url);
+      // console.log('[Electron Main] OAuth callback sent to renderer:', url);
     } else {
       // Store callback for when window becomes ready
       pendingOAuthCallback = url;
-      console.log('[Electron Main] OAuth callback queued - window not ready yet');
+      // console.log('[Electron Main] OAuth callback queued - window not ready yet');
     }
   } else {
-    console.log('[Electron Main] URL does not match expected callback pattern');
+    // console.log('[Electron Main] URL does not match expected callback pattern');
   }
 });
 

@@ -212,37 +212,46 @@ import AppKit
 
 @_cdecl("photos_request_permission")
 public func photos_request_permission() -> UnsafePointer<CChar> {
-    NSLog("[C-Bridge] photos_request_permission() called")
-    NSLog("[C-Bridge] Thread: %@", Thread.current.description)
-    NSLog("[C-Bridge] Main thread: %@", Thread.isMainThread ? "YES" : "NO")
-    
-    let bridge = PhotosLibraryBridge()
-    let semaphore = DispatchSemaphore(value: 0)
-    var permissionResult: Bool = false
+    NSLog("========================================")
+    NSLog("[Swift Bridge] photos_request_permission() called")
+    NSLog("[Swift Bridge] Timestamp: %@", Date().description)
+    NSLog("[Swift Bridge] Thread: %@", Thread.current.description)
+    NSLog("[Swift Bridge] Main thread: %@", Thread.isMainThread ? "YES" : "NO")
     
     // Check if we have the required Info.plist keys
     let bundle = Bundle.main
     let photoUsageDescription = bundle.object(forInfoDictionaryKey: "NSPhotoLibraryUsageDescription")
     let photoAddUsageDescription = bundle.object(forInfoDictionaryKey: "NSPhotoLibraryAddUsageDescription")
     
-    NSLog("[C-Bridge] NSPhotoLibraryUsageDescription: %@", String(describing: photoUsageDescription))
-    NSLog("[C-Bridge] NSPhotoLibraryAddUsageDescription: %@", String(describing: photoAddUsageDescription))
+    NSLog("[Swift Bridge] NSPhotoLibraryUsageDescription: %@", String(describing: photoUsageDescription))
+    NSLog("[Swift Bridge] NSPhotoLibraryAddUsageDescription: %@", String(describing: photoAddUsageDescription))
     
     if photoUsageDescription == nil {
-        NSLog("[C-Bridge] ⚠️  WARNING: NSPhotoLibraryUsageDescription is missing from Info.plist!")
+        NSLog("[Swift Bridge] ⚠️  WARNING: NSPhotoLibraryUsageDescription is missing from Info.plist!")
+        NSLog("[Swift Bridge] This is REQUIRED for the permission dialog to appear!")
+    } else {
+        NSLog("[Swift Bridge] ✓ Info.plist key is present")
     }
     
-    NSLog("[C-Bridge] Creating Task for async permission request...")
+    let bridge = PhotosLibraryBridge()
+    let semaphore = DispatchSemaphore(value: 0)
+    var permissionResult: Bool = false
+    
+    NSLog("[Swift Bridge] Creating async Task for permission request...")
     Task {
-        NSLog("[C-Bridge] Task started, calling requestPermission()...")
+        NSLog("[Swift Bridge] Task started on thread: %@", Thread.current.description)
+        NSLog("[Swift Bridge] Calling bridge.requestPermission()...")
         permissionResult = await bridge.requestPermission()
-        NSLog("[C-Bridge] requestPermission() returned: %@", permissionResult ? "true" : "false")
+        NSLog("[Swift Bridge] bridge.requestPermission() completed")
+        NSLog("[Swift Bridge] Result: %@", permissionResult ? "✓ GRANTED" : "✗ DENIED")
         semaphore.signal()
     }
     
-    NSLog("[C-Bridge] Waiting for semaphore...")
+    NSLog("[Swift Bridge] Waiting for async Task to complete...")
     semaphore.wait()
-    NSLog("[C-Bridge] Semaphore signaled, final result: %@", permissionResult ? "true" : "false")
+    NSLog("[Swift Bridge] Task completed, returning result to Electron")
+    NSLog("[Swift Bridge] Final permission status: %@", permissionResult ? "GRANTED" : "DENIED")
+    NSLog("========================================")
     
     let resultString = permissionResult ? "true" : "false"
     return UnsafePointer(strdup(resultString)!)
