@@ -11,7 +11,9 @@
 
 import * as koffi from 'koffi';
 import * as path from 'path';
+import * as fs from 'fs';
 import { app } from 'electron';
+import electronIsDev from 'electron-is-dev';
 import {
   SwiftPhotosLibraryFFI,
   PhotoAlbum,
@@ -36,41 +38,87 @@ class PhotosLibraryFFI {
    */
   private initializeLibrary(): void {
     try {
-      // Determine library path - check multiple locations
-      const possiblePaths = [
-        // Development build location
-        path.join(__dirname, '../../build/native/libPhotosLibraryBridge.dylib'),
-        // Packaged app location
-        path.join(app.getAppPath(), 'assets/libPhotosLibraryBridge.dylib'),
-        // Alternative packaged location
-        path.join(process.resourcesPath, 'libPhotosLibraryBridge.dylib')
-      ];
+      console.log('[FFI-Init] ═════════════════════════════════════════════');
+      console.log('[FFI-Init] Initializing Swift Photos Library FFI');
+      console.log('[FFI-Init] Environment:', electronIsDev ? 'DEVELOPMENT' : 'PRODUCTION');
+      console.log('[FFI-Init] Platform:', process.platform);
+      console.log('[FFI-Init] __dirname:', __dirname);
+      console.log('[FFI-Init] app.getAppPath():', app.getAppPath());
+      console.log('[FFI-Init] process.resourcesPath:', process.resourcesPath);
+      
+      // Build list of candidate paths to try
+      const possiblePaths: string[] = [];
+      
+      if (electronIsDev) {
+        // Development mode: dylib is built to electron/build/native/ or electron/assets/
+        possiblePaths.push(
+          path.join(__dirname, '../../build/native/libPhotosLibraryBridge.dylib'),
+          path.join(__dirname, '../../assets/libPhotosLibraryBridge.dylib')
+        );
+      } else {
+        // Production mode (packaged app):
+        // - process.resourcesPath = "Slideshow Buddy.app/Contents/Resources"
+        // - dylib should be at "Contents/Resources/assets/libPhotosLibraryBridge.dylib"
+        // IMPORTANT: Do NOT use app.getAppPath() because that points inside app.asar,
+        // and native binaries cannot be loaded from inside asar files.
+        possiblePaths.push(
+          path.join(process.resourcesPath, 'assets', 'libPhotosLibraryBridge.dylib'),
+          path.join(process.resourcesPath, 'libPhotosLibraryBridge.dylib')
+        );
+      }
+      
+      console.log('[FFI-Init] Candidate paths to try:');
+      possiblePaths.forEach((p, i) => {
+        console.log(`[FFI-Init]   ${i + 1}. ${p}`);
+      });
 
       let libraryPath: string | null = null;
       for (const testPath of possiblePaths) {
+        console.log(`[FFI-Init] Checking: ${testPath}`);
         try {
-          // Check if file exists
-          require('fs').accessSync(testPath);
-          libraryPath = testPath;
-          break;
-        } catch {
-          // Continue to next path
+          if (fs.existsSync(testPath)) {
+            const stats = fs.statSync(testPath);
+            if (stats.isFile()) {
+              console.log(`[FFI-Init] ✓ Found dylib at: ${testPath}`);
+              console.log(`[FFI-Init]   File size: ${stats.size} bytes`);
+              libraryPath = testPath;
+              break;
+            } else {
+              console.log(`[FFI-Init] ✗ Path exists but is not a file`);
+            }
+          } else {
+            console.log(`[FFI-Init] ✗ Path does not exist`);
+          }
+        } catch (error) {
+          console.log(`[FFI-Init] ✗ Error checking path:`, error.message);
         }
       }
 
       if (!libraryPath) {
-        throw new PhotosLibraryError(
-          'Swift Photos library not found. Make sure to run "npm run build:swift" first.',
-          'LIBRARY_NOT_FOUND'
-        );
+        const errorMsg = [
+          'Swift Photos library not found. Tried the following paths:',
+          ...possiblePaths.map((p, i) => `  ${i + 1}. ${p}`),
+          '',
+          electronIsDev 
+            ? 'In DEV mode: Run "npm run build:swift" to build the dylib first.'
+            : 'In PRODUCTION mode: Ensure electron-builder is configured to copy the dylib to Resources/assets/.'
+        ].join('\n');
+        
+        console.error('[FFI-Init] ✗✗✗ LIBRARY NOT FOUND ✗✗✗');
+        console.error(errorMsg);
+        
+        throw new PhotosLibraryError(errorMsg, 'LIBRARY_NOT_FOUND');
       }
 
+      console.log('[FFI-Init] Loading dylib via koffi.load()...');
       // Load the dynamic library
       this.lib = koffi.load(libraryPath);
+      console.log('[FFI-Init] ✓ koffi.load() successful');
 
       // Define FFI function signatures
       // Note: Modern koffi auto-converts char* returns to JavaScript strings
       
+      console.log('[FFI-Init] Binding Swift functions via koffi...');\
       this.ffiInterface = {
         // Permission functions
         photos_request_permission: this.lib.func('photos_request_permission', 'string', []),
@@ -85,10 +133,19 @@ class PhotosLibraryFFI {
       };
 
       this.isInitialized = true;
-      console.log('Photos Library FFI initialized successfully');
+      console.log('[FFI-Init] ✓ All functions bound successfully');
+      console.log('[FFI-Init] Photos Library FFI initialized successfully');
+      console.log('[FFI-Init] ═══════════════════════════════════════════════════════════════');
 
     } catch (error) {
-      console.error('Failed to initialize Photos Library FFI:', error);
+      console.error('[FFI-Init] ✗✗✗ INITIALIZATION FAILED ✗✗✗');
+      console.error('[FFI-Init] Error:', error);
+      console.error('[FFI-Init] Error message:', error.message);
+      if (error.stack) {
+        console.error('[FFI-Init] Stack trace:', error.stack);
+      }
+      console.error('[FFI-Init] ═══════════════════════════════════════════════════════════════');
+      
       throw new PhotosLibraryError(
         `Failed to load Swift Photos library: ${error.message}`,
         'INITIALIZATION_FAILED'

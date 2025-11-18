@@ -15,10 +15,7 @@
   "extraResources": [
     {
       "from": "assets/libPhotosLibraryBridge.dylib",
-      "to": "libPhotosLibraryBridge.dylib",
-      "filter": [
-        "**/*"
-      ]
+      "to": "assets/libPhotosLibraryBridge.dylib"
     }
   ],
   "publish": {
