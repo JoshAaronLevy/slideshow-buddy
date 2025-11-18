@@ -42,7 +42,7 @@
       }
     ],
     "category": "public.app-category.photography",
-    "icon": "assets/appIcon.icns",
+    "icon": "resources/appIcon.icns",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "resources/entitlements.mac.plist",
@@ -50,7 +50,6 @@
     "identity": null,
     "type": "distribution",
     "minimumSystemVersion": "11.0",
-    
     "_comment_code_signing": "CODE SIGNING CONFIGURATION - Requires Apple Developer Account ($99/year)",
     "_comment_when_ready": "Uncomment and configure the following when code signing credentials are available:",
     "_comment_identity": "identity: 'Developer ID Application: YOUR NAME (TEAM_ID)',",
