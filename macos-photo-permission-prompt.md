@@ -1,158 +1,126 @@
-## **Context (Important — read this first)**
+### 🧠 Context
 
-We are working on the macOS (Electron + React + Swift FFI) version of **Slideshow Buddy**.
-This version uses a Swift `.dylib` bridged via koffi to Electron so the app can access the user's macOS Photos library.
+We’re working on the macOS Electron app for **Slideshow Buddy**. We have a Swift dynamic library `libPhotosLibraryBridge.dylib` that’s used via koffi FFI to access the Photos library.
 
-### The goal:
+In **dev**, the FFI bridge can load the Swift dylib successfully.
 
-Get the **macOS Photos permission dialog** to reliably appear when the app explicitly requests permission.
+In the **packaged macOS app** (`Slideshow Buddy.app` under `electron/dist/mac-arm64/`), the app immediately crashes on startup with:
 
-### The issue:
+> PhotosLibraryError: Failed to load Swift Photos library: Failed to load shared library: dlopen(.../Slideshow Buddy.app/Contents/Resources/app.asar/assets/libPhotosLibraryBridge.dylib, 0x0006): tried: '.../app.asar/assets/libPhotosLibraryBridge.dylib' (errno=20)
 
-Even though the Swift bridge, FFI, Info.plist keys, and entitlements are defined in the project, **no permission dialog appears at runtime**. The iOS version works fine — the macOS version does not.
+This tells us:
 
-We believe one or more of the following are happening:
+* The FFI loader is trying to load the dylib from a path inside `app.asar` (e.g. `app.asar/assets/...`).
+* `app.asar` is a file, not a directory, so `dlopen` fails with `errno=20` ("Not a directory").
+* Native binaries like `.dylib` must **not** be loaded from inside the asar — they need to live in `Contents/Resources` (outside the asar) and be loaded using `process.resourcesPath`.
 
-* The Swift FFI function `photos_request_permission` may **not be getting called** from the renderer → IPC → main → FFI path.
-* The packaged `.app` may not be receiving the required Info.plist keys or entitlements at build time.
-* The call to `requestPermission()` may accidentally be running in dev mode instead of the packaged `.app`.
-* The Swift bridge may freeze or silently fail before making the actual `PHPhotoLibrary.requestAuthorization` call.
-* The permission request may need clearer logs at each stage so we can track where the call flow stops.
-
-### What this task is focused on:
-
-**Do NOT redesign the architecture or move to worker threads or async Swift redesigns.**
-This task’s ONLY focus is:
-
-1. Ensuring that the FFI permission request **is actually being triggered**
-2. Adding the minimal logging required to trace the flow
-3. Adding a simple, obvious **test button** in the UI that calls the requestPermission path explicitly
-4. Verifying Swift logging is visible in the Electron console or macOS Console
-5. Ensuring the packaged `.app` includes Info.plist and entitlements correctly
-6. Making sure that calling the request function does *not* freeze the app (i.e., it must only happen from an explicit user action)
-
-This will allow us to properly test the real packaged app — not the dev server — and finally observe what TCC is doing.
+The goal of this task is **only** to fix how the Swift dylib is packaged and located at runtime in the macOS build so the app can start and the Photos bridge can load. We are *not* changing the Photos permissions logic in this task.
 
 ---
 
-# **Task (What I want Copilot to do)**
+### 🎯 Task – Fix dylib packaging and loading (no big refactors)
 
-### Please perform the following steps **without making large structural changes**, and without guessing new architectural approaches:
-
----
-
-### **(1) Add a temporary “Test Photos Permission” button in the React UI**
-
-* Place it somewhere simple and guaranteed to render (a debug panel, modal, or temporary test screen — your choice).
-* The button should clearly trigger the existing `window.electron.photos.requestPermission()` call path.
-* It should log the result and any errors to the browser console.
-* No styling necessary — this is for debugging only.
+Please do the following, focusing only on what’s necessary to make `libPhotosLibraryBridge.dylib` load correctly in the packaged macOS app:
 
 ---
 
-### **(2) Add clear logging at every step of the request flow**
+#### (1) Inspect how `libPhotosLibraryBridge.dylib` is currently loaded
 
-Specifically ensure logs are added in:
+* Open `electron/src/native/PhotosLibraryFFI.ts` (or the equivalent file where the koffi interface is initialized).
+* Find where it computes the path(s) to `libPhotosLibraryBridge.dylib`.
+* Identify:
 
-1. **Renderer**
+  * What path it uses in **dev**.
+  * What path it uses in **production** (packaged app).
+* Right now, the error shows it’s using something that resolves to:
 
-   * Before calling `window.electron.photos.requestPermission()`
-   * After receiving the IPC response
-
-2. **Preload**
-
-   * When forwarding the IPC invoke call
-
-3. **Electron main process**
-
-   * When entering IPC handler
-   * Before calling the FFI bridge
-   * After receiving value from FFI
-
-4. **TypeScript FFI wrapper (PhotosLibraryFFI.ts)**
-
-   * When calling into the Swift function
-   * When returning the result
-
-5. **Swift bridge (PhotosLibraryBridge.swift / PhotosPermissionManager.swift)**
-
-   * At the very beginning of `photos_request_permission`
-   * Before calling `PHPhotoLibrary.requestAuthorization`
-   * Inside authorization callback with the status returned
-   * Before returning control back up the chain
-
-These can be `console.log` in TS or `NSLog` in Swift.
-**Do not alter the logic — only add logs.**
+  * `.../Contents/Resources/app.asar/assets/libPhotosLibraryBridge.dylib`
+    which is incorrect for a packaged app.
 
 ---
 
-### **(3) Verify and fix the Swift dylib export if necessary**
+#### (2) Adjust runtime path resolution for the dylib
 
-* Ensure the Swift function names exported via `@_cdecl` **match the signatures Copilot finds in the koffi bindings**.
-* If mismatched names or calling conventions exist, fix them.
-* Do NOT convert the code to async Swift or change the semaphore design — we only want visibility + correctness for now.
+We want the code to:
 
----
+* In **dev**:
 
-### **(4) Ensure the packaged macOS build receives the required Info.plist and entitlements**
+  * Continue to load from the existing path where `build-swift.sh` drops the dylib (probably under `electron/assets`).
+* In **packaged macOS**:
 
-Copilot should inspect:
+  * Load from **`process.resourcesPath`**, e.g.:
 
-* `electron-builder.config.json`
-* `entitlements.mac.plist`
-* The output of the build process scripts
+    * `path.join(process.resourcesPath, 'assets', 'libPhotosLibraryBridge.dylib')`
 
-If something is misconfigured (wrong filename path, not copied, wrong plist key name, incorrect bundle ID, etc.), Copilot should:
+Please:
 
-* Identify exactly what is wrong
-* Update the config so that the packaged `.app` includes:
+* Implement robust logic in `PhotosLibraryFFI` that:
 
-  * `NSPhotoLibraryUsageDescription`
-  * `com.apple.security.assets.photos.read-only`
-  * `com.apple.security.app-sandbox`
-
-This should **not** alter any signing configuration beyond what is necessary for debug builds.
+  * Detects whether it’s running in a packaged build vs dev.
+  * Constructs a list of candidate paths to the dylib.
+  * Checks them (e.g. with `fs.existsSync`), logs which one is used, and throws a meaningful error if none are found.
+* Keep the code style consistent with the existing file.
+* You can use small reference snippets, but please integrate with the existing patterns instead of rewriting the whole module.
 
 ---
 
-### **(5) Confirm that the test path can be triggered only from user action**
+#### (3) Ensure electron-builder actually copies the dylib into the right place
 
-* Ensure no automatic permission check runs on app startup.
-* The only path that calls `requestPermission()` must be the new test button.
-* This prevents freezes and ensures correctness.
+Open the Electron Builder config (`electron/electron-builder.config.*` – JSON or JS) and:
 
----
+* Confirm that `libPhotosLibraryBridge.dylib` is being copied into `Contents/Resources/assets` in the packaged app.
 
-### **(6) Report back**
+* If it isn’t:
 
-After making all changes, Copilot should:
+  * Add an **`extraResources`** entry (or similar) so that when we build for macOS, the dylib is included under `Resources/assets/`.
 
-* Summarize where the permission-request flow begins and ends
-* Confirm that logs appear in all the correct places
-* Confirm that the `.app` bundle will include the correct Info.plist/entitlement values
-* Identify any additional issues it notices
+  * The intent is: after building, we should have something like:
 
----
+    * `Slideshow Buddy.app/Contents/Resources/assets/libPhotosLibraryBridge.dylib`
 
-# **Important Requirements / Guardrails**
+* Ensure this configuration works for the `mac` / `mac-arm64` build target we’re using (e.g. `npm run build:mac:unsigned` or similar).
 
-* **Do NOT implement worker threads or major redesigns.**
-* **Do NOT modify Swift or TS code beyond adding logs or fixing symbol mismatches.**
-* **Do NOT remove or rewrite the Swift semaphore mechanism yet.**
-* **Do NOT restructure IPC flow or rename functions unless they’re mismatched.**
-* **Do NOT assume dev mode — test flow must be tied to packaged `.app`.**
-
-The goal is **pure visibility + correctness**, nothing more.
+* Do **not** put the `.dylib` in `app.asar`. It must be in `Contents/Resources` (outside asar) where `process.resourcesPath` points.
 
 ---
 
-# **Your output should be:**
+#### (4) Do not over-refactor
 
-* A list of the exact files you will modify
-* A description of the changes in each file
-* The minimal code additions (logs, buttons, config fixes) necessary to support testing
-* A confirmation that the packaged `.app` will now correctly request Photos permission once the test button is clicked
+Please **do not**:
+
+* Change the overall architecture of the FFI bridge.
+* Introduce worker threads, native addons, or other significant new abstractions.
+* Rename the dylib file or change its build output location without also updating the Swift build script and all references.
+* Touch the Photos permission logic, IPC handlers, or React UI beyond what’s absolutely required to fix dylib loading.
+
+This task is strictly about:
+
+* Correctly packaging the Swift dylib into the macOS app.
+* Correctly resolving and loading its path at runtime in both dev and packaged modes.
 
 ---
 
-If anything about the request is unclear, ask me before making changes.
+#### (5) Add minimal logging
+
+Add a few targeted logs (not too noisy) to the FFI loader to help diagnose future path issues:
+
+* Log all candidate paths being tried.
+* Log which path successfully loads (or that none could be loaded).
+* Make sure the error message we saw originally gets replaced by something that clearly says:
+
+  * Which paths were tried.
+  * That the dylib could not be found or opened.
+
+---
+
+### 📋 Expected output
+
+After you make these changes, please summarize:
+
+1. Which files you modified.
+2. Where the dylib is expected to live in:
+
+   * Dev mode
+   * Packaged macOS app
+3. The logic now used to locate and load `libPhotosLibraryBridge.dylib` at runtime.
+4. Any additional steps I need to run (e.g. `npm run build:swift`, `npm run build:mac:unsigned`) to test this in the packaged app.
