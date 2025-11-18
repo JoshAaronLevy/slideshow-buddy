@@ -1,161 +1,174 @@
 ### 🧠 Context
 
-I’m working on the macOS Electron app for **Slideshow Buddy**.
+We’re working on the macOS Electron app for **Slideshow Buddy**.
 
-I build the unsigned mac app with something like:
+We have a Swift `.dylib` (`libPhotosLibraryBridge.dylib`) that provides Photos library access via koffi FFI. The bridge exposes a C-callable function like `photos_request_permission` which internally:
 
-```bash
-cd electron
-npm run build:swift
-npm run build:ts
-npm run build:mac:unsigned
-```
+* Uses `PHPhotoLibrary.requestAuthorization` (async)
+* Wraps it in a `DispatchSemaphore`
+* Calls `semaphore.wait()` and doesn’t return until the async call completes
 
-and then open:
+On the TypeScript side, we have a `PhotosLibraryFFI` class in `electron/src/native/PhotosLibraryFFI.ts` that calls this function synchronously (from Node’s perspective) and wraps it in a Promise.
 
-`electron/dist/mac-arm64/Slideshow Buddy.app`
+The renderer UI (React) has a **Photos permission test button** that ultimately calls:
 
-On startup, the app crashes with:
+* `window.electron.photos.requestPermission()`
+* → IPC
+* → Electron main process
+* → `photosLibraryFFI.requestPermission()`
+* → Swift `photos_request_permission` (blocking)
 
-> **Error: ENOENT: no such file or directory, open '.../Contents/Resources/app-update.yml'**
+When I run the **packaged macOS app** and click the Photos permission test button:
 
-This is coming from **electron-updater** / `autoUpdater` trying to read `app-update.yml` from the app’s `Resources` folder. That file only exists for published builds, but I’m doing a local unsigned build for dev/testing.
+* The macOS cursor turns into the spinner
+* The app becomes unresponsive
+* I have to force quit
 
-Previously, we tried to “guard” the auto-update logic, but I’m still seeing the error. That strongly suggests that simply **importing** `autoUpdater` is enough to trigger the read of `app-update.yml` when the module is initialized.
+This is because the **Electron main process** is calling the blocking Swift function directly, and the semaphore is blocking the main Node event loop.
 
-For now, in my **local unsigned builds**, I want **electron-updater completely disabled** — including not importing it at all. I don’t care about updates during this phase; I just need the app to launch and run.
+### Goal
+
+**Do NOT change the Swift bridge right now.**
+Instead, move all **blocking Photos library calls** off the Electron main thread and into a **Node.js Worker Thread**, while keeping the renderer API unchanged:
+
+* Renderer still calls `window.electron.photos.requestPermission()`
+* IPC in main still uses something like `ipcMain.handle('photos:requestPermission', …)`
+* But inside main, instead of calling `photosLibraryFFI.requestPermission()` directly on the main thread, we should forward the request to a worker thread that loads `PhotosLibraryFFI` and runs the blocking call there.
+
+This way:
+
+* The worker thread can block on the Swift semaphore
+* The Electron main process stays responsive
+* The renderer still gets a Promise-based API
 
 ---
 
 ### 🎯 Task
 
-Please make the following changes, with as little disruption as possible to the rest of the app:
+Please implement a **worker-thread-based Photos permission service** and integrate it with the existing IPC + FFI flow, with minimal disruption to the rest of the code.
 
----
+#### (1) Create a dedicated worker for Photos FFI
 
-#### (1) Find all usages of electron-updater / autoUpdater
+Create a new file in the Electron side, something like:
 
-Search the Electron main process code (and any related modules) for:
+* `electron/src/workers/photosPermissionWorker.ts` (or similar)
 
-* `electron-updater`
-* `autoUpdater`
-* `app-update.yml` (if referenced directly)
+The worker should:
 
-Common files to check:
+* Use `worker_threads` (`parentPort`, `parentPort.on('message', …)`, etc.)
+* Import and initialize the existing `PhotosLibraryFFI` (or a minimal subset of it)
+* Handle at least these message types:
 
-* `electron/src/index.ts` (or `main.ts` / `main.js`)
-* Any helper modules that deal with updates
+  * `requestPermission`
+  * `checkPermission`
+* For each message:
 
----
+  * Call the corresponding `PhotosLibraryFFI` method (which will block due to the Swift semaphore)
+  * Send a response back to the parent with:
 
-#### (2) Remove all **top-level imports** of `autoUpdater`
+    * a correlation ID from the message
+    * `success` / `error`
+    * any payload (`hasPermission`, etc.)
 
-If you see something like:
+This worker is allowed to block on the Swift call, because it runs on its own thread.
 
-```ts
-import { autoUpdater } from 'electron-updater';
-```
+> You can treat this structure as a reference pattern; adapt it to the repo’s existing style and build setup.
 
-or similar at the **top of a file**, that must be changed.
+#### (2) Add a small “PhotosWorkerManager” in the Electron main process
 
-The problem is: in packaged builds, simply importing `autoUpdater` causes its singleton instance to be created, and its constructor attempts to read `app-update.yml`. That read explodes when the file is missing, even if we never call `checkForUpdates`.
+In the main process (likely `electron/src/index.ts`), add a small manager that:
 
-Replace any top-level imports with a **guarded, conditional dynamic require** pattern, for example:
+* Lazily creates the worker thread on first use:
 
-> **Note:** treat the code below as a reference pattern; please adapt it to the existing style and structure.
+  * Uses `new Worker(...)` from `worker_threads`
+  * Points at the compiled JS worker file path (be mindful of dev vs prod paths)
+* Maintains a map of **pending requests** keyed by correlation ID:
 
-```ts
-function getAutoUpdater() {
-  // For now, completely disable auto-updates in local builds.
-  // We only want this code path to be used in real production builds later.
-  if (process.env.ENABLE_AUTO_UPDATE !== 'true') {
-    return null;
-  }
+  * When sending a message to the worker, generate a unique ID
+  * Store a `resolve` / `reject` pair in a map keyed by that ID
+  * When the worker responds, look up the ID and resolve/reject the matching Promise
+* Exposes two async functions to the rest of the main process:
 
-  // Only require electron-updater when we explicitly enable it.
-  // This prevents it from trying to read app-update.yml in local unsigned builds.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { autoUpdater } = require('electron-updater');
-  return autoUpdater;
-}
-```
+  * `photosWorkerRequestPermission(): Promise<boolean>`
+  * `photosWorkerCheckPermission(): Promise<boolean>`
 
-Then:
+These functions:
 
-* Only call `getAutoUpdater()` in code paths where updates are actually needed (probably nowhere right now).
-* In my current workflow, I will *not* set `ENABLE_AUTO_UPDATE`, so `getAutoUpdater()` must return `null` and **never require** `electron-updater` at all.
+* Ensure the worker exists
+* Send a message (`{ id, type: 'requestPermission' }` or `'checkPermission'`)
+* Return a Promise that resolves when the response message arrives
 
-The important rule:
+#### (3) Wire IPC handlers to call the worker instead of direct FFI
 
-> **In local unsigned builds, the module `electron-updater` must never be imported or required.**
+Update the existing IPC handlers in `electron/src/index.ts` (or wherever they live):
 
----
+* For `'photos:checkPermission'` and `'photos:requestPermission'`:
 
-#### (3) Guard any existing update logic
+  * **Do not** call `photosLibraryFFI.checkPermission()` or `.requestPermission()` directly on the main thread anymore.
+  * Instead, call the new worker manager functions:
 
-If there are functions like:
+    * `const hasPermission = await photosWorkerCheckPermission()`
+    * `const hasPermission = await photosWorkerRequestPermission()`
 
-* `initAutoUpdater()`
-* `setupAutoUpdater()`
-* `autoUpdater.checkForUpdatesAndNotify()`
-* etc.
+* Return the same shape you were already using (e.g. `{ success: true, hasPermission }`) so the renderer code does **not** need to change.
 
-Please:
+#### (4) Keep the renderer API unchanged
 
-* Wrap them in conditions that first get the autoUpdater instance via `getAutoUpdater()` (or similar).
-* If `getAutoUpdater()` returns `null`, those functions should simply no-op and log something like “Auto-updater disabled in this build”.
+Do **not** change:
 
-Do **not** attempt any filesystem reads of `app-update.yml` manually. We want the absence of that file to be a non-issue.
+* `window.electron.photos.requestPermission`
+* `window.electron.photos.checkPermission`
+* The `PhotoService` in the React app that calls them
 
----
+The whole point is for the renderer to continue working as-is, but the heavy work moves off the main thread.
 
-#### (4) Do NOT try to hack around by adding app-update.yml
+#### (5) Logging and safety
+
+Add a bit of logging (not too noisy) in:
+
+* The worker (when it starts, when it receives messages, when it sends responses)
+* The main process manager (when it spawns the worker, when it sends/receives messages)
+
+Add basic error handling:
+
+* If the worker throws or exits:
+
+  * Log a clear error
+  * Reject any in-flight Promises with a meaningful message
+  * Optionally allow the manager to recreate the worker on the next request
+
+#### (6) Don’t over-refactor
 
 Please **do not**:
 
-* Add a dummy `app-update.yml` into `dist` manually.
-* Add `app-update.yml` to `extraResources` as a fake file.
-* Modify node_modules / electron-updater source.
+* Rewrite the Swift bridge
+* Change the `PhotosLibraryFFI` public API
+* Change the renderer UI or IPC contract
+* Introduce other architectural changes beyond the worker
 
-We’re solving this solely by **not importing electron-updater at all** unless we explicitly enable it via an environment variable.
+Focus only on:
 
----
-
-#### (5) Summarize changes
-
-After making the modifications, please summarize:
-
-1. All files you changed.
-2. How `electron-updater` is now conditionally required.
-3. What environment variable (`ENABLE_AUTO_UPDATE`) controls whether it’s used.
-4. The expected behavior:
-
-   * In my current unsigned mac build (with `ENABLE_AUTO_UPDATE` not set), no import or require for `electron-updater` should happen, and the app should **not** try to read `app-update.yml`.
+* Creating the worker
+* Adding a manager in main
+* Switching IPC handlers to go through that worker
 
 ---
 
-### ✅ Expected outcome
+### ✅ Expected Outcome
 
-Once your changes are in place, I will:
+After your changes:
 
-```bash
-cd electron
-npm run build:swift
-npm run build:ts
-npm run build:mac:unsigned
-```
+* The app should launch normally from the packaged `.app`.
+* Clicking the Photos permission test button in Settings should:
 
-Then open:
+  * **Not freeze** the app or show the macOS spinner forever.
+  * Trigger the worker-thread FFI call.
+  * Eventually resolve (either with `hasPermission = true/false` or an error).
+* The renderer should still use the same `window.electron.photos.requestPermission()` API.
 
-`electron/dist/mac-arm64/Slideshow Buddy.app`
+Please summarize for me:
 
-Expected behavior:
-
-* The app launches without crashing.
-* No `ENOENT` for `app-update.yml`.
-* No update checks are performed.
-* Everything else (including the Photos FFI and UI) works as before.
-
----
-
-If anything is unclear about how I want `electron-updater` disabled, ask me before making large changes.
+1. The new worker file you added and what it does.
+2. The changes in the Electron main process (which file, what functions).
+3. How dev vs prod paths to the worker are handled.
+4. Any scripts or build steps I need to run to ensure the worker is included in the final macOS app.

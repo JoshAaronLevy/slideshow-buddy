@@ -23,7 +23,7 @@
     "ionic:build": "ionic build",
     "ios:dev": "npm run build && npm run cap:sync:ios && npm run cap:open:ios",
     "ios:sync": "npm run build && npm run cap:sync:ios",
-    "electron:dev": "npm run build && npm run cap:sync:electron && npm run cap:open:electron",
+    "electron:dev": "npm run build && npm run cap:sync:electron && cd electron && npm run build:swift && cd .. && npm run cap:open:electron",
     "electron:sync": "npm run build && npm run cap:sync:electron",
     "electron:open": "npx cap open electron",
     "electron:build:mac": "npm run build && npx cap sync electron && cd electron && npm run electron:pack",

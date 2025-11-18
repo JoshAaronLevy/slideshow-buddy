@@ -21,20 +21,19 @@ unhandled();
  * Get autoUpdater instance only when explicitly enabled via environment variable.
  * This prevents electron-updater from being imported in local unsigned builds,
  * which would cause it to attempt reading app-update.yml and crash with ENOENT.
- * 
+ *
  * @returns autoUpdater instance if enabled, null otherwise
  */
-function getAutoUpdater() {
+async function getAutoUpdater() {
   // For now, completely disable auto-updates in local builds.
   // We only want this code path to be used in real production builds later.
   if (process.env.ENABLE_AUTO_UPDATE !== 'true') {
     return null;
   }
 
-  // Only require electron-updater when we explicitly enable it.
+  // Only import electron-updater when we explicitly enable it.
   // This prevents it from trying to read app-update.yml in local unsigned builds.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { autoUpdater } = require('electron-updater');
+  const { autoUpdater } = await import('electron-updater');
   return autoUpdater;
 }
 
@@ -80,7 +79,7 @@ if (electronIsDev) {
   
   // Check for updates only when explicitly enabled via ENABLE_AUTO_UPDATE environment variable
   // This prevents electron-updater from being imported in local unsigned builds
-  const autoUpdater = getAutoUpdater();
+  const autoUpdater = await getAutoUpdater();
   if (autoUpdater) {
     console.log('[Auto-Update] Auto-updater enabled, checking for updates...');
     autoUpdater.checkForUpdatesAndNotify();
