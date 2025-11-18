@@ -2,173 +2,182 @@
 
 We’re working on the macOS Electron app for **Slideshow Buddy**.
 
-We have a Swift `.dylib` (`libPhotosLibraryBridge.dylib`) that provides Photos library access via koffi FFI. The bridge exposes a C-callable function like `photos_request_permission` which internally:
+* The app has a **Photos permission test button** in the UI.
+* When I click it in the packaged macOS app, the OS prompts:
 
-* Uses `PHPhotoLibrary.requestAuthorization` (async)
-* Wraps it in a `DispatchSemaphore`
-* Calls `semaphore.wait()` and doesn’t return until the async call completes
+> “Slideshow Buddy would like to access files in your Desktop folder”
 
-On the TypeScript side, we have a `PhotosLibraryFFI` class in `electron/src/native/PhotosLibraryFFI.ts` that calls this function synchronously (from Node’s perspective) and wraps it in a Promise.
+This is **not** what we want.
 
-The renderer UI (React) has a **Photos permission test button** that ultimately calls:
+What we want:
 
-* `window.electron.photos.requestPermission()`
-* → IPC
-* → Electron main process
-* → `photosLibraryFFI.requestPermission()`
-* → Swift `photos_request_permission` (blocking)
+* The standard **Photos Library** permission dialog, like on iOS/macOS Photos apps:
 
-When I run the **packaged macOS app** and click the Photos permission test button:
+  * “Slideshow Buddy would like to access your photos”
+* This dialog is controlled by **PhotoKit’s `PHPhotoLibrary`** +
 
-* The macOS cursor turns into the spinner
-* The app becomes unresponsive
-* I have to force quit
+  * `NSPhotoLibraryUsageDescription` (Info.plist)
+  * `com.apple.security.assets.photos.read-only` entitlement (which we already have configured)
 
-This is because the **Electron main process** is calling the blocking Swift function directly, and the semaphore is blocking the main Node event loop.
+We **do not** want to access the Desktop folder, Documents, or generic filesystem paths as part of this permission request. We only want to request permission to the user’s **Apple Photos library** (the iCloud-synced library visible in the Photos app / `Photos Library.photoslibrary`), via PhotoKit.
 
-### Goal
+The current behavior (Desktop prompt) suggests that:
 
-**Do NOT change the Swift bridge right now.**
-Instead, move all **blocking Photos library calls** off the Electron main thread and into a **Node.js Worker Thread**, while keeping the renderer API unchanged:
+* Either the test button is calling a file-based import flow (NSOpenPanel, Electron `dialog.showOpenDialog`, or something that touches `~/Desktop`), **or**
+* The Swift Photos manager is trying to access the Photos Library via filesystem path (`~/Pictures/Photos Library.photoslibrary`) or other file operations before/while calling PhotoKit.
 
-* Renderer still calls `window.electron.photos.requestPermission()`
-* IPC in main still uses something like `ipcMain.handle('photos:requestPermission', …)`
-* But inside main, instead of calling `photosLibraryFFI.requestPermission()` directly on the main thread, we should forward the request to a worker thread that loads `PhotosLibraryFFI` and runs the blocking call there.
-
-This way:
-
-* The worker thread can block on the Swift semaphore
-* The Electron main process stays responsive
-* The renderer still gets a Promise-based API
+For this task, I want to strictly **separate “Photos permission via PhotoKit” from any “filesystem-based import” logic.**
 
 ---
 
 ### 🎯 Task
 
-Please implement a **worker-thread-based Photos permission service** and integrate it with the existing IPC + FFI flow, with minimal disruption to the rest of the code.
+Please inspect and adjust the Photos permission flow so that:
 
-#### (1) Create a dedicated worker for Photos FFI
+> Clicking the Photos permission test button only triggers a **PhotoKit-based permission request** via `PHPhotoLibrary`, and does **not** cause Desktop/file/folder access prompts.
 
-Create a new file in the Electron side, something like:
+#### (1) Inspect Swift Photos permission code
 
-* `electron/src/workers/photosPermissionWorker.ts` (or similar)
+Look at the Swift files related to Photos / permission, for example:
 
-The worker should:
+* `electron/src/native/PhotosPermissionManager.swift`
+* `electron/src/native/PhotosLibraryBridge.swift`
+* Any other Swift code involved in `requestPermission` / `checkPermission`
 
-* Use `worker_threads` (`parentPort`, `parentPort.on('message', …)`, etc.)
-* Import and initialize the existing `PhotosLibraryFFI` (or a minimal subset of it)
-* Handle at least these message types:
+I need you to:
 
-  * `requestPermission`
-  * `checkPermission`
-* For each message:
+1. Find the method that implements the “request Photos permission” logic that’s ultimately called by the FFI function (e.g. `photos_request_permission`).
+2. Verify **exactly** what it’s doing:
 
-  * Call the corresponding `PhotosLibraryFFI` method (which will block due to the Swift semaphore)
-  * Send a response back to the parent with:
+   * It should ideally be using **only**:
 
-    * a correlation ID from the message
-    * `success` / `error`
-    * any payload (`hasPermission`, etc.)
+     * `PHPhotoLibrary.authorizationStatus(for: .readWrite)` (or `.readOnly` / default)
+     * `PHPhotoLibrary.requestAuthorization(for: .readWrite)` (or equivalent)
+   * It should **not**:
 
-This worker is allowed to block on the Swift call, because it runs on its own thread.
+     * Use `FileManager` or `NSFileManager` to inspect paths like `~/Desktop`, `~/Pictures`, or the Photos Library bundle.
+     * Open or probe files/directories on the filesystem as part of “checking permission”.
+     * Use `NSOpenPanel` / `NSSavePanel` / Electron’s `dialog.showOpenDialog` to drive permission.
 
-> You can treat this structure as a reference pattern; adapt it to the repo’s existing style and build setup.
+If there is *any* filesystem or NSOpenPanel logic inside the permission code path, please refactor so that:
 
-#### (2) Add a small “PhotosWorkerManager” in the Electron main process
+* The **permission check and request** functions are **pure PhotoKit** – no file access at all.
 
-In the main process (likely `electron/src/index.ts`), add a small manager that:
+You can keep any filesystem-based “browse-and-import” logic elsewhere, but it must not run when the button is testing **Photos permission**.
 
-* Lazily creates the worker thread on first use:
-
-  * Uses `new Worker(...)` from `worker_threads`
-  * Points at the compiled JS worker file path (be mindful of dev vs prod paths)
-* Maintains a map of **pending requests** keyed by correlation ID:
-
-  * When sending a message to the worker, generate a unique ID
-  * Store a `resolve` / `reject` pair in a map keyed by that ID
-  * When the worker responds, look up the ID and resolve/reject the matching Promise
-* Exposes two async functions to the rest of the main process:
-
-  * `photosWorkerRequestPermission(): Promise<boolean>`
-  * `photosWorkerCheckPermission(): Promise<boolean>`
-
-These functions:
-
-* Ensure the worker exists
-* Send a message (`{ id, type: 'requestPermission' }` or `'checkPermission'`)
-* Return a Promise that resolves when the response message arrives
-
-#### (3) Wire IPC handlers to call the worker instead of direct FFI
-
-Update the existing IPC handlers in `electron/src/index.ts` (or wherever they live):
-
-* For `'photos:checkPermission'` and `'photos:requestPermission'`:
-
-  * **Do not** call `photosLibraryFFI.checkPermission()` or `.requestPermission()` directly on the main thread anymore.
-  * Instead, call the new worker manager functions:
-
-    * `const hasPermission = await photosWorkerCheckPermission()`
-    * `const hasPermission = await photosWorkerRequestPermission()`
-
-* Return the same shape you were already using (e.g. `{ success: true, hasPermission }`) so the renderer code does **not** need to change.
-
-#### (4) Keep the renderer API unchanged
-
-Do **not** change:
-
-* `window.electron.photos.requestPermission`
-* `window.electron.photos.checkPermission`
-* The `PhotoService` in the React app that calls them
-
-The whole point is for the renderer to continue working as-is, but the heavy work moves off the main thread.
-
-#### (5) Logging and safety
-
-Add a bit of logging (not too noisy) in:
-
-* The worker (when it starts, when it receives messages, when it sends responses)
-* The main process manager (when it spawns the worker, when it sends/receives messages)
-
-Add basic error handling:
-
-* If the worker throws or exits:
-
-  * Log a clear error
-  * Reject any in-flight Promises with a meaningful message
-  * Optionally allow the manager to recreate the worker on the next request
-
-#### (6) Don’t over-refactor
-
-Please **do not**:
-
-* Rewrite the Swift bridge
-* Change the `PhotosLibraryFFI` public API
-* Change the renderer UI or IPC contract
-* Introduce other architectural changes beyond the worker
-
-Focus only on:
-
-* Creating the worker
-* Adding a manager in main
-* Switching IPC handlers to go through that worker
+> You may use small Swift snippets as reference, but please integrate with the existing structure instead of rewriting everything.
 
 ---
 
-### ✅ Expected Outcome
+#### (2) Ensure the permission flow is PhotoKit-only
+
+Update the Swift permission manager so that the logic is essentially:
+
+* **Check permission:**
+
+  * Use `PHPhotoLibrary.authorizationStatus` (or `authorizationStatus(for: .readWrite)`) to return:
+
+    * `authorized` or `limited` → treat as allowed
+    * `notDetermined` → treat as not yet requested
+    * `denied` / `restricted` → treat as denied
+
+* **Request permission:**
+
+  * If status is already `authorized` or `limited`, just return success.
+  * Otherwise, call **only** `PHPhotoLibrary.requestAuthorization` (or the `for: .readWrite` variant), and resolve based on the new status.
+  * Do **not** touch any file paths or libraries on disk as part of this.
+
+You can use async/continuation or completion handlers, but keep the API compatible with the existing FFI bridge (we already moved the blocking call into a worker thread, so the semaphore-based approach can stay for now).
+
+---
+
+#### (3) Confirm the FFI bridge is calling the PhotoKit path (not file-import)
+
+In `PhotosLibraryBridge.swift` and `PhotosPermissionManager.swift`:
+
+* Make sure the function exposed via `@_cdecl("photos_request_permission")` (or similar) calls **only** the PhotoKit-based permission logic.
+* It must **not** call any functions that:
+
+  * open NSOpenPanel,
+  * walk filesystem directories,
+  * directly access the Photos Library `.photoslibrary` bundle via path.
+
+If needed, split logic so that:
+
+* One function is **“PhotoKit permission only”**
+* A separate function (not used by the test button) handles “browse-and-import via file picker”.
+
+---
+
+#### (4) Verify the JS/TS side is not mixing file-import calls
+
+On the JS/TS side, please:
+
+1. Locate the **Photos permission test button handler** in the renderer (React), likely in:
+
+   * `src/services/PhotoService.ts`
+   * A settings or debug component where the button lives.
+
+2. Confirm that this test button:
+
+   * Calls only `window.electron.photos.requestPermission()`.
+   * That IPC handler should map to `'photos:requestPermission'` in the Electron main process.
+   * That handler should now call the worker-based function that ultimately triggers the **Swift PhotoKit permission request**, and nothing else.
+
+3. Confirm it does **not**:
+
+   * Call any “browse photos” functions.
+   * Trigger Electron `dialog.showOpenDialog` / NSOpenPanel.
+   * Touch Desktop or other directories.
+
+---
+
+#### (5) Logging / sanity checks
+
+Add or verify the existing logs so that when I click the Photos permission test button, I can see:
+
+* In the renderer console:
+
+  * A log like: `[Photos Permission Test] Invoking photos.requestPermission`
+* In the main process logs:
+
+  * A log when the IPC handler for `'photos:requestPermission'` runs
+  * A log when the worker request is sent and when it resolves
+* In the Swift logs:
+
+  * A log like `[Swift PhotosPermissionManager] requestPermission() called (PhotoKit only)`
+  * A log when `PHPhotoLibrary.authorizationStatus` / `requestAuthorization` returns a status
+
+This will help ensure the code path is exactly what we expect.
+
+---
+
+#### (6) Do **not** change Info.plist or entitlements for this task
+
+We already have:
+
+* `NSPhotoLibraryUsageDescription` in Info.plist
+* `com.apple.security.assets.photos.read-only` in entitlements
+
+Please **do not** modify these in this task. Focus only on:
+
+* Ensuring the permission code calls PhotoKit properly.
+* Ensuring the test button path does not touch the filesystem.
+
+---
+
+### ✅ Expected outcome
 
 After your changes:
 
-* The app should launch normally from the packaged `.app`.
-* Clicking the Photos permission test button in Settings should:
+* When I build and run the packaged macOS app and click the Photos permission test button:
 
-  * **Not freeze** the app or show the macOS spinner forever.
-  * Trigger the worker-thread FFI call.
-  * Eventually resolve (either with `hasPermission = true/false` or an error).
-* The renderer should still use the same `window.electron.photos.requestPermission()` API.
+  * I should **not** see a prompt about the Desktop folder.
+  * Instead, if permissions haven’t been granted yet, I should see the **Photos Library** permission dialog.
+  * If permission has already been granted/denied, the call should resolve accordingly without any Desktop prompt.
 
-Please summarize for me:
+Please summarize:
 
-1. The new worker file you added and what it does.
-2. The changes in the Electron main process (which file, what functions).
-3. How dev vs prod paths to the worker are handled.
-4. Any scripts or build steps I need to run to ensure the worker is included in the final macOS app.
+1. Which Swift files you modified and what changed in the permission logic.
+2. Which JS/TS files you verified/updated to ensure the test button only calls the PhotoKit permission path.
+3. Any logs I should look for to confirm the PhotoKit flow is being hit.
