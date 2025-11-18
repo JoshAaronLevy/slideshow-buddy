@@ -30,8 +30,10 @@ import Photos
      * Returns: Bool indicating if permission was granted after request
      */
     @objc public func requestPermission() async -> Bool {
+        NSLog("[PhotosPermissionManager] requestPermission() - Using ONLY PHPhotoLibrary APIs")
         return await withCheckedContinuation { continuation in
             let currentStatus = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+            NSLog("[PhotosPermissionManager] Current PHPhotoLibrary status: %@", String(describing: currentStatus))
             
             // Enhanced diagnostic logging
             NSLog("========================================")
@@ -75,10 +77,12 @@ import Photos
                     NSLog("[PermissionManager] Dispatched to main queue")
                     NSLog("[PermissionManager] Calling PHPhotoLibrary.requestAuthorization(for: .readWrite)...")
                     NSLog("[PermissionManager] ⏳ Waiting for user response...")
+                    NSLog("[PhotosPermissionManager] Calling PHPhotoLibrary.requestAuthorization(for: .readWrite) - This should trigger Photos permission dialog")
                     
                     PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
                         NSLog("[PermissionManager] 📥 User responded!")
                         NSLog("[PermissionManager] New status: %@", self.authorizationStatusToString(status))
+                        NSLog("[PhotosPermissionManager] PHPhotoLibrary.requestAuthorization returned: %@", String(describing: status))
                         NSLog("[PermissionManager] Completion thread: %@", Thread.current.description)
                         
                         let granted = (status == .authorized || status == .limited)

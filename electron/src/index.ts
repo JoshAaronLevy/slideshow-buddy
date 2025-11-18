@@ -638,6 +638,7 @@ ipcMain.handle('photos:requestPermission', async () => {
   try {
     console.log('[MAIN-PROCESS-IPC] Forwarding request to worker thread...');
     console.log('[MAIN-PROCESS-IPC] Worker will handle blocking Swift FFI call');
+    console.log('[Main Process] photos:requestPermission IPC handler - dispatching to worker thread');
     
     const startTime = Date.now();
     const hasPermission = await photosWorkerManager.requestPermission();
@@ -646,6 +647,7 @@ ipcMain.handle('photos:requestPermission', async () => {
     console.log('[MAIN-PROCESS-IPC] ━━━ Worker request completed ━━━');
     console.log('[MAIN-PROCESS-IPC] Duration:', duration, 'ms');
     console.log('[MAIN-PROCESS-IPC] Result (hasPermission):', hasPermission);
+    console.log('[Main Process] Worker returned status:', hasPermission);
     console.log('[MAIN-PROCESS-IPC] Returning success response to renderer');
     console.log('╚════════════════════════════════════════════════════════════════╝');
     

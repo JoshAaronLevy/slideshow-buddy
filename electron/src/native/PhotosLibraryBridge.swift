@@ -213,7 +213,7 @@ import AppKit
 @_cdecl("photos_request_permission")
 public func photos_request_permission() -> UnsafePointer<CChar> {
     NSLog("========================================")
-    NSLog("[Swift Bridge] photos_request_permission() called")
+    NSLog("[Swift PhotosLibraryBridge] photos_request_permission() called - PhotoKit ONLY, no filesystem access")
     NSLog("[Swift Bridge] Timestamp: %@", Date().description)
     NSLog("[Swift Bridge] Thread: %@", Thread.current.description)
     NSLog("[Swift Bridge] Main thread: %@", Thread.isMainThread ? "YES" : "NO")
@@ -241,6 +241,7 @@ public func photos_request_permission() -> UnsafePointer<CChar> {
     Task {
         NSLog("[Swift Bridge] Task started on thread: %@", Thread.current.description)
         NSLog("[Swift Bridge] Calling bridge.requestPermission()...")
+        NSLog("[Swift PhotosLibraryBridge] Calling PhotosPermissionManager.requestPermission()")
         permissionResult = await bridge.requestPermission()
         NSLog("[Swift Bridge] bridge.requestPermission() completed")
         NSLog("[Swift Bridge] Result: %@", permissionResult ? "✓ GRANTED" : "✗ DENIED")
@@ -251,6 +252,7 @@ public func photos_request_permission() -> UnsafePointer<CChar> {
     semaphore.wait()
     NSLog("[Swift Bridge] Task completed, returning result to Electron")
     NSLog("[Swift Bridge] Final permission status: %@", permissionResult ? "GRANTED" : "DENIED")
+    NSLog("[Swift PhotosLibraryBridge] Returning status: %d", permissionResult ? 1 : 0)
     NSLog("========================================")
     
     let resultString = permissionResult ? "true" : "false"
