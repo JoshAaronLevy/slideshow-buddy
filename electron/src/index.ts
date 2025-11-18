@@ -115,10 +115,18 @@ myCapacitorApp.init = async function(...args) {
       // Set initial theme
       updateTheme();
       
-      // Check and request Photos library permission on startup
-      setTimeout(() => {
-        checkAndRequestPhotosPermission();
-      }, 1000); // Delay to ensure window is fully ready
+      // DISABLED: Auto-check Photos library permission on startup
+      // This is disabled because the FFI bridge uses blocking semaphores that freeze the app
+      // TODO: Re-enable once we implement proper async FFI bridge or background thread handling
+      
+      // Uncomment to enable (WARNING: Will freeze app):
+      // setTimeout(() => {
+      //   setImmediate(() => {
+      //     checkAndRequestPhotosPermission().catch(error => {
+      //       console.error('[Photos Permission] Failed to complete permission check:', error);
+      //     });
+      //   });
+      // }, 1500);
     }
   }
   
@@ -147,18 +155,23 @@ let pendingOAuthCallback: string | null = null;
 /**
  * Check and request Photos library permission on app startup (macOS only)
  * This function is called after the app window is fully initialized
+ * 
+ * IMPORTANT: This function contains blocking FFI calls that use semaphores.
+ * It should only be called via setImmediate() to avoid blocking the main thread.
  */
 async function checkAndRequestPhotosPermission(): Promise<void> {
   console.log('='.repeat(80));
   console.log('[Photos Permission] Starting permission check on app startup');
   console.log('[Photos Permission] Platform:', process.platform);
   console.log('[Photos Permission] Timestamp:', new Date().toISOString());
+  console.log('[Photos Permission] Running on setImmediate to avoid blocking main thread');
   
   try {
     // Verify FFI is ready
     if (!photosLibraryFFI.isReady()) {
       console.error('[Photos Permission] ❌ PhotosLibraryFFI is not initialized');
       console.error('[Photos Permission] Cannot proceed with permission check');
+      console.error('[Photos Permission] This is non-fatal - app will use file browser');
       console.log('='.repeat(80));
       return;
     }
@@ -167,13 +180,29 @@ async function checkAndRequestPhotosPermission(): Promise<void> {
     
     // Step 1: Check current permission status
     console.log('[Photos Permission] Step 1: Checking current permission status...');
+    console.log('[Photos Permission] Note: This call uses a blocking semaphore in Swift');
     let hasPermission = false;
     
     try {
-      hasPermission = photosLibraryFFI.checkPermission();
+      // Wrap in a timeout to prevent infinite hang
+      const checkPromise = new Promise<boolean>((resolve, reject) => {
+        try {
+          const result = photosLibraryFFI.checkPermission();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+      
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error('Permission check timed out after 5 seconds')), 5000);
+      });
+      
+      hasPermission = await Promise.race([checkPromise, timeoutPromise]);
       console.log('[Photos Permission] Current permission status:', hasPermission ? '✓ GRANTED' : '✗ NOT GRANTED');
     } catch (error) {
       console.error('[Photos Permission] ❌ Error checking permission:', error);
+      console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
       console.log('='.repeat(80));
       return;
     }
@@ -190,10 +219,16 @@ async function checkAndRequestPhotosPermission(): Promise<void> {
     // Step 3: Permission not granted, request it
     console.log('[Photos Permission] Step 2: Permission not granted, requesting permission...');
     console.log('[Photos Permission] System alert will be shown to user');
-    console.log('[Photos Permission] Waiting for user response...');
+    console.log('[Photos Permission] Waiting for user response (with 30 second timeout)...');
     
     try {
-      const permissionGranted = await photosLibraryFFI.requestPermission();
+      // Add timeout for permission request as well (user might not respond)
+      const requestPromise = photosLibraryFFI.requestPermission();
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error('Permission request timed out after 30 seconds')), 30000);
+      });
+      
+      const permissionGranted = await Promise.race([requestPromise, timeoutPromise]);
       
       console.log('[Photos Permission] User responded to permission request');
       console.log('[Photos Permission] Permission granted:', permissionGranted ? '✓ YES' : '✗ NO');
@@ -210,11 +245,15 @@ async function checkAndRequestPhotosPermission(): Promise<void> {
     } catch (error) {
       console.error('[Photos Permission] ❌ Error requesting permission:', error);
       console.error('[Photos Permission] Error details:', error.message);
-      console.error('[Photos Permission] Error stack:', error.stack);
+      if (error.stack) {
+        console.error('[Photos Permission] Error stack:', error.stack);
+      }
+      console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
     }
     
   } catch (error) {
     console.error('[Photos Permission] ❌ Unexpected error in permission flow:', error);
+    console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
   }
   
   console.log('[Photos Permission] Permission check completed');
