@@ -44,6 +44,7 @@ const SettingsTab: React.FC = () => {
       
       console.log('[RENDERER-TEST-BUTTON] ✓ API available, starting permission request flow...');
       console.log('[RENDERER-TEST-BUTTON] Calling window.electron.photos.requestPermission()...');
+      console.log('[Photos Permission Test] Invoking photos.requestPermission - PhotoKit only, no filesystem access');
       
       const startTime = performance.now();
       const result = await (window as any).electron.photos.requestPermission();

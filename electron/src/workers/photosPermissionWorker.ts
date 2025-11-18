@@ -77,6 +77,7 @@ if (parentPort) {
         case 'requestPermission': {
           console.log('[Photos Worker] Calling requestPermission()...');
           console.log('[Photos Worker] ⚠️  This call will BLOCK this worker thread until user responds');
+          console.log('[Worker Thread] Calling PhotosLibraryFFI.requestPermission() - Pure PhotoKit call');
           const startTime = Date.now();
           
           const hasPermission = await photosFFI.requestPermission();
@@ -84,6 +85,7 @@ if (parentPort) {
           const duration = Date.now() - startTime;
           console.log('[Photos Worker] requestPermission() completed in', duration, 'ms');
           console.log('[Photos Worker] Result:', hasPermission);
+          console.log('[Worker Thread] PhotoKit returned status:', hasPermission);
           
           response.success = true;
           response.hasPermission = hasPermission;
