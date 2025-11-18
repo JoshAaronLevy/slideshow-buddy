@@ -159,6 +159,7 @@ let pendingOAuthCallback: string | null = null;
  * IMPORTANT: This function contains blocking FFI calls that use semaphores.
  * It should only be called via setImmediate() to avoid blocking the main thread.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function checkAndRequestPhotosPermission(): Promise<void> {
   console.log('='.repeat(80));
   console.log('[Photos Permission] Starting permission check on app startup');

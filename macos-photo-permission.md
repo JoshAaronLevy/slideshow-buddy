@@ -1,5 +1,30 @@
 # macOS Photo Library Permission Implementation Report
 
+## Latest Issue
+
+When I rebuild and run the app now, it no longer locks up on load. However, it doesn't give me a prompt/alert to allow photo access either. And here is the console output:
+
+```
+Debugger listening on ws://127.0.0.1:5858/b258672a-f3d3-4429-9c6c-e8f736660511
+For help, see: https://nodejs.org/en/docs/inspector
+Photos Library FFI initialized successfully
+in setupCapacitorElectronPlugins
+{}
+Skip checkForUpdates because application is not packed and dev update config is not forced
+checkForUpdatesAndNotify called, downloadPromise is null
+[Storage] Initializing electron-store...
+[Storage] Initializing electron-store...
+[Storage] Initializing electron-store...
+[Keychain] Get spotify-access-token: found
+[Keychain] Get spotify-refresh-token: found
+[Storage] electron-store initialized successfully
+[Storage] electron-store initialized successfully
+[Storage] electron-store initialized successfully
+[Storage] Get SPOTIFY_TOKEN_EXPIRY: found
+[Storage] Get slideshows: not found
+[Storage] Get custom_playlists: not found
+```
+
 **Date**: November 17, 2025  
 **Branch**: `macos-implementation`  
 **Status**: ✅ Implementation Complete - Ready for Testing  
@@ -39,8 +64,26 @@ Previous attempts to implement photo library access on macOS failed because:
 **The FFI bridge architecture has a fundamental flaw that prevents safe permission checking.**
 
 #### Technical Details
-1. **Swift Code Uses Blocking Semaphore**:
-   ```swift
+1. **Swift Code Uses Blocking Semaphore**:```
+Debugger listening on ws://127.0.0.1:5858/b258672a-f3d3-4429-9c6c-e8f736660511
+For help, see: https://nodejs.org/en/docs/inspector
+Photos Library FFI initialized successfully
+in setupCapacitorElectronPlugins
+{}
+Skip checkForUpdates because application is not packed and dev update config is not forced
+checkForUpdatesAndNotify called, downloadPromise is null
+[Storage] Initializing electron-store...
+[Storage] Initializing electron-store...
+[Storage] Initializing electron-store...
+[Keychain] Get spotify-access-token: found
+[Keychain] Get spotify-refresh-token: found
+[Storage] electron-store initialized successfully
+[Storage] electron-store initialized successfully
+[Storage] electron-store initialized successfully
+[Storage] Get SPOTIFY_TOKEN_EXPIRY: found
+[Storage] Get slideshows: not found
+[Storage] Get custom_playlists: not found
+```swift
    let semaphore = DispatchSemaphore(value: 0)
    Task { 
      result = await bridge.requestPermission()
