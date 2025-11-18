@@ -1,5 +1,6 @@
 import { Menu, app, shell, dialog, BrowserWindow } from 'electron';
 import type { MenuItemConstructorOptions } from 'electron';
+import path from 'path';
 
 /**
  * Creates the macOS application menu with standard menus and keyboard shortcuts
@@ -265,7 +266,7 @@ function showAboutDialog(parentWindow: BrowserWindow): void {
     ].join('\n'),
     buttons: ['OK'],
     defaultId: 0,
-    icon: undefined // You can add an app icon path here if available
+    icon: path.join(__dirname, '../assets/appIcon.png') // You can add an app icon path here if available
   });
 }
 

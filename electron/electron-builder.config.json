@@ -16,7 +16,9 @@
     {
       "from": "assets/libPhotosLibraryBridge.dylib",
       "to": "libPhotosLibraryBridge.dylib",
-      "filter": ["**/*"]
+      "filter": [
+        "**/*"
+      ]
     }
   ],
   "publish": {
@@ -42,7 +44,7 @@
       }
     ],
     "category": "public.app-category.photography",
-    "icon": "assets/appIcon.icns",
+    "icon": "resources/appIcon.icns",
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "resources/entitlements.mac.plist",
@@ -50,27 +52,21 @@
     "identity": null,
     "type": "distribution",
     "minimumSystemVersion": "11.0",
-    
-    "_comment_code_signing": "CODE SIGNING CONFIGURATION - Requires Apple Developer Account ($99/year)",
-    "_comment_when_ready": "Uncomment and configure the following when code signing credentials are available:",
-    "_comment_identity": "identity: 'Developer ID Application: YOUR NAME (TEAM_ID)',",
-    "_comment_environment_vars": "Environment variables for CI/CD: CSC_LINK (cert path or base64), CSC_KEY_PASSWORD, APPLE_ID, APPLE_ID_PASSWORD",
-    "_comment_notarize_example": "For notarization: notarize: { teamId: 'YOUR_TEAM_ID' }",
-    
     "extendInfo": {
       "CFBundleURLTypes": [
         {
-          "CFBundleURLSchemes": ["com.slideshowbuddy"],
+          "CFBundleURLSchemes": [
+            "com.slideshowbuddy"
+          ],
           "CFBundleURLName": "Slideshow Buddy OAuth Callback"
         }
       ],
-      "NSPhotoLibraryUsageDescription": "Access your photo library to create beautiful slideshows",
-      "NSMicrophoneUsageDescription": "Not used by this application"
+      "NSPhotoLibraryUsageDescription": "Access your photo library to create beautiful slideshows"
     }
   },
   "dmg": {
     "background": "assets/dmg-background.png",
-    "icon": "assets/appIcon.icns",
+    "icon": "resources/appIcon.icns",
     "iconSize": 100,
     "contents": [
       {

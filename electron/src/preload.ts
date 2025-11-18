@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { contextBridge, ipcRenderer } from 'electron';
 import type { Photo, PhotoAlbum } from './native/types';
 
@@ -14,6 +15,7 @@ interface FileSelectionResult {
   files: SelectedImageFile[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 require('./rt/electron-rt');
 //////////////////////////////
 // User Defined Preload scripts below
