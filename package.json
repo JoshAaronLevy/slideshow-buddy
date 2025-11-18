@@ -27,6 +27,7 @@
     "electron:sync": "npm run build && npm run cap:sync:electron",
     "electron:open": "npx cap open electron",
     "electron:build:mac": "npm run build && npx cap sync electron && cd electron && npm run electron:pack",
+    "electron:package": "echo '🧹 Cleaning previous builds...' && rm -rf dist electron/build electron/dist electron/assets/*.dylib && echo '🔨 Building web app...' && npm run build && echo '🔄 Syncing to Electron...' && npx cap sync electron && echo '🦅 Building Swift dylib...' && cd electron && npm run build:swift && echo '⚡ Building TypeScript...' && npm run build:ts && echo '📦 Packaging .app...' && npm run electron:pack && cd .. && echo '✅ Done! Open electron/dist/mac/Slideshow Buddy.app'",
     "clean": "rm -rf dist && rm -rf node_modules/.vite",
     "electron:relaunch": "pkill -f electron || true && rm -rf dist && npm run build && npx cap sync electron && cd electron && rm -rf build && npm run build && npm run electron:start"
   },

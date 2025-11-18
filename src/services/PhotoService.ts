@@ -73,46 +73,73 @@ export const requestPhotoLibraryPermission = async (): Promise<boolean> => {
  * @returns Promise<boolean> - true if permission granted, false otherwise
  */
 const requestPhotosPermissionElectron = async (): Promise<boolean> => {
-  console.log('[PhotoService] Starting Electron photos permission check/request...');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('[RENDERER-PhotoService] Starting Electron photos permission check/request...');
+  console.log('[RENDERER-PhotoService] Timestamp:', new Date().toISOString());
+  
   try {
+    console.log('[RENDERER-PhotoService] Step 1: Verifying API availability...');
+    
     if (!(window as any).electron?.photos) {
-      console.error('[PhotoService] Electron Photos API not available');
+      console.error('[RENDERER-PhotoService] ✗ Electron Photos API not available');
+      console.error('[RENDERER-PhotoService] window.electron exists:', !!(window as any).electron);
+      console.error('[RENDERER-PhotoService] window.electron.photos exists:', !!(window as any).electron?.photos);
       return false;
     }
 
-    console.log('[PhotoService] Electron Photos API is available, checking current permission...');
+    console.log('[RENDERER-PhotoService] ✓ Electron Photos API is available');
+    console.log('[RENDERER-PhotoService] Step 2: Checking current permission status...');
 
     // Check current permission status
+    const checkStartTime = performance.now();
     const checkResult = await (window as any).electron.photos.checkPermission();
-    console.log('[PhotoService] Permission check result:', checkResult);
+    const checkDuration = performance.now() - checkStartTime;
+    
+    console.log('[RENDERER-PhotoService] Permission check completed in', checkDuration.toFixed(2), 'ms');
+    console.log('[RENDERER-PhotoService] Check result:', JSON.stringify(checkResult, null, 2));
     
     if (!checkResult.success) {
-      console.error('[PhotoService] Failed to check permission:', checkResult.error);
+      console.error('[RENDERER-PhotoService] ✗ Failed to check permission:', checkResult.error);
       return false;
     }
 
     // If already has permission, return true
     if (checkResult.hasPermission) {
-      console.log('[PhotoService] Permission already granted');
+      console.log('[RENDERER-PhotoService] ✓ Permission already granted, no request needed');
+      console.log('═══════════════════════════════════════════════════════════════');
       return true;
     }
 
-    console.log('[PhotoService] Permission not granted, requesting permission...');
+    console.log('[RENDERER-PhotoService] Permission not yet granted');
+    console.log('[RENDERER-PhotoService] Step 3: Requesting permission from user...');
+    console.log('[RENDERER-PhotoService] Calling window.electron.photos.requestPermission()...');
 
     // Request permission if not granted
+    const requestStartTime = performance.now();
     const requestResult = await (window as any).electron.photos.requestPermission();
-    console.log('[PhotoService] Permission request result:', requestResult);
+    const requestDuration = performance.now() - requestStartTime;
+    
+    console.log('[RENDERER-PhotoService] ━━━ Permission request completed ━━━');
+    console.log('[RENDERER-PhotoService] Request duration:', requestDuration.toFixed(2), 'ms');
+    console.log('[RENDERER-PhotoService] Request result:', JSON.stringify(requestResult, null, 2));
     
     if (!requestResult.success) {
-      console.error('[PhotoService] Failed to request permission:', requestResult.error);
+      console.error('[RENDERER-PhotoService] ✗ Failed to request permission:', requestResult.error);
+      console.log('═══════════════════════════════════════════════════════════════');
       return false;
     }
 
     const hasPermission = requestResult.hasPermission || false;
-    console.log('[PhotoService] Final permission status:', hasPermission);
+    console.log('[RENDERER-PhotoService] Final permission status:', hasPermission ? '✓ GRANTED' : '✗ DENIED');
+    console.log('═══════════════════════════════════════════════════════════════');
     return hasPermission;
   } catch (error) {
-    console.error('[PhotoService] Error requesting Electron photos permission:', error);
+    console.error('[RENDERER-PhotoService] ⚠️  Exception during permission request:');
+    console.error('[RENDERER-PhotoService] Error:', error);
+    console.error('[RENDERER-PhotoService] Error name:', (error as any).name);
+    console.error('[RENDERER-PhotoService] Error message:', (error as any).message);
+    console.error('[RENDERER-PhotoService] Stack trace:', (error as any).stack);
+    console.log('═══════════════════════════════════════════════════════════════');
     return false;
   }
 };

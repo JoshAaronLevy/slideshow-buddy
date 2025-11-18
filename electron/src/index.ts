@@ -368,19 +368,54 @@ ipcMain.handle('system:get-theme', async () => {
  * Returns: { success: boolean, hasPermission?: boolean, error?: string }
  */
 ipcMain.handle('photos:requestPermission', async () => {
+  console.log('╔════════════════════════════════════════════════════════════════╗');
+  console.log('║         [MAIN-PROCESS] photos:requestPermission IPC            ║');
+  console.log('╚════════════════════════════════════════════════════════════════╝');
+  console.log('[MAIN-PROCESS-IPC] Handler invoked');
+  console.log('[MAIN-PROCESS-IPC] Timestamp:', new Date().toISOString());
+  console.log('[MAIN-PROCESS-IPC] Process platform:', process.platform);
+  console.log('[MAIN-PROCESS-IPC] Process version:', process.version);
+  console.log('[MAIN-PROCESS-IPC] Electron version:', process.versions.electron);
+  
   if (process.platform !== 'darwin') {
+    console.error('[MAIN-PROCESS-IPC] ✗ Not running on macOS');
+    console.log('╚════════════════════════════════════════════════════════════════╝');
     return { success: false, error: 'Photos library only available on macOS' };
   }
 
   try {
+    console.log('[MAIN-PROCESS-IPC] Step 1: Checking FFI initialization status...');
+    console.log('[MAIN-PROCESS-IPC] FFI isReady():', photosLibraryFFI.isReady());
+    
     if (!photosLibraryFFI.isReady()) {
+      console.error('[MAIN-PROCESS-IPC] ✗ Photos library FFI not initialized');
+      console.error('[MAIN-PROCESS-IPC] This means the Swift dylib failed to load');
+      console.log('╚════════════════════════════════════════════════════════════════╝');
       return { success: false, error: 'Photos library FFI not initialized' };
     }
     
+    console.log('[MAIN-PROCESS-IPC] ✓ FFI is ready');
+    console.log('[MAIN-PROCESS-IPC] Step 2: Calling photosLibraryFFI.requestPermission()...');
+    console.log('[MAIN-PROCESS-IPC] This will invoke Swift via koffi FFI bridge');
+    
+    const ffiStartTime = Date.now();
     const hasPermission = await photosLibraryFFI.requestPermission();
+    const ffiDuration = Date.now() - ffiStartTime;
+    
+    console.log('[MAIN-PROCESS-IPC] ━━━ FFI call completed ━━━');
+    console.log('[MAIN-PROCESS-IPC] Duration:', ffiDuration, 'ms');
+    console.log('[MAIN-PROCESS-IPC] Result (hasPermission):', hasPermission);
+    console.log('[MAIN-PROCESS-IPC] Result type:', typeof hasPermission);
+    console.log('[MAIN-PROCESS-IPC] Returning success response to renderer');
+    console.log('╚════════════════════════════════════════════════════════════════╝');
+    
     return { success: true, hasPermission };
   } catch (error) {
-    console.error('Photos permission request failed:', error);
+    console.error('[MAIN-PROCESS-IPC] ⚠️  Exception caught in IPC handler');
+    console.error('[MAIN-PROCESS-IPC] Error:', error);
+    console.error('[MAIN-PROCESS-IPC] Error message:', error.message);
+    console.error('[MAIN-PROCESS-IPC] Error stack:', error.stack);
+    console.log('╚════════════════════════════════════════════════════════════════╝');
     return {
       success: false,
       error: error.message || 'Failed to request Photos library permission'

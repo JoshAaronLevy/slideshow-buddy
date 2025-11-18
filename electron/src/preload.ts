@@ -198,8 +198,18 @@ const createMenuEventListener = (eventName: string) => {
 // Expose Photos API, Slideshow API, Spotify OAuth API, Window API, System API, Menu API, Browser API, and Dialog API to renderer process
 contextBridge.exposeInMainWorld('electron', {
   photos: {
-    requestPermission: (): Promise<PhotosPermissionResult> =>
-      ipcRenderer.invoke('photos:requestPermission'),
+    requestPermission: (): Promise<PhotosPermissionResult> => {
+      console.log('[PRELOAD] ═══ photos:requestPermission IPC call ═══');
+      console.log('[PRELOAD] Forwarding to main process via ipcRenderer.invoke("photos:requestPermission")');
+      console.log('[PRELOAD] Timestamp:', new Date().toISOString());
+      const result = ipcRenderer.invoke('photos:requestPermission');
+      result.then(r => {
+        console.log('[PRELOAD] IPC response received from main process:', r);
+      }).catch(e => {
+        console.error('[PRELOAD] IPC error:', e);
+      });
+      return result;
+    },
     
     checkPermission: (): Promise<PhotosPermissionResult> =>
       ipcRenderer.invoke('photos:checkPermission'),
