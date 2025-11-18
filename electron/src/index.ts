@@ -115,18 +115,10 @@ myCapacitorApp.init = async function(...args) {
       // Set initial theme
       updateTheme();
       
-      // DISABLED: Auto-check Photos library permission on startup
-      // This is disabled because the FFI bridge uses blocking semaphores that freeze the app
-      // TODO: Re-enable once we implement proper async FFI bridge or background thread handling
-      
-      // Uncomment to enable (WARNING: Will freeze app):
-      // setTimeout(() => {
-      //   setImmediate(() => {
-      //     checkAndRequestPhotosPermission().catch(error => {
-      //       console.error('[Photos Permission] Failed to complete permission check:', error);
-      //     });
-      //   });
-      // }, 1500);
+      // Log Photos library availability on startup (non-blocking)
+      setTimeout(() => {
+        logPhotosLibraryStatus();
+      }, 1000);
     }
   }
   
@@ -151,6 +143,38 @@ let powerSaveBlockerId: number | null = null;
 // Spotify OAuth Callback Handling
 // Store pending OAuth callback URL in case window isn't ready yet
 let pendingOAuthCallback: string | null = null;
+
+/**
+ * Log Photos library status without making blocking calls
+ * This is safe to call on startup
+ */
+function logPhotosLibraryStatus(): void {
+  console.log('='.repeat(80));
+  console.log('[Photos Library] Status Check (Non-Blocking)');
+  console.log('[Photos Library] Platform:', process.platform);
+  console.log('[Photos Library] Timestamp:', new Date().toISOString());
+  
+  if (process.platform !== 'darwin') {
+    console.log('[Photos Library] ⚠️  Not on macOS - Photos library not available');
+    console.log('='.repeat(80));
+    return;
+  }
+  
+  console.log('[Photos Library] ✓ Running on macOS');
+  console.log('[Photos Library] FFI Ready:', photosLibraryFFI.isReady());
+  
+  if (!photosLibraryFFI.isReady()) {
+    console.error('[Photos Library] ❌ FFI not initialized');
+    console.error('[Photos Library] Swift library may not be loaded correctly');
+    console.log('='.repeat(80));
+    return;
+  }
+  
+  console.log('[Photos Library] ✓ Swift FFI bridge is ready');
+  console.log('[Photos Library] ℹ️  Permission will be requested when user accesses Photos');
+  console.log('[Photos Library] ℹ️  Use IPC handler "photos:requestPermission" to request access');
+  console.log('='.repeat(80));
+}
 
 /**
  * Check and request Photos library permission on app startup (macOS only)
