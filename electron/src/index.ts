@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { CapacitorElectronConfig } from '@capacitor-community/electron';
 import { getCapacitorElectronConfig, setupElectronDeepLinking } from '@capacitor-community/electron';
 import type { MenuItemConstructorOptions } from 'electron';
@@ -263,7 +262,7 @@ class PhotosWorkerManager {
     }
 
     // Reject all pending requests
-    this.pendingRequests.forEach((pending, id) => {
+    this.pendingRequests.forEach((pending) => {
       pending.reject(new Error('Worker manager disposed'));
     });
     this.pendingRequests.clear();
@@ -454,107 +453,106 @@ function logPhotosLibraryStatus(): void {
  * IMPORTANT: This function contains blocking FFI calls that use semaphores.
  * It should only be called via setImmediate() to avoid blocking the main thread.
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function checkAndRequestPhotosPermission(): Promise<void> {
-  console.log('='.repeat(80));
-  console.log('[Photos Permission] Starting permission check on app startup');
-  console.log('[Photos Permission] Platform:', process.platform);
-  console.log('[Photos Permission] Timestamp:', new Date().toISOString());
-  console.log('[Photos Permission] Running on setImmediate to avoid blocking main thread');
+// async function checkAndRequestPhotosPermission(): Promise<void> {
+//   console.log('='.repeat(80));
+//   console.log('[Photos Permission] Starting permission check on app startup');
+//   console.log('[Photos Permission] Platform:', process.platform);
+//   console.log('[Photos Permission] Timestamp:', new Date().toISOString());
+//   console.log('[Photos Permission] Running on setImmediate to avoid blocking main thread');
   
-  try {
-    // Verify FFI is ready
-    if (!photosLibraryFFI.isReady()) {
-      console.error('[Photos Permission] ❌ PhotosLibraryFFI is not initialized');
-      console.error('[Photos Permission] Cannot proceed with permission check');
-      console.error('[Photos Permission] This is non-fatal - app will use file browser');
-      console.log('='.repeat(80));
-      return;
-    }
+//   try {
+//     // Verify FFI is ready
+//     if (!photosLibraryFFI.isReady()) {
+//       console.error('[Photos Permission] ❌ PhotosLibraryFFI is not initialized');
+//       console.error('[Photos Permission] Cannot proceed with permission check');
+//       console.error('[Photos Permission] This is non-fatal - app will use file browser');
+//       console.log('='.repeat(80));
+//       return;
+//     }
     
-    console.log('[Photos Permission] ✓ PhotosLibraryFFI is initialized and ready');
+//     console.log('[Photos Permission] ✓ PhotosLibraryFFI is initialized and ready');
     
-    // Step 1: Check current permission status
-    console.log('[Photos Permission] Step 1: Checking current permission status...');
-    console.log('[Photos Permission] Note: This call uses a blocking semaphore in Swift');
-    let hasPermission = false;
+//     // Step 1: Check current permission status
+//     console.log('[Photos Permission] Step 1: Checking current permission status...');
+//     console.log('[Photos Permission] Note: This call uses a blocking semaphore in Swift');
+//     let hasPermission = false;
     
-    try {
-      // Wrap in a timeout to prevent infinite hang
-      const checkPromise = new Promise<boolean>((resolve, reject) => {
-        try {
-          const result = photosLibraryFFI.checkPermission();
-          resolve(result);
-        } catch (error) {
-          reject(error);
-        }
-      });
+//     try {
+//       // Wrap in a timeout to prevent infinite hang
+//       const checkPromise = new Promise<boolean>((resolve, reject) => {
+//         try {
+//           const result = photosLibraryFFI.checkPermission();
+//           resolve(result);
+//         } catch (error) {
+//           reject(error);
+//         }
+//       });
       
-      const timeoutPromise = new Promise<boolean>((_, reject) => {
-        setTimeout(() => reject(new Error('Permission check timed out after 5 seconds')), 5000);
-      });
+//       const timeoutPromise = new Promise<boolean>((_, reject) => {
+//         setTimeout(() => reject(new Error('Permission check timed out after 5 seconds')), 5000);
+//       });
       
-      hasPermission = await Promise.race([checkPromise, timeoutPromise]);
-      console.log('[Photos Permission] Current permission status:', hasPermission ? '✓ GRANTED' : '✗ NOT GRANTED');
-    } catch (error) {
-      console.error('[Photos Permission] ❌ Error checking permission:', error);
-      console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
-      console.log('='.repeat(80));
-      return;
-    }
+//       hasPermission = await Promise.race([checkPromise, timeoutPromise]);
+//       console.log('[Photos Permission] Current permission status:', hasPermission ? '✓ GRANTED' : '✗ NOT GRANTED');
+//     } catch (error) {
+//       console.error('[Photos Permission] ❌ Error checking permission:', error);
+//       console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
+//       console.log('='.repeat(80));
+//       return;
+//     }
     
-    // Step 2: If permission already granted, we're done
-    if (hasPermission) {
-      console.log('[Photos Permission] ✓ Permission already granted');
-      console.log('[Photos Permission] ✓ App has access to Photos library');
-      console.log('[Photos Permission] No action needed');
-      console.log('='.repeat(80));
-      return;
-    }
+//     // Step 2: If permission already granted, we're done
+//     if (hasPermission) {
+//       console.log('[Photos Permission] ✓ Permission already granted');
+//       console.log('[Photos Permission] ✓ App has access to Photos library');
+//       console.log('[Photos Permission] No action needed');
+//       console.log('='.repeat(80));
+//       return;
+//     }
     
-    // Step 3: Permission not granted, request it
-    console.log('[Photos Permission] Step 2: Permission not granted, requesting permission...');
-    console.log('[Photos Permission] System alert will be shown to user');
-    console.log('[Photos Permission] Waiting for user response (with 30 second timeout)...');
+//     // Step 3: Permission not granted, request it
+//     console.log('[Photos Permission] Step 2: Permission not granted, requesting permission...');
+//     console.log('[Photos Permission] System alert will be shown to user');
+//     console.log('[Photos Permission] Waiting for user response (with 30 second timeout)...');
     
-    try {
-      // Add timeout for permission request as well (user might not respond)
-      const requestPromise = photosLibraryFFI.requestPermission();
-      const timeoutPromise = new Promise<boolean>((_, reject) => {
-        setTimeout(() => reject(new Error('Permission request timed out after 30 seconds')), 30000);
-      });
+//     try {
+//       // Add timeout for permission request as well (user might not respond)
+//       const requestPromise = photosLibraryFFI.requestPermission();
+//       const timeoutPromise = new Promise<boolean>((_, reject) => {
+//         setTimeout(() => reject(new Error('Permission request timed out after 30 seconds')), 30000);
+//       });
       
-      const permissionGranted = await Promise.race([requestPromise, timeoutPromise]);
+//       const permissionGranted = await Promise.race([requestPromise, timeoutPromise]);
       
-      console.log('[Photos Permission] User responded to permission request');
-      console.log('[Photos Permission] Permission granted:', permissionGranted ? '✓ YES' : '✗ NO');
+//       console.log('[Photos Permission] User responded to permission request');
+//       console.log('[Photos Permission] Permission granted:', permissionGranted ? '✓ YES' : '✗ NO');
       
-      if (permissionGranted) {
-        console.log('[Photos Permission] ✓✓✓ SUCCESS ✓✓✓');
-        console.log('[Photos Permission] App now has access to Photos library');
-        console.log('[Photos Permission] Photos can be accessed via PhotoKit APIs');
-      } else {
-        console.log('[Photos Permission] ⚠️  Permission denied by user');
-        console.log('[Photos Permission] App will fall back to file browser for photo selection');
-        console.log('[Photos Permission] User can grant permission later in System Settings > Privacy & Security > Photos');
-      }
-    } catch (error) {
-      console.error('[Photos Permission] ❌ Error requesting permission:', error);
-      console.error('[Photos Permission] Error details:', error.message);
-      if (error.stack) {
-        console.error('[Photos Permission] Error stack:', error.stack);
-      }
-      console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
-    }
+//       if (permissionGranted) {
+//         console.log('[Photos Permission] ✓✓✓ SUCCESS ✓✓✓');
+//         console.log('[Photos Permission] App now has access to Photos library');
+//         console.log('[Photos Permission] Photos can be accessed via PhotoKit APIs');
+//       } else {
+//         console.log('[Photos Permission] ⚠️  Permission denied by user');
+//         console.log('[Photos Permission] App will fall back to file browser for photo selection');
+//         console.log('[Photos Permission] User can grant permission later in System Settings > Privacy & Security > Photos');
+//       }
+//     } catch (error) {
+//       console.error('[Photos Permission] ❌ Error requesting permission:', error);
+//       console.error('[Photos Permission] Error details:', error.message);
+//       if (error.stack) {
+//         console.error('[Photos Permission] Error stack:', error.stack);
+//       }
+//       console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
+//     }
     
-  } catch (error) {
-    console.error('[Photos Permission] ❌ Unexpected error in permission flow:', error);
-    console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
-  }
+//   } catch (error) {
+//     console.error('[Photos Permission] ❌ Unexpected error in permission flow:', error);
+//     console.error('[Photos Permission] This is non-fatal - app will continue without Photos access');
+//   }
   
-  console.log('[Photos Permission] Permission check completed');
-  console.log('='.repeat(80));
-}
+//   console.log('[Photos Permission] Permission check completed');
+//   console.log('='.repeat(80));
+// }
 
 /**
  * Handle OAuth callback URLs from com.slideshowbuddy://callback
@@ -880,7 +878,14 @@ ipcMain.handle('menu:update-state', async (event, state: { hasSlideshow?: boolea
 
 // Storage Management using electron-store
 // Dynamic import and initialization for ESM compatibility
-let store: any = null;
+interface ElectronStoreInstance {
+  get(key: string): unknown;
+  set(key: string, value: unknown): void;
+  delete(key: string): void;
+  clear(): void;
+}
+
+let store: ElectronStoreInstance | null = null;
 
 /**
  * Initialize electron-store using dynamic import to handle ESM compatibility
@@ -932,7 +937,7 @@ ipcMain.handle('storage:get', async (event, key: string) => {
  * Params: key (string), value (any)
  * Returns: void
  */
-ipcMain.handle('storage:set', async (event, key: string, value: any) => {
+ipcMain.handle('storage:set', async (event, key: string, value: unknown) => {
   try {
     if (!store) await initializeStore();
     store.set(key, value);
