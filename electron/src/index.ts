@@ -57,8 +57,15 @@ if (electronIsDev) {
   setupContentSecurityPolicy(myCapacitorApp.getCustomURLScheme());
   // Initialize our app, build windows, and load content.
   await myCapacitorApp.init();
-  // Check for updates if we are in a packaged app.
-  autoUpdater.checkForUpdatesAndNotify();
+  
+  // Check for updates only in packaged production builds
+  // Skip auto-update in development or unsigned local builds to avoid ENOENT errors
+  if (app.isPackaged && !electronIsDev) {
+    console.log('[Auto-Update] Checking for updates...');
+    autoUpdater.checkForUpdatesAndNotify();
+  } else {
+    console.log('[Auto-Update] Skipped (running in development or unsigned build)');
+  }
 })();
 
 // Handle when all of our windows are close (platforms have their own expectations).
