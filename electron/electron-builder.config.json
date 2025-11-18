@@ -7,10 +7,11 @@
     "buildResources": "resources"
   },
   "files": [
+    "package.json",
+    "node_modules/**/*",
     "assets/**/*",
     "build/**/*",
-    "capacitor.config.*",
-    "app/**/*"
+    "capacitor.config.*"
   ],
   "extraResources": [
     {
