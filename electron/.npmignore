@@ -1,6 +1,5 @@
 # Override .gitignore for npm/electron-builder packaging
-# Allow build directory to be included in packaged app
-app
+# Allow app directory to be included in packaged app
 node_modules
 dist
 logs

@@ -14,7 +14,7 @@
   "scripts": {
     "build:swift": "./scripts/build-swift.sh",
     "build:ts": "tsc && electron-rebuild",
-    "build:clean": "rm -rf build dist",
+    "build:clean": "rm -rf app dist",
     "build:validate-env": "./scripts/validate-build-env.sh",
     "build:verify-swift": "./scripts/verify-swift-build.sh",
     "build:verify-ts": "./scripts/verify-ts-build.sh",
