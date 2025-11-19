@@ -5,6 +5,7 @@
   "productName": "Slideshow Buddy",
   "copyright": "Copyright © 2024 Slideshow Buddy",
   "directories": {
+    "output": "dist",
     "buildResources": "resources"
   },
   "files": [
