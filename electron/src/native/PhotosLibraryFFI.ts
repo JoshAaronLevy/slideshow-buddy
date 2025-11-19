@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Photos Library FFI Bridge
  * Provides TypeScript interface to Swift Photos library through koffi FFI
@@ -18,7 +16,6 @@ import {
   SwiftPhotosLibraryFFI,
   PhotoAlbum,
   Photo,
-  PhotosPermissionResponse,
   PhotoAlbumsResponse,
   PhotosResponse,
   PhotosLibraryError
@@ -79,24 +76,38 @@ class PhotosLibraryFFI {
       const possiblePaths: string[] = [];
       
       if (isDev) {
-        // Development mode: dylib is built to electron/build/native/ or electron/assets/
-        // __dirname in compiled JS is electron/build/src/native, so go up to build/ then into native/
+        // Development mode
+        // __dirname (compiled) = <repo>/electron/build/src/native
+        // Our Swift build currently outputs to: <repo>/electron/assets/libPhotosLibraryBridge.dylib
+
+        const cwd = process.cwd();
+        console.log('[FFI-Init] Dev mode path debug:');
+        console.log('[FFI-Init]   __dirname:', __dirname);
+        console.log('[FFI-Init]   process.cwd():', cwd);
+
         possiblePaths.push(
-          path.join(__dirname, '../native/libPhotosLibraryBridge.dylib'),
-          path.join(__dirname, '../../assets/libPhotosLibraryBridge.dylib')
+          // 1) Next to compiled native JS (future-proof if you ever change build-swift to drop it there)
+          path.join(__dirname, 'libPhotosLibraryBridge.dylib'),
+
+          // 2) Actual current location: <repo>/electron/assets/libPhotosLibraryBridge.dylib
+          // __dirname = <repo>/electron/build/src/native
+          // ../../../ = <repo>/electron
+          path.join(__dirname, '../../../assets/libPhotosLibraryBridge.dylib'),
+
+          // 3) Fallbacks from CWD, in case something launches with a different cwd
+          path.join(cwd, 'electron', 'assets', 'libPhotosLibraryBridge.dylib'),
+          path.join(cwd, 'assets', 'libPhotosLibraryBridge.dylib')
         );
       } else {
         // Production mode (packaged app):
-        // - process.resourcesPath = "Slideshow Buddy.app/Contents/Resources"
-        // - dylib should be at "Contents/Resources/assets/libPhotosLibraryBridge.dylib"
-        // IMPORTANT: Do NOT use app.getAppPath() because that points inside app.asar,
-        // and native binaries cannot be loaded from inside asar files.
+        // - process.resourcesPath = "<App>.app/Contents/Resources"
+        // - dylib is copied there by electron-builder extraResources
         possiblePaths.push(
           path.join(process.resourcesPath, 'assets', 'libPhotosLibraryBridge.dylib'),
           path.join(process.resourcesPath, 'libPhotosLibraryBridge.dylib')
         );
       }
-      
+
       console.log('[FFI-Init] Candidate paths to try:');
       possiblePaths.forEach((p, i) => {
         console.log(`[FFI-Init]   ${i + 1}. ${p}`);
@@ -187,7 +198,7 @@ class PhotosLibraryFFI {
   /**
    * Call FFI function that returns a string (modern koffi auto-converts)
    */
-  private callStringFunction(fn: () => any): string {
+  private callStringFunction(fn: () => unknown): string {
     console.log('[FFI] callStringFunction() invoked');
     
     if (!this.isInitialized || !this.ffiInterface) {

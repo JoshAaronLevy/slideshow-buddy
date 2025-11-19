@@ -63,5 +63,6 @@ export class PhotosLibraryError extends Error {
 // Memory management types
 export interface FFIStringResult {
   value: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   pointer: any; // koffi pointer type
 }
