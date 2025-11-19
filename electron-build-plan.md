@@ -1,37 +1,17 @@
 # Option B Implementation Plan: Change TypeScript Output Directory
 
-**Implementation Goal**: Rename TypeScript output directory from `build/` to `compiled/` to eliminate the electron-builder naming conflict that prevents the packaged app from finding compiled JavaScript files.
+**Implementation Goal**: Rename TypeScript output directory from `build/` to `app/` to eliminate the electron-builder naming conflict that prevents the packaged app from finding compiled JavaScript files.
 
 **Root Cause**: electron-builder has special internal handling for directories named `build/` that conflicts with the `buildResources` configuration, causing the directory to be excluded from packaging despite being explicitly listed in the `files` array.
 
-**Solution**: Rename the TypeScript output directory from `build/` to `compiled/`, which is semantically clearer and avoids all naming conflicts with build tooling.
+**Solution**: Rename the TypeScript output directory from `build/` to `app/`. This follows common Electron conventions where application code goes in `app/`, is semantically clearer (contains the application code), and completely avoids build-system terminology that could cause conflicts with tools like webpack, rollup, or other bundlers.
 
----
-
-## CLARIFYING QUESTIONS
-
-**Please answer these questions before proceeding. Once answered, I will update the implementation plan accordingly.**
-
-1. **Directory Name Preference**: The report recommends `compiled/` as the new directory name. Do you approve this choice, or would you prefer a different name (e.g., `dist-ts/`, `lib/`, `out/`)?
-   - **Your answer**: I recommend using `app/` instead of `compiled/`. This is more semantic (contains the application code), shorter and cleaner, follows common Electron project conventions where app code goes in `app/`, and completely avoids any build-system terminology that could cause future conflicts with tools like webpack, rollup, or other bundlers that commonly use `dist/`, `build/`, or `compiled/`.
-
-2. **Swift Build Directory**: The Swift build currently outputs to `electron/build/native/` (which is moved to `electron/assets/`). Should we also rename the Swift output directory for consistency (e.g., to `compiled/native/`), or keep it as-is since it's an intermediate output that gets moved to `assets/` anyway?
-   - **Your answer**: Keep the Swift build directory as `electron/build/native/` since it's an intermediate output that gets moved to `assets/`. This maintains clear separation between TypeScript output (which stays in `app/`) and Swift build artifacts (which are temporary). Changing Swift paths would add unnecessary complexity and risk to the migration without meaningful benefit.
-
-3. **Testing Requirements**: After implementing Option B, would you like me to:
-   - a) Just update all the files and let you test manually?
-   - b) Run a test build after implementation to verify it works?
-   - c) Create a test checklist for you to validate?
-   - **Your answer**: b) Run a test build after implementation to verify it works. This ensures the critical packaging issue is actually resolved before considering the implementation complete. I'll run both development testing (`npm run electron:start`) and packaging testing (`npm run build:mac:unsigned`) to validate the fix works end-to-end.
-
-4. **Documentation Updates**: Should I also update the documentation files (BUILD.md, ARCHITECTURE.md, etc.) that reference the `build/` directory in the same stage, or would you prefer to handle documentation separately?
-   - **Your answer**: Yes, update the documentation files in Stage 10 as part of the implementation. This ensures the documentation accurately reflects the new directory structure and prevents confusion for future developers. Documentation changes should happen after the technical implementation is validated to avoid documenting something that might need to be rolled back.
-
-5. **Git Commit Strategy**: After completing each stage, would you like me to:
-   - a) Leave all changes uncommitted for you to review and commit manually?
-   - b) Create a commit after each stage with a descriptive message?
-   - c) Create commits only after specific stages you specify?
-   - **Your answer**: a) Leave all changes uncommitted for you to review and commit manually. This allows you to review all changes together, ensure everything works as expected, and create commits with your preferred commit messages and structure. Since this is a significant architectural change, manual review before committing is the safest approach.
+**Key Decisions**:
+- ✅ Directory name: `app/` (more semantic, follows Electron conventions)
+- ✅ Swift build: Keep as `build/native/` (intermediate output, no changes needed)
+- ✅ Testing: Run test builds after implementation to verify the fix
+- ✅ Documentation: Update in Stage 10 after validation
+- ✅ Git commits: Leave uncommitted for manual review
 
 ---
 
@@ -65,13 +45,13 @@
 
 **Files to Modify**:
 1. **`electron/tsconfig.json`**
-   - Change `"outDir": "./build"` → `"outDir": "./compiled"`
+   - Change `"outDir": "./build"` → `"outDir": "./app"`
 
 2. **`electron/index.js`**
-   - Change `require('./build/src/index.js')` → `require('./compiled/src/index.js')`
+   - Change `require('./build/src/index.js')` → `require('./app/src/index.js')`
 
 3. **`electron/electron-builder.config.json`**
-   - Change `"build/**/*"` → `"compiled/**/*"` in files array
+   - Change `"build/**/*"` → `"app/**/*"` in files array
 
 **Verification**:
 - [ ] TypeScript configuration syntax is valid
@@ -89,19 +69,19 @@
 
 **Files to Modify**:
 1. **`electron/.gitignore`**
-   - Change `build` → `compiled`
+   - Change `build` → `app`
 
 2. **`electron/.npmignore`**
-   - Change references to `build` → `compiled` (if any exist)
-   - Update comment: "Allow compiled directory to be included in packaged app"
+   - Change references to `build` → `app` (if any exist)
+   - Update comment: "Allow app directory to be included in packaged app"
 
 3. **`electron/package.json`**
    - Review if any npm scripts reference the build directory
    - Update descriptions if needed (no path changes expected here)
 
 **Verification**:
-- [ ] Git will ignore the new compiled directory
-- [ ] npm packaging will include compiled directory
+- [ ] Git will ignore the new app directory
+- [ ] npm packaging will include app directory
 - [ ] No syntax errors in configuration files
 
 **Risk**: Low - These are standard configuration files
@@ -109,64 +89,70 @@
 ---
 
 ### Stage 4: Build Script Updates
-**Purpose**: Update all build and verification scripts that reference the build directory.
+**Purpose**: Update all build and verification scripts that reference the TypeScript output directory.
 
 **Duration**: 30-40 minutes
 
 **Files to Modify**:
 1. **`electron/scripts/verify-build-artifacts.sh`**
-   - Change `BUILD_DIR="$ELECTRON_ROOT/build"` → `BUILD_DIR="$ELECTRON_ROOT/compiled"`
-   - Update all path references from `build/` → `compiled/`
-   - Update error messages mentioning "build directory"
-   - Update success messages mentioning "build/src/index.js"
+   - Change `BUILD_DIR="$ELECTRON_ROOT/build"` → `BUILD_DIR="$ELECTRON_ROOT/app"`
+   - Update all path references from `build/src/` → `app/src/`
+   - Update error messages mentioning "build directory" → "app directory"
+   - Update success messages mentioning "build/src/index.js" → "app/src/index.js"
 
 2. **`electron/scripts/verify-ts-build.sh`**
-   - Change `BUILD_DIR="$ELECTRON_ROOT/build"` → `BUILD_DIR="$ELECTRON_ROOT/compiled"`
-   - Update all comments and error messages referencing `build/` directory
-   - Update file path checks from `build/` → `compiled/`
+   - Change `BUILD_DIR="$ELECTRON_ROOT/build"` → `BUILD_DIR="$ELECTRON_ROOT/app"`
+   - Update all comments and error messages referencing `build/` directory → `app/`
+   - Update file path checks from `build/` → `app/`
 
 3. **`electron/scripts/build-orchestrator.sh`**
-   - Update any references to `build/src/index.js` → `compiled/src/index.js`
+   - Update any references to `build/src/index.js` → `app/src/index.js`
    - Update log messages that mention the build directory
 
 4. **`electron/scripts/build-error-reporter.sh`**
-   - Update error message: "Check build/src/index.js exists" → "Check compiled/src/index.js exists"
+   - Update error message: "Check build/src/index.js exists" → "Check app/src/index.js exists"
 
 5. **`electron/scripts/build-cleanup.sh`**
-   - Review and update any references to `build/` directory in cleanup logic
+   - Review and update any references to TypeScript `build/` directory in cleanup logic
+   - Change to clean `app/` directory instead of `build/`
 
-**Note**: Swift build script (`build-swift.sh`) uses `build/native` as an intermediate directory but moves output to `assets/`. This may or may not need updating depending on answer to Question #2 above.
+**Note**: Swift build script (`build-swift.sh`) uses `build/native` as an intermediate directory but moves output to `assets/`. Per the implementation decision, this will remain unchanged as it's a separate, temporary Swift build artifact.
 
 **Verification**:
 - [ ] All scripts have valid bash syntax
-- [ ] All path references are consistent
-- [ ] No orphaned references to old `build/` directory
+- [ ] All path references are consistent to use `app/src/`
+- [ ] No orphaned references to old TypeScript `build/` directory
+- [ ] Swift `build/native` paths remain unchanged
 
 **Risk**: Medium - Multiple script files, but changes are systematic and testable
 
 ---
 
 ### Stage 5: Source Code Updates
-**Purpose**: Update any TypeScript/JavaScript source files that reference the build directory.
+**Purpose**: Update any TypeScript/JavaScript source files that reference the TypeScript output directory.
 
 **Duration**: 20-30 minutes
 
 **Files to Check and Potentially Modify**:
 1. **`electron/src/index.ts`**
-   - Search for any hardcoded references to `build/` directory
-   - Check worker path construction (PhotosWorkerManager.getWorkerPath)
-   - Update development path: `path.join(__dirname, 'workers', ...)` (should be relative, may not need changes)
+   - Search for any hardcoded references to `build/` directory (for TypeScript output)
+   - Check worker path construction in PhotosWorkerManager.getWorkerPath method
+   - Update development path from: `electron/build/src/workers/` → `electron/app/src/workers/`
+   - Production path may also need update if it references `build/`
 
-2. **`electron/src/workers/photosPermissionWorker.js`** (if it exists)
+2. **`electron/src/workers/photosPermissionWorker.ts`** (if it exists as TypeScript)
    - Check for any self-referential paths
+   - Update any imports that might reference `build/` directory
 
 3. **Any other source files**
-   - Scan for hardcoded paths mentioning `build/` directory
+   - Scan for hardcoded paths mentioning TypeScript output `build/` directory
+   - Swift `build/native` references should remain unchanged
 
 **Verification**:
-- [ ] No hardcoded `/build/` paths remain in source code
-- [ ] All relative path references work correctly
-- [ ] Worker thread paths resolve correctly
+- [ ] No hardcoded TypeScript `/build/` paths remain in source code
+- [ ] All relative path references work correctly with `app/` directory
+- [ ] Worker thread paths resolve correctly in both dev and production
+- [ ] Swift FFI paths remain functional (should use `assets/` not affected by this change)
 
 **Risk**: Low-Medium - Source code changes but mostly path references
 
@@ -178,19 +164,19 @@
 **Duration**: 10-15 minutes (plus build time ~3-5 minutes)
 
 **Tasks**:
-- [ ] Run `npm run build:clean` to remove old `build/` directory
-- [ ] Run `npm run build:ts` to compile TypeScript to new `compiled/` directory
-- [ ] Verify `electron/compiled/src/index.js` exists and has correct size (~42KB expected)
+- [ ] Run `npm run build:clean` to remove old directories
+- [ ] Run `npm run build:ts` to compile TypeScript to new `app/` directory
+- [ ] Verify `electron/app/src/index.js` exists and has correct size (~42KB expected)
 - [ ] Run `npm run build:verify-artifacts` to validate all build artifacts
-- [ ] Check that no `build/` directory exists anymore
-- [ ] Check that `compiled/` directory has expected structure
+- [ ] Check that TypeScript `app/` directory has expected structure
+- [ ] Verify Swift `build/native` → `assets/` flow still works correctly
 
 **Expected Directory Structure**:
 ```
 electron/
-  compiled/
+  app/                    (NEW - TypeScript compiled output)
     src/
-      index.js          (main application module)
+      index.js          (main application module ~42KB)
       menu.js           (menu module)
       preload.js        (preload script)
       setup.js          (setup module)
@@ -198,13 +184,15 @@ electron/
       rt/               (runtime files)
       workers/          (worker threads)
     capacitor.config.js (capacitor config output)
+  assets/                 (Swift compiled output - unchanged)
+    libPhotosLibraryBridge.dylib
 ```
 
 **Verification**:
 - [ ] TypeScript compilation succeeds
-- [ ] All expected files are in `compiled/` directory
-- [ ] No `build/` directory exists
-- [ ] Verification scripts pass
+- [ ] All expected files are in `app/` directory
+- [ ] Swift artifacts are in `assets/` directory (unchanged)
+- [ ] Verification scripts pass with new paths
 
 **Risk**: Low - Clean build in isolated directory
 
@@ -225,9 +213,10 @@ electron/
 
 **Verification**:
 - [ ] App starts successfully
-- [ ] No module resolution errors
+- [ ] No module resolution errors (should load from `app/src/index.js`)
 - [ ] Core features functional
 - [ ] No path-related warnings in console
+- [ ] Swift FFI bridge loads correctly from `assets/`
 
 **Risk**: Low - Development mode testing, easy to debug
 
@@ -241,9 +230,9 @@ electron/
 **Tasks**:
 - [ ] Run `npm run build:mac:unsigned` to create an unsigned .app package
 - [ ] Verify packaging completes without errors
-- [ ] Check that `compiled/` directory is included in the packaged app
+- [ ] Check that `app/` directory is included in the packaged app
 - [ ] Locate the packaged .app file in `electron/dist/mac/`
-- [ ] Verify the .app bundle structure includes compiled directory
+- [ ] Verify the .app bundle structure includes app directory
 
 **Expected Package Structure** (check with `ls -R dist/mac/Slideshow\ Buddy.app/Contents/Resources/`):
 ```
@@ -251,20 +240,21 @@ Resources/
   app/
     index.js
     package.json
-    compiled/
+    app/                  (TypeScript compiled output)
       src/
         index.js
         (all other compiled files)
-    assets/
+    assets/               (Swift compiled output)
       libPhotosLibraryBridge.dylib
     node_modules/
 ```
 
 **Verification**:
-- [ ] Packaging succeeds
+- [ ] Packaging succeeds without errors
 - [ ] No "files: []" warning in electron-builder output
-- [ ] `compiled/` directory is present in packaged app
-- [ ] `compiled/src/index.js` exists in packaged app
+- [ ] `app/` directory is present in packaged app
+- [ ] `app/src/index.js` exists in packaged app (critical file)
+- [ ] `assets/libPhotosLibraryBridge.dylib` is present (Swift FFI)
 
 **Risk**: Medium - This is the critical test that previously failed
 
@@ -284,7 +274,7 @@ Resources/
 - [ ] Verify Photos library access works (if applicable)
 
 **Success Criteria**:
-- [ ] App launches without "Cannot find module './compiled/src/index.js'" error
+- [ ] App launches without "Cannot find module './app/src/index.js'" error
 - [ ] App window opens and displays UI
 - [ ] Core features are functional
 - [ ] No critical errors in system console
@@ -313,25 +303,30 @@ Resources/
 - [ ] Create a summary report of what was changed and why
 - [ ] Verify the workaround command is no longer needed
 
-**Documentation Files to Update** (if applicable):
+**Documentation Files to Update**:
 1. **`electron/BUILD.md`**
-   - Update any references to `build/` directory
+   - Update references from `build/` → `app/` for TypeScript output
+   - Clarify that `build/native` is Swift intermediate (unchanged)
    - Update build artifact locations
 
 2. **`electron/BUILD_ARCHITECTURE.md`**
    - Update directory structure diagrams
-   - Update path references
+   - Show `app/` for TypeScript, `assets/` for Swift output
+   - Update path references throughout
 
 3. **`docs/ARCHITECTURE.md`**
    - Update electron build architecture section
+   - Clarify separation between TypeScript (`app/`) and Swift (`assets/`) outputs
 
 4. **`README.md`** (root)
    - Update if it contains build instructions
+   - Ensure paths reflect new structure
 
 **Verification**:
 - [ ] All builds succeed consistently
-- [ ] Documentation is accurate
-- [ ] No references to old `build/` directory remain
+- [ ] Documentation accurately reflects `app/` and `assets/` distinction
+- [ ] No references to TypeScript `build/` directory remain
+- [ ] Swift `build/native` references explained as intermediate (if mentioned)
 - [ ] Team members can follow updated documentation
 
 **Risk**: Low - Final validation and documentation
@@ -358,7 +353,7 @@ If at any point the implementation fails or causes issues:
 3. **Directory Cleanup**:
    ```bash
    cd electron
-   rm -rf compiled
+   rm -rf app
    npm run build:clean
    npm run build
    ```
@@ -369,14 +364,15 @@ If at any point the implementation fails or causes issues:
 
 The implementation will be considered successful when:
 
-1. ✅ TypeScript compiles to `compiled/` directory instead of `build/`
-2. ✅ All build scripts reference `compiled/` and pass validation
-3. ✅ Electron app runs in development mode without errors
-4. ✅ `npm run build:mac:unsigned` packages successfully
-5. ✅ Packaged .app includes `compiled/src/index.js`
-6. ✅ Packaged .app launches from Finder without "Cannot find module" error
-7. ✅ App functionality works correctly in packaged version
-8. ✅ No workaround command-line flags needed for packaging
+1. ✅ TypeScript compiles to `app/` directory instead of `build/`
+2. ✅ All build scripts reference `app/` (TypeScript) and pass validation
+3. ✅ Swift builds continue to work with `build/native` → `assets/` flow
+4. ✅ Electron app runs in development mode without errors
+5. ✅ `npm run build:mac:unsigned` packages successfully
+6. ✅ Packaged .app includes `app/src/index.js` (critical file)
+7. ✅ Packaged .app launches from Finder without "Cannot find module" error
+8. ✅ App functionality works correctly in packaged version (Photos FFI, workers, etc.)
+9. ✅ No workaround command-line flags needed for packaging
 
 ---
 
