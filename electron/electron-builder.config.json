@@ -13,7 +13,7 @@
     "package.json",
     "node_modules/**/*",
     "assets/**/*",
-    "build/**/*",
+    "app/**/*",
     "capacitor.config.*"
   ],
   "extraResources": [

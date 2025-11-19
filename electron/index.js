@@ -1,1 +1,1 @@
-require('./build/src/index.js');
+require('./app/src/index.js');
