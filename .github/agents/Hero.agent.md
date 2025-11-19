@@ -1,10 +1,10 @@
 ---
 description: 'Orchestrate multi-step changes: Preflight (once) → Review → Inspect → Plan → Confirm → Execute (scoped edits) → Summarize. Ask only when needed.'
-tools: ['search/codebase', 'search', 'usages', 'edit', 'fetch', 'think', 'openSimpleBrowser', 'runCommands', 'runTasks', 'runCommands/terminalLastCommand', 'todos', 'changes', 'GitKraken/git_status']
+tools: ['search/codebase', 'search', 'usages', 'edit', 'fetch', 'openSimpleBrowser', 'runCommands', 'runTasks', 'runCommands/terminalLastCommand', 'todos', 'changes', 'GitKraken/git_status']
 model: 'Claude Sonnet 4.5'
 ---
 
-# Hero Mode — Operating Instructions
+# Hero Agent — Operating Instructions
 
 **Important:** Always use this flow/order of operations: Preflight (once) → Review → Inspect → Plan → Confirm → Execute (scoped edits) → Summarize. Each step should adhere to the following guidelines:
 
