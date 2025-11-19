@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-11-19
+
+### Added
+- **Automatic photo permission flow on app launch (macOS)**: App now checks and requests photo library access automatically when launched, eliminating the need for manual permission requests
+- **New `usePhotoPermissions` hook**: Centralized photo permission management with built-in UX including loading indicators, success/error notifications, and user dialogues
+- **Loading spinner during photo detection**: Visual feedback while checking photo library access and processing permissions
+- **Success toast notification**: Appears after successful photo library access with user-friendly message about creating slideshows
+- **Error toast notifications**: Persistent error messages for permission failures that require manual dismissal
+- **Permission denial dialogue**: Informative dialogue when user denies access, explaining file importer alternative and how to grant permissions later via Settings
+- **System Settings deep link**: Direct link to macOS System Settings for changing photo permissions when needed
+
+### Changed
+- **Settings page photo permission button**: Now only visible when app lacks photo permissions (hidden when already granted)
+- **Button label updated**: Changed from "Test Photos Permission" to "Grant Photo Permissions" for clarity
+- **Permission check on Settings page load**: Automatically checks permission status when Settings page opens
+- **ESLint configuration**: Relaxed TypeScript strict rules for more practical development workflow while maintaining important error checks
+
+### Fixed
+- **Cleaned up verbose logging**: Removed extensive debug console logs throughout photo permission flow (renderer, IPC handlers, FFI layer, Swift bridge, and worker threads)
+- **Reduced noise in production**: Permission flow now only logs errors and critical information, improving console readability
+
 ## [1.1.0] - 2025-11-17
 
 ### Added

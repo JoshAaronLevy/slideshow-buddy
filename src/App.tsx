@@ -21,8 +21,8 @@ import SpotifySyncModal from './components/SpotifySyncModal';
 import PreferencesModal from './components/PreferencesModal';
 import DesktopSidebar from './components/DesktopSidebar';
 import MacOSHeader from './components/MacOSHeader';
-import { requestPhotoLibraryPermission } from './services/PhotoService';
 import { useSpotifyAuth } from './hooks/useSpotifyAuth';
+import { usePhotoPermissions } from './hooks/usePhotoPermissions';
 import TokenManager from './services/TokenManager';
 import { memoryMonitor } from './utils/memoryMonitor';
 import { isMacOS } from './utils/platform';
@@ -62,44 +62,42 @@ setupIonicReact();
 
 const App: React.FC = () => {
   const [showSpotifySync, setShowSpotifySync] = useState(false);
-  const [showPermissionAlert, setShowPermissionAlert] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const { loginWithSpotify } = useSpotifyAuth();
   const [presentToast] = useIonToast();
+  const { requestPermission } = usePhotoPermissions();
 
+  // Check/request photo permissions on app launch (macOS only)
   useEffect(() => {
-    const checkPermissions = async () => {
+    const initPhotoPermissions = async () => {
+      if (!isMacOS()) {
+        return;
+      }
+
       try {
-        const hasPermission = await requestPhotoLibraryPermission();
+        // Request permission (will check first, then request if needed)
+        // This includes all UX: loading spinner, success/error notifications, denial dialogue
+        await requestPermission({ showNotifications: true });
+
+        // After permission flow completes, check if we should show Spotify sync modal
+        const { value: dismissed } = await import('@capacitor/preferences').then(
+          ({ Preferences }) => Preferences.get({ key: 'spotify_sync_dismissed' })
+        );
         
-        if (hasPermission) {
-          // Permission granted - check if we should show Spotify sync modal
-          const { value: dismissed } = await import('@capacitor/preferences').then(
-            ({ Preferences }) => Preferences.get({ key: 'spotify_sync_dismissed' })
-          );
-          
-          if (!dismissed || dismissed !== 'true') {
-            // Small delay to let the app finish loading
-            setTimeout(() => {
-              setShowSpotifySync(true);
-            }, 500);
-          }
-        } else {
-          // Permission denied - show alert with instructions
-          setShowPermissionAlert(true);
+        if (!dismissed || dismissed !== 'true') {
+          // Small delay to let any toasts finish
+          setTimeout(() => {
+            setShowSpotifySync(true);
+          }, 1000);
         }
       } catch (error) {
-        console.error('Error checking photo permissions:', error);
-        presentToast({
-          message: 'Unable to check photo permissions. Please try again.',
-          duration: 3000,
-          color: 'danger',
-        });
+        console.error('[App] Error in photo permission flow:', error);
       }
     };
 
-    checkPermissions();
-  }, [presentToast]);
+    // Small delay to let app finish mounting
+    setTimeout(initPhotoPermissions, 500);
+  }, [requestPermission]);
 
   // Stage 6: Initialize TokenManager on app mount
   // Replaces Stage 2 app resume listener - TokenManager handles auto-refresh via timer
@@ -235,14 +233,6 @@ const App: React.FC = () => {
           </IonTabs>
         )}
       </IonReactRouter>
-
-      <IonAlert
-        isOpen={showPermissionAlert}
-        onDidDismiss={() => setShowPermissionAlert(false)}
-        header="Photo Access Required"
-        message="Slideshow Buddy needs access to your photos to create slideshows. Please enable photo access in Settings > Privacy & Security > Photos > Slideshow Buddy."
-        buttons={['OK']}
-      />
 
       <SpotifySyncModal
         isOpen={showSpotifySync}

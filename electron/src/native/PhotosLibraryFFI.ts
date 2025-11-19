@@ -262,42 +262,18 @@ class PhotosLibraryFFI {
    */
   public async requestPermission(): Promise<boolean> {
     try {
-      console.log('='.repeat(60));
-      console.log('[FFI-DIAGNOSTIC] REQUEST PERMISSION START');
-      console.log('[FFI-DIAGNOSTIC] Process platform:', process.platform);
-      console.log('[FFI-DIAGNOSTIC] FFI initialized:', this.isInitialized);
-      console.log('[FFI-DIAGNOSTIC] FFI ready:', this.isReady());
-      console.log('[FFI-DIAGNOSTIC] Library path exists:', this.lib !== null);
-      console.log('[FFI-DIAGNOSTIC] Interface exists:', this.ffiInterface !== null);
-      
       if (!this.isInitialized || !this.ffiInterface) {
-        console.error('[FFI-DIAGNOSTIC] FFI not properly initialized!');
         throw new Error('FFI not initialized');
       }
       
-      console.log('[FFI-DIAGNOSTIC] About to call Swift photos_request_permission...');
-      const startTime = Date.now();
-      
       const jsonResult = this.callStringFunction(() => {
-        console.log('[FFI-DIAGNOSTIC] Inside callStringFunction, calling native function...');
         return this.ffiInterface!.photos_request_permission();
       });
       
-      const duration = Date.now() - startTime;
-      console.log('[FFI-DIAGNOSTIC] Native call completed in', duration, 'ms');
-      console.log('[FFI-DIAGNOSTIC] Raw result from Swift:', jsonResult, '(type:', typeof jsonResult, ')');
-      
       // Swift returns "true" or "false" as string for this function
-      const hasPermission = jsonResult === 'true';
-      console.log('[FFI-DIAGNOSTIC] Parsed permission result:', hasPermission);
-      console.log('[FFI-DIAGNOSTIC] REQUEST PERMISSION END');
-      console.log('='.repeat(60));
-      
-      return hasPermission;
+      return jsonResult === 'true';
     } catch (error) {
-      console.error('[FFI-DIAGNOSTIC] ERROR in requestPermission:', error);
-      console.error('[FFI-DIAGNOSTIC] Error stack:', error.stack);
-      console.log('='.repeat(60));
+      console.error('[FFI] Error in requestPermission:', error);
       throw error;
     }
   }
@@ -306,20 +282,15 @@ class PhotosLibraryFFI {
    * Check current permission status
    */
   public checkPermission(): boolean {
-    console.log('[FFI] checkPermission() called');
     try {
       const jsonResult = this.callStringFunction(() => {
-        console.log('[FFI] Calling photos_check_permission via koffi...');
         return this.ffiInterface!.photos_check_permission();
       });
-      console.log('[FFI] photos_check_permission raw result:', jsonResult, 'Type:', typeof jsonResult);
       
       // Swift returns "true" or "false" as string for this function
-      const hasPermission = jsonResult === 'true';
-      console.log('[FFI] checkPermission final result:', hasPermission);
-      return hasPermission;
+      return jsonResult === 'true';
     } catch (error) {
-      console.error('[FFI] Exception in checkPermission:', error);
+      console.error('[FFI] Error in checkPermission:', error);
       throw error;
     }
   }

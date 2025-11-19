@@ -641,44 +641,15 @@ ipcMain.handle('system:get-theme', async () => {
  * so we run it in a worker to keep the main process responsive.
  */
 ipcMain.handle('photos:requestPermission', async () => {
-  console.log('╔════════════════════════════════════════════════════════════════╗');
-  console.log('║         [MAIN-PROCESS-IPC] photos:requestPermission           ║');
-  console.log('╚════════════════════════════════════════════════════════════════╝');
-  console.log('[MAIN-PROCESS-IPC] Handler invoked');
-  console.log('[MAIN-PROCESS-IPC] Timestamp:', new Date().toISOString());
-  console.log('[MAIN-PROCESS-IPC] Process platform:', process.platform);
-  
   if (process.platform !== 'darwin') {
-    console.error('[MAIN-PROCESS-IPC] ✗ Not running on macOS');
-    console.log('╚════════════════════════════════════════════════════════════════╝');
     return { success: false, error: 'Photos library only available on macOS' };
   }
 
   try {
-    console.log('[MAIN-PROCESS-IPC] Forwarding request to worker thread...');
-    console.log('[MAIN-PROCESS-IPC] Worker will handle blocking Swift FFI call');
-    console.log('[Main Process] photos:requestPermission IPC handler - dispatching to worker thread');
-    
-    const startTime = Date.now();
     const hasPermission = await photosWorkerManager.requestPermission();
-    const duration = Date.now() - startTime;
-    
-    console.log('[MAIN-PROCESS-IPC] ━━━ Worker request completed ━━━');
-    console.log('[MAIN-PROCESS-IPC] Duration:', duration, 'ms');
-    console.log('[MAIN-PROCESS-IPC] Result (hasPermission):', hasPermission);
-    console.log('[Main Process] Worker returned status:', hasPermission);
-    console.log('[MAIN-PROCESS-IPC] Returning success response to renderer');
-    console.log('╚════════════════════════════════════════════════════════════════╝');
-    
     return { success: true, hasPermission };
   } catch (error) {
-    console.error('[MAIN-PROCESS-IPC] ⚠️  Exception caught in IPC handler');
-    console.error('[MAIN-PROCESS-IPC] Error:', error);
-    console.error('[MAIN-PROCESS-IPC] Error message:', error instanceof Error ? error.message : 'Unknown error');
-    if (error instanceof Error && error.stack) {
-      console.error('[MAIN-PROCESS-IPC] Error stack:', error.stack);
-    }
-    console.log('╚════════════════════════════════════════════════════════════════╝');
+    console.error('[IPC] Error in photos:requestPermission:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to request Photos library permission'
@@ -695,20 +666,15 @@ ipcMain.handle('photos:requestPermission', async () => {
  * for consistency and to ensure the main thread never blocks on FFI calls.
  */
 ipcMain.handle('photos:checkPermission', async () => {
-  console.log('[MAIN-PROCESS-IPC] photos:checkPermission called');
-  
   if (process.platform !== 'darwin') {
-    console.log('[MAIN-PROCESS-IPC] Not on macOS, returning error');
     return { success: false, error: 'Photos library only available on macOS' };
   }
 
   try {
-    console.log('[MAIN-PROCESS-IPC] Forwarding request to worker thread...');
     const hasPermission = await photosWorkerManager.checkPermission();
-    console.log('[MAIN-PROCESS-IPC] Worker result:', hasPermission);
     return { success: true, hasPermission };
   } catch (error) {
-    console.error('[MAIN-PROCESS-IPC] Error in photos:checkPermission:', error);
+    console.error('[IPC] Error in photos:checkPermission:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to check Photos library permission'

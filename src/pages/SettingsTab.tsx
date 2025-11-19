@@ -9,81 +9,41 @@ import {
   IonLabel,
   IonText,
   IonButton,
-  IonNote,
+  IonAlert,
 } from '@ionic/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './SettingsTab.css';
 import packageJson from '../../package.json';
 import { isMacOS } from '../utils/platform';
+import { usePhotoPermissions } from '../hooks/usePhotoPermissions';
 
 const SettingsTab: React.FC = () => {
-  const [permissionStatus, setPermissionStatus] = useState<string>('Not tested yet');
-  const [isRequesting, setIsRequesting] = useState(false);
-  const showPhotoTest = isMacOS() && (window as any).electron?.photos;
+  const { state, checkPermission, requestPermission, openSystemSettings } = usePhotoPermissions();
+  const [showSettingsAlert, setShowSettingsAlert] = useState(false);
+  const showPhotoButton = isMacOS() && (window as any).electron?.photos;
 
-  const handleTestPhotosPermission = async () => {
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[RENDERER-TEST-BUTTON] 🔘 Test Photos Permission button clicked');
-    console.log('[RENDERER-TEST-BUTTON] Timestamp:', new Date().toISOString());
-    console.log('[RENDERER-TEST-BUTTON] Platform:', navigator.platform);
-    console.log('[RENDERER-TEST-BUTTON] User Agent:', navigator.userAgent);
-    
-    setIsRequesting(true);
-    setPermissionStatus('Requesting permission...');
-    
-    try {
-      console.log('[RENDERER-TEST-BUTTON] Checking if electron.photos API exists...');
-      
-      if (!(window as any).electron?.photos) {
-        const errorMsg = 'ERROR: window.electron.photos API not available!';
-        console.error('[RENDERER-TEST-BUTTON]', errorMsg);
-        console.error('[RENDERER-TEST-BUTTON] window.electron:', (window as any).electron);
-        setPermissionStatus(errorMsg);
-        return;
-      }
-      
-      console.log('[RENDERER-TEST-BUTTON] ✓ API available, starting permission request flow...');
-      console.log('[RENDERER-TEST-BUTTON] Calling window.electron.photos.requestPermission()...');
-      console.log('[Photos Permission Test] Invoking photos.requestPermission - PhotoKit only, no filesystem access');
-      
-      const startTime = performance.now();
-      const result = await (window as any).electron.photos.requestPermission();
-      const duration = performance.now() - startTime;
-      
-      console.log('[RENDERER-TEST-BUTTON] ━━━ IPC CALL COMPLETED ━━━');
-      console.log('[RENDERER-TEST-BUTTON] Duration:', duration.toFixed(2), 'ms');
-      console.log('[RENDERER-TEST-BUTTON] Raw result:', result);
-      console.log('[RENDERER-TEST-BUTTON] Result type:', typeof result);
-      console.log('[RENDERER-TEST-BUTTON] Result.success:', result.success);
-      console.log('[RENDERER-TEST-BUTTON] Result.hasPermission:', result.hasPermission);
-      console.log('[RENDERER-TEST-BUTTON] Result.error:', result.error);
-      
-      if (result.success) {
-        if (result.hasPermission) {
-          const successMsg = `✓ PERMISSION GRANTED (${duration.toFixed(0)}ms)`;
-          console.log('[RENDERER-TEST-BUTTON] ✓✓✓', successMsg);
-          setPermissionStatus(successMsg);
-        } else {
-          const deniedMsg = `✗ PERMISSION DENIED (${duration.toFixed(0)}ms)`;
-          console.log('[RENDERER-TEST-BUTTON] ✗✗✗', deniedMsg);
-          setPermissionStatus(deniedMsg);
-        }
-      } else {
-        const errorMsg = `ERROR: ${result.error || 'Unknown error'}`;
-        console.error('[RENDERER-TEST-BUTTON]', errorMsg);
-        setPermissionStatus(errorMsg);
-      }
-    } catch (error) {
-      console.error('[RENDERER-TEST-BUTTON] ⚠️  EXCEPTION CAUGHT:', error);
-      console.error('[RENDERER-TEST-BUTTON] Error name:', (error as any).name);
-      console.error('[RENDERER-TEST-BUTTON] Error message:', (error as any).message);
-      console.error('[RENDERER-TEST-BUTTON] Error stack:', (error as any).stack);
-      setPermissionStatus(`Exception: ${(error as any).message}`);
-    } finally {
-      setIsRequesting(false);
-      console.log('[RENDERER-TEST-BUTTON] Test completed');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  // Check permission status when tab loads
+  useEffect(() => {
+    if (showPhotoButton) {
+      checkPermission();
     }
+  }, [showPhotoButton, checkPermission]);
+
+  const handleGrantPermission = async () => {
+    const granted = await requestPermission({ showNotifications: true });
+    
+    // If permission was denied and system prompt was already shown before,
+    // show alert to direct user to System Settings
+    if (!granted && state.hasPermission === false) {
+      // Check if this is a case where user needs to go to System Settings
+      // (i.e., they previously denied and now the OS won't show the prompt)
+      setShowSettingsAlert(true);
+    }
+  };
+
+  const handleOpenSettings = async () => {
+    setShowSettingsAlert(false);
+    await openSystemSettings();
   };
 
   return (
@@ -113,13 +73,13 @@ const SettingsTab: React.FC = () => {
             </IonText>
           </IonItem>
 
-          {showPhotoTest && (
+          {showPhotoButton && state.hasPermission === false && (
             <>
               <IonItem lines="none">
                 <IonLabel>
-                  <h2>macOS Photos Permission Test</h2>
+                  <h2>Photo Library Access</h2>
                   <IonText color="medium">
-                    <p>Debug tool to test Photos library permission dialog</p>
+                    <p>Grant access to your Photos library</p>
                   </IonText>
                 </IonLabel>
               </IonItem>
@@ -127,29 +87,33 @@ const SettingsTab: React.FC = () => {
               <IonItem>
                 <IonButton 
                   expand="block" 
-                  onClick={handleTestPhotosPermission}
-                  disabled={isRequesting}
+                  onClick={handleGrantPermission}
+                  disabled={state.isRequesting || state.isChecking}
                   style={{ width: '100%' }}
                 >
-                  {isRequesting ? 'Requesting...' : 'Test Photos Permission'}
+                  {state.isRequesting ? 'Requesting...' : 'Grant Photo Permissions'}
                 </IonButton>
-              </IonItem>
-              
-              <IonItem lines="none">
-                <IonLabel>
-                  <IonNote color={permissionStatus.includes('GRANTED') ? 'success' : permissionStatus.includes('DENIED') || permissionStatus.includes('ERROR') ? 'danger' : 'medium'}>
-                    Status: {permissionStatus}
-                  </IonNote>
-                  <IonText color="medium">
-                    <p style={{ fontSize: '0.85em', marginTop: '8px' }}>
-                      Check browser console and macOS Console.app for detailed logs
-                    </p>
-                  </IonText>
-                </IonLabel>
               </IonItem>
             </>
           )}
         </IonList>
+
+        <IonAlert
+          isOpen={showSettingsAlert}
+          onDidDismiss={() => setShowSettingsAlert(false)}
+          header="Permission Required"
+          message="Photo access can only be changed in System Settings. Would you like to open System Settings now?"
+          buttons={[
+            {
+              text: 'Cancel',
+              role: 'cancel',
+            },
+            {
+              text: 'Open Settings',
+              handler: handleOpenSettings,
+            },
+          ]}
+        />
       </IonContent>
     </IonPage>
   );

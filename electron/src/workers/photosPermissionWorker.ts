@@ -12,21 +12,9 @@
 import { parentPort, workerData, threadId } from 'worker_threads';
 import { PhotosLibraryFFI } from '../native/PhotosLibraryFFI';
 
-// Simple logging helpers to avoid console spam
-const DEBUG = process.env.PHOTOS_WORKER_DEBUG === 'true';
-
-const info = (...args: unknown[]) => {
-  console.log('[PhotosWorker]', ...args);
-};
-
-const debug = (...args: unknown[]) => {
-  if (DEBUG) {
-    console.log('[PhotosWorker][debug]', ...args);
-  }
-};
-
+// Simple logging helpers
 const errorLog = (...args: unknown[]) => {
-  console.error('[PhotosWorker][error]', ...args);
+  console.error('[PhotosWorker]', ...args);
 };
 
 // Message types for communication with main thread
@@ -45,41 +33,25 @@ interface WorkerResponse {
 // Initialize FFI in this worker thread
 let photosFFI: PhotosLibraryFFI | null = null;
 
-info(
-  `Worker starting (threadId=${threadId}, platform=${process.platform}, NODE_ENV=${process.env.NODE_ENV})`
-);
-debug('Worker data:', workerData);
-debug('SLIDESHOW_BUDDY_DEV:', process.env.SLIDESHOW_BUDDY_DEV);
-debug('process.resourcesPath:', process.resourcesPath);
-
 try {
-  info('Initializing PhotosLibraryFFI…');
   photosFFI = new PhotosLibraryFFI();
 
   const ready = photosFFI.isReady();
   if (!ready) {
     throw new Error('PhotosLibraryFFI reported not ready after initialization');
   }
-
-  info('PhotosLibraryFFI initialized successfully (isReady = true)');
 } catch (error) {
   errorLog('Failed to initialize PhotosLibraryFFI:', error);
 }
 
 // Handle messages from main thread
 if (!parentPort) {
-  // This should never happen in a properly created worker, but fail loudly if it does.
   errorLog('parentPort is null - worker cannot communicate with main thread. Exiting.');
   process.exit(1);
 }
 
-info('Worker initialized, waiting for messages…');
-
 parentPort.on('message', async (request: WorkerRequest) => {
   const { id, type } = request;
-  const startedAt = Date.now();
-
-  info(`Request received (id=${id}, type=${type})`);
 
   const response: WorkerResponse = {
     id,
@@ -91,32 +63,16 @@ parentPort.on('message', async (request: WorkerRequest) => {
       throw new Error('Photos FFI not initialized or not ready');
     }
 
-    debug('FFI is ready, processing request type:', type);
-
     switch (type) {
       case 'requestPermission': {
-        info(`Calling PhotosLibraryFFI.requestPermission() for id=${id}`);
         const hasPermission = await photosFFI.requestPermission();
-        const duration = Date.now() - startedAt;
-
-        info(
-          `requestPermission completed (id=${id}, duration=${duration}ms, hasPermission=${hasPermission})`
-        );
-
         response.success = true;
         response.hasPermission = hasPermission;
         break;
       }
 
       case 'checkPermission': {
-        info(`Calling PhotosLibraryFFI.checkPermission() for id=${id}`);
         const hasPermission = photosFFI.checkPermission();
-        const duration = Date.now() - startedAt;
-
-        info(
-          `checkPermission completed (id=${id}, duration=${duration}ms, hasPermission=${hasPermission})`
-        );
-
         response.success = true;
         response.hasPermission = hasPermission;
         break;
@@ -127,17 +83,11 @@ parentPort.on('message', async (request: WorkerRequest) => {
       }
     }
   } catch (error) {
-    const duration = Date.now() - startedAt;
-    errorLog(
-      `Error processing request (id=${id}, type=${type}, duration=${duration}ms):`,
-      error
-    );
-
+    errorLog(`Error processing request (id=${id}, type=${type}):`, error);
     response.success = false;
     response.error = error instanceof Error ? error.message : 'Unknown error in worker';
   }
 
-  debug('Sending response back to main thread:', response);
   parentPort.postMessage(response);
 });
 
