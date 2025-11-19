@@ -77,7 +77,7 @@ class PhotosLibraryFFI {
       
       if (isDev) {
         // Development mode
-        // __dirname (compiled) = <repo>/electron/build/src/native
+        // __dirname (compiled) = <repo>/electron/app/src/native
         // Our Swift build currently outputs to: <repo>/electron/assets/libPhotosLibraryBridge.dylib
 
         const cwd = process.cwd();
@@ -90,7 +90,7 @@ class PhotosLibraryFFI {
           path.join(__dirname, 'libPhotosLibraryBridge.dylib'),
 
           // 2) Actual current location: <repo>/electron/assets/libPhotosLibraryBridge.dylib
-          // __dirname = <repo>/electron/build/src/native
+          // __dirname = <repo>/electron/app/src/native
           // ../../../ = <repo>/electron
           path.join(__dirname, '../../../assets/libPhotosLibraryBridge.dylib'),
 

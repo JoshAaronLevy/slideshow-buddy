@@ -65,7 +65,7 @@ class PhotosWorkerManager {
    */
   private getWorkerPath(): string {
     if (electronIsDev) {
-      // Development: worker is in electron/build/src/workers/
+      // Development: worker is in electron/app/src/workers/
       const devPath = path.join(__dirname, 'workers', 'photosPermissionWorker.js');
       console.log('[Photos Worker Manager] Dev worker path:', devPath);
       return devPath;
