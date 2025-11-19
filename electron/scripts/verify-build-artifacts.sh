@@ -10,7 +10,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ELECTRON_ROOT="$(dirname "$SCRIPT_DIR")"
 ERROR_REPORTER="$SCRIPT_DIR/build-error-reporter.sh"
-BUILD_DIR="$ELECTRON_ROOT/build"
+BUILD_DIR="$ELECTRON_ROOT/app"
 ASSETS_DIR="$ELECTRON_ROOT/assets"
 
 # Colors for output
@@ -112,13 +112,13 @@ check_file "$BUILD_DIR/src/index.js" "Main application module (compiled from Typ
 echo ""
 echo -e "${BLUE}=== TYPESCRIPT BUILD ARTIFACTS ===${NC}"
 
-# Check TypeScript build directory
+# Check TypeScript app directory
 if [ ! -d "$BUILD_DIR" ]; then
-    echo -e "${RED}✗ Build directory not found: $BUILD_DIR${NC}"
+    echo -e "${RED}✗ App directory not found: $BUILD_DIR${NC}"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
     CRITICAL_FAILURES=$((CRITICAL_FAILURES + 1))
 else
-    report_success "Build directory exists"
+    report_success "App directory exists"
     
     # Check additional TypeScript outputs
     check_file "$BUILD_DIR/src/menu.js" "Menu module"
@@ -188,13 +188,13 @@ echo -e "${BLUE}=== ENTRY POINT VALIDATION ===${NC}"
 # Validate the critical entry point dependency
 ENTRY_POINT="$ELECTRON_ROOT/index.js"
 if [ -f "$ENTRY_POINT" ]; then
-    # Check if index.js correctly references the build output
-    if grep -q "./build/src/index.js" "$ENTRY_POINT" 2>/dev/null; then
+    # Check if index.js correctly references the app output
+    if grep -q "./app/src/index.js" "$ENTRY_POINT" 2>/dev/null; then
         if [ -f "$BUILD_DIR/src/index.js" ]; then
             report_success "Entry point dependency is satisfied"
         else
-            echo -e "${RED}✗ Entry point references missing build output${NC}"
-            echo "  '$ENTRY_POINT' requires './build/src/index.js'"
+            echo -e "${RED}✗ Entry point references missing app output${NC}"
+            echo "  '$ENTRY_POINT' requires './app/src/index.js'"
             echo "  But '$BUILD_DIR/src/index.js' does not exist"
             FAILED_CHECKS=$((FAILED_CHECKS + 1))
             CRITICAL_FAILURES=$((CRITICAL_FAILURES + 1))

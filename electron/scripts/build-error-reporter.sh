@@ -45,7 +45,7 @@ generate_troubleshooting() {
             ;;
         "TypeScript Verification")
             echo "- Run TypeScript build again: npm run build:ts"
-            echo "- Check build/src/index.js exists"
+            echo "- Check app/src/index.js exists"
             echo "- Verify all TypeScript files compiled successfully"
             ;;
         "Artifact Verification")

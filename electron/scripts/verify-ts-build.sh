@@ -10,7 +10,7 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ELECTRON_ROOT="$(dirname "$SCRIPT_DIR")"
 ERROR_REPORTER="$SCRIPT_DIR/build-error-reporter.sh"
-BUILD_DIR="$ELECTRON_ROOT/build"
+BUILD_DIR="$ELECTRON_ROOT/app"
 
 # Colors for output
 RED='\033[0;31m'
@@ -68,9 +68,9 @@ get_file_size() {
     fi
 }
 
-# Check if build directory exists
+# Check if app directory exists
 if [ ! -d "$BUILD_DIR" ]; then
-    report_error "Build directory not found: $BUILD_DIR. Run 'npm run build:ts' to compile TypeScript"
+    report_error "App directory not found: $BUILD_DIR. Run 'npm run build:ts' to compile TypeScript"
 fi
 
 echo "Checking TypeScript build outputs in: $BUILD_DIR"
@@ -170,17 +170,17 @@ for file in "${EXPECTED_FILES[@]}"; do
     fi
 done
 
-# Check that no TypeScript source files exist in build directory
+# Check that no TypeScript source files exist in app directory
 echo ""
-echo "=== Checking for TypeScript Source Files in Build Directory ==="
+echo "=== Checking for TypeScript Source Files in App Directory ==="
 TS_FILES_IN_BUILD=$(find "$BUILD_DIR" -name "*.ts" 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$TS_FILES_IN_BUILD" -gt 0 ]; then
-    echo -e "${YELLOW}⚠ Found $TS_FILES_IN_BUILD TypeScript files in build directory:${NC}"
+    echo -e "${YELLOW}⚠ Found $TS_FILES_IN_BUILD TypeScript files in app directory:${NC}"
     find "$BUILD_DIR" -name "*.ts" 2>/dev/null | while read -r ts_file; do
         echo -e "${YELLOW}  - $ts_file${NC}"
     done
-    echo -e "${YELLOW}  TypeScript files should only be in src/, not build/${NC}"
+    echo -e "${YELLOW}  TypeScript files should only be in src/, not app/${NC}"
     FAILED_CHECKS=$((FAILED_CHECKS + 1))
 else
     report_success "No TypeScript source files found in build directory"

@@ -9,7 +9,7 @@ set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ELECTRON_ROOT="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="$ELECTRON_ROOT/build"
+BUILD_DIR="$ELECTRON_ROOT/app"
 DIST_DIR="$ELECTRON_ROOT/dist"
 LOGS_DIR="$ELECTRON_ROOT/logs"
 
@@ -177,10 +177,10 @@ echo ""
 echo "Step 1: Preserving build logs"
 backup_build_logs
 
-# Step 2: Remove incomplete build directory
+# Step 2: Remove incomplete app directory
 echo ""
 echo "Step 2: Cleaning build artifacts"
-safe_remove_directory "$BUILD_DIR" "TypeScript build"
+safe_remove_directory "$BUILD_DIR" "TypeScript app"
 
 # Step 3: Remove incomplete dist directory  
 echo ""

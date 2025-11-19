@@ -220,7 +220,7 @@ echo -e "${BOLD}${GREEN}🚀 READY FOR PACKAGING${NC}"
 echo -e "${GREEN}The application is ready for electron-builder packaging.${NC}"
 echo -e "${GREEN}All critical files are present and validated:${NC}"
 echo -e "${GREEN}  ✓ electron/index.js (entry point)${NC}"
-echo -e "${GREEN}  ✓ build/src/index.js (compiled TypeScript)${NC}"
+echo -e "${GREEN}  ✓ app/src/index.js (compiled TypeScript)${NC}"
 echo -e "${GREEN}  ✓ assets/libPhotosLibraryBridge.dylib (Swift native library)${NC}"
 echo ""
 
