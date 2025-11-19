@@ -1,12 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.slideshowbuddy.app",
+  "asar": false,
   "productName": "Slideshow Buddy",
   "copyright": "Copyright © 2024 Slideshow Buddy",
   "directories": {
     "buildResources": "resources"
   },
   "files": [
+    "index.js",
     "package.json",
     "node_modules/**/*",
     "assets/**/*",
