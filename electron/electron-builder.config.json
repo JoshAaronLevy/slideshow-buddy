@@ -1,7 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.slideshowbuddy.app",
-  "asar": false,
+  "asar": true,
+  "asarUnpack": [
+    "assets/**/*"
+  ],
   "productName": "Slideshow Buddy",
   "copyright": "Copyright © 2024 Slideshow Buddy",
   "directories": {
@@ -12,15 +15,13 @@
     "index.js",
     "package.json",
     "node_modules/**/*",
-    "assets/**/*",
     "app/**/*",
-    "capacitor.config.*"
+    "capacitor.config.*",
+    "dist/**/*",
+    "!assets"
   ],
   "extraResources": [
-    {
-      "from": "assets/libPhotosLibraryBridge.dylib",
-      "to": "assets/libPhotosLibraryBridge.dylib"
-    }
+    "assets/**/*"
   ],
   "publish": {
     "provider": "github"

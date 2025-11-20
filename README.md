@@ -76,6 +76,8 @@ npm run cap:sync:electron
   - Useful when you just need to update iOS with latest changes
 
 ### macOS Development Workflow
+
+#### Quick Start
 - **`npm run electron:dev`** - Full development workflow: build → sync → open Electron
   - Builds web assets
   - Syncs to Electron platform
@@ -83,9 +85,149 @@ npm run cap:sync:electron
   
 - **`npm run electron:sync`** - Build and sync to Electron (without opening app)
   - Useful when you just need to update Electron with latest changes
+
+#### Electron Build Scripts (in `electron/` directory)
+
+**Building & Development:**
+- **`npm run build`** - Full orchestrated build pipeline
+  - Runs environment validation → clean → Swift → TypeScript → verification
+  - **Use this for:** Clean builds, ensuring everything is up-to-date
+  - **Time:** ~10-15 seconds
   
-- **`npm run electron:build:mac`** - Build signed macOS DMG for distribution
-  - Creates production-ready .dmg installer
+- **`npm run build:swift`** - Compile Swift Photos library (native FFI bridge)
+  - Creates universal binary (x86_64 + arm64)
+  - Outputs to `assets/libPhotosLibraryBridge.dylib`
+  - **Use this when:** You modify Swift source files in `src/native/`
+  - **Time:** ~4-5 seconds
+  
+- **`npm run build:ts`** - Compile TypeScript to JavaScript
+  - Compiles `src/` → `app/` directory
+  - Runs electron-rebuild for native modules
+  - Creates necessary symlinks and config files
+  - **Use this when:** You modify TypeScript files in `electron/src/`
+  - **Time:** ~1-2 seconds
+  
+- **`npm run build:clean`** - Remove build artifacts
+  - Cleans `app/`, `dist/`, `capacitor.config.json`, symlinks
+  - **Use this when:** Starting fresh or troubleshooting build issues
+  
+- **`npm run build:reset`** - Clean + full rebuild
+  - Equivalent to `build:clean` + `build`
+  - **Use this when:** Resolving mysterious build issues
+
+**Verification Scripts:**
+- **`npm run build:verify-swift`** - Validate Swift build artifacts
+  - Checks if dylib exists, has correct size, and contains FFI symbols
+  
+- **`npm run build:verify-ts`** - Validate TypeScript build output
+  - Checks if all .js files compiled correctly
+  - Validates JavaScript syntax
+  
+- **`npm run build:verify-artifacts`** - Final comprehensive check
+  - Validates all critical files before packaging
+  - **Use this before:** Packaging or distributing
+
+**Running in Development:**
+- **`npm run electron:start`** - Build and launch with debugger
+  - Runs full build pipeline then opens app with Chrome DevTools
+  - **Use this for:** Active development with debugging
+  
+- **`npm run electron:start:clean`** - Clean build + launch
+  - Full clean → build → launch
+  - **Use this when:** Debugging issues that might be build-related
+  
+- **`npm run electron:start:reset`** - Reset + launch
+  - Quick clean → build → launch
+  - **Use this for:** Fresh start without deleting everything
+
+**Packaging for Distribution:**
+- **`npm run build:mac:unsigned`** - Package unsigned .app (fastest)
+  - **Use this for:** Testing packaged app locally
+  - **Output:** `dist/mac-arm64/slideshow-buddy.app` + DMG
+  - **Time:** ~30-60 seconds after build
+  - **When:** Daily testing, verifying packaging works
+  
+- **`npm run build:mac`** - Package signed .app
+  - Requires valid code signing certificate
+  - **Use this for:** Beta testing, TestFlight
+  - **When:** Preparing for distribution to testers
+  
+- **`npm run build:mac:clean`** - Clean + package signed
+  - Full clean build before packaging
+  - **Use this for:** Release builds
+  - **When:** Creating final production builds
+  
+- **`npm run build:mac:clean-unsigned`** - Clean + package unsigned
+  - Full clean build, unsigned packaging
+  - **Use this for:** Thorough local testing
+  - **When:** Troubleshooting packaging issues
+  
+- **`npm run build:mac:reset-unsigned`** - Reset + package unsigned
+  - Quick clean + unsigned package
+  - **Use this for:** Fast iteration on packaging configuration
+  
+- **`npm run electron:package`** - Ultimate packaging script
+  - Comprehensive: clean everything → build web → sync → build Swift & TS → package
+  - **Use this for:** Complete release builds
+  - **Time:** ~2-3 minutes
+  - **When:** Final production packaging with confidence
+
+#### Common Scenarios
+
+**Scenario 1: Daily Development**
+```bash
+# Make changes to React/TypeScript code in src/
+npm run dev  # Live reload for web testing
+
+# When ready to test in Electron:
+cd electron
+npm run electron:start  # Builds & launches with debugger
+```
+
+**Scenario 2: Modified Electron TypeScript**
+```bash
+cd electron
+npm run build:ts  # Just compile TypeScript
+npx electron --inspect=5858 ./  # Launch manually
+```
+
+**Scenario 3: Modified Swift FFI Code**
+```bash
+cd electron
+npm run build:swift  # Recompile Swift library
+npm run electron:start  # Launch to test
+```
+
+**Scenario 4: Build Troubleshooting**
+```bash
+cd electron
+npm run build:reset  # Nuclear option - clean everything and rebuild
+npm run build:verify-artifacts  # Check what went wrong
+```
+
+**Scenario 5: Testing Packaged App**
+```bash
+cd electron
+npm run build:mac:unsigned  # Create .app bundle
+
+# Test the packaged app:
+open "dist/mac-arm64/slideshow-buddy.app"
+```
+
+**Scenario 6: Release Build**
+```bash
+# From project root:
+npm run electron:package  # Complete packaging pipeline
+
+# Result: dist/mac-arm64/slideshow-buddy.app and .dmg
+```
+
+#### Build Output Locations
+- **TypeScript Compiled**: `electron/app/` (JS files)
+- **Swift Compiled**: `electron/assets/libPhotosLibraryBridge.dylib`
+- **Packaged App**: `electron/dist/mac-arm64/slideshow-buddy.app`
+- **DMG Installer**: `electron/dist/slideshow-buddy-1.0.0-arm64.dmg`
+- **ZIP Archive**: `electron/dist/slideshow-buddy-1.0.0-arm64-mac.zip`
 
 ### Capacitor Commands
 - **`npm run cap:sync`** - Sync web assets to all platforms (iOS, Electron)
