@@ -80,7 +80,7 @@ export class ElectronCapacitorApp {
 
     // Setup our web app loader, this lets us load apps like react, vue, and angular without changing their build chains.
     this.loadWebApp = electronServe({
-      directory: join(app.getAppPath(), 'app'),
+      directory: join(app.getAppPath(), 'dist'),
       scheme: this.customScheme,
     });
   }
@@ -108,7 +108,7 @@ export class ElectronCapacitorApp {
       defaultHeight: 800,
     });
     // Setup preload script path and construct our main window.
-    const preloadPath = join(app.getAppPath(), 'build', 'src', 'preload.js');
+    const preloadPath = join(app.getAppPath(), 'app', 'src', 'preload.js');
     this.MainWindow = new BrowserWindow({
       icon,
       show: false,

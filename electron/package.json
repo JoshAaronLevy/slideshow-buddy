@@ -13,8 +13,8 @@
   "main": "index.js",
   "scripts": {
     "build:swift": "./scripts/build-swift.sh",
-    "build:ts": "tsc && electron-rebuild",
-    "build:clean": "rm -rf app dist",
+    "build:ts": "tsc && electron-rebuild && node -e \"const config={appId:'com.slideshowbuddy.app',appName:'Slideshow Buddy',webDir:'dist',plugins:{CapacitorElectron:{config:{build:{mac:{target:[{target:'dmg',arch:['x64','arm64']},{target:'zip',arch:['x64','arm64']}],category:'public.app-category.photography'}},directories:{output:'dist-electron',buildResources:'build'}}}}};require('fs').writeFileSync('capacitor.config.json',JSON.stringify(config,null,2));\" && mkdir -p build && rm -f build/src && ln -s ../app/src build/src && ln -s ../app/capacitor.config.js build/capacitor.config.js && (test -L dist || ln -s ../dist dist)",
+    "build:clean": "rm -rf app capacitor.config.json build/src build/capacitor.config.js && (test -L dist && rm dist || true)",
     "build:validate-env": "./scripts/validate-build-env.sh",
     "build:verify-swift": "./scripts/verify-swift-build.sh",
     "build:verify-ts": "./scripts/verify-ts-build.sh",
